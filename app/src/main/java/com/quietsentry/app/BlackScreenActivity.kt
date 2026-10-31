@@ -114,6 +114,8 @@ class BlackScreenActivity : AppCompatActivity() {
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     statusText.text = getString(R.string.photo_saved, file.name)
+                    // 目录遍历放在后台线程，避免刚拍完就影响黑屏页后续的手势响应
+                    Thread { StorageKeeper.enforce(this@BlackScreenActivity) }.start()
                 }
 
                 override fun onError(e: ImageCaptureException) {

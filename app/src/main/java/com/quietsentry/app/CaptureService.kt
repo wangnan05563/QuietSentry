@@ -74,6 +74,8 @@ class CaptureService : LifecycleService() {
         running = true
         // 上一次进程被杀会留下未收敛的分片，先修复再开新片，避免索引里出现打不开的文件
         repairInterruptedClips()
+        // 启动即执行一次保留策略：进程可能已经很久没运行过，期间新录的内容可能已超出过期或配额
+        StorageKeeper.enforce(this)
         updateNotification(getString(R.string.capture_starting))
 
         val future = ProcessCameraProvider.getInstance(this)
@@ -100,6 +102,10 @@ class CaptureService : LifecycleService() {
      */
     private fun startNextSegment() {
         if (!running || stopping) return
+        // 每 10 片检查一次保留策略：每片都扫目录不划算，间隔太久又可能在一轮长时间录制里把存储写满
+        if (segmentIndex > 0 && segmentIndex % CHECK_EVERY_SEGMENTS == 0) {
+            StorageKeeper.enforce(this)
+        }
         val capture = videoCapture ?: return
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val output = File(clipDir, "clip_${stamp}_${segmentIndex++}.mp4")
@@ -225,5 +231,6 @@ class CaptureService : LifecycleService() {
         private const val NOTIFICATION_ID = 1001
         private const val REQUEST_STOP = 1
         private const val REQUEST_OPEN = 2
+        private const val CHECK_EVERY_SEGMENTS = 10
     }
 }
