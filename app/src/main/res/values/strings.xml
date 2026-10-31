@@ -333,4 +333,11 @@
     <string name="live_pause_failed">暂停请求失败：设备可能离线或已停止值守</string>
     <string name="pause_remote_title">静哨 · 已被观看端暂停</string>
     <string name="pause_remote_notice">采集已由观看端远程暂停，需在本机重新开始值守</string>
+
+    <!-- W26 端侧检测算力档位与人形检测降级 -->
+    <string name="detection_tier_low">低</string>
+    <string name="detection_tier_mid">中</string>
+    <string name="detection_tier_high">高</string>
+    <string name="diag_detection">端侧检测</string>
+    <string name="diag_detection_detail">算力档位 %1$s · 人形检测未启用（当前构建无推理运行时）</string>
 </resources>

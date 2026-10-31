@@ -17,10 +17,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.util.Size
 import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.resolutionselector.ResolutionSelector
-import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Recorder
@@ -220,7 +217,9 @@ class CaptureService : LifecycleService() {
         watchCamera(primary.id)
         val capture = VideoCapture.withOutput(CameraCapabilities.recorder(this).build())
         videoCapture = capture
-        // 运动检测复用同一路相机流；640x480 同时作为主码流源，320x240 时无法提供能看清的直播画面
+        // 检测前的算力探测（W26）：低端机降分辨率并隔帧送检，避免检测本身成为耗电主因
+        val detection = DetectionProfile.of(this)
+        // 运动检测复用同一路相机流；分辨率为档位决定，低端机降到 VGA 不影响成片
         val detector = MotionDetector(
             DETECTION_SENSITIVITY,
             MotionDetector.ALL_GRID,
@@ -228,15 +227,18 @@ class CaptureService : LifecycleService() {
         ) { confidence, thumbnail ->
             onDetected(EventType.MOTION, R.string.detection_motion, confidence, thumbnail)
         }
-        // 帧计数只服务于降载档的隔帧判定；分析器是单线程回调，无需加锁。
-        // 每次重绑重建分析器，计数器随之归零，避免沿用上一场会话的降载节拍
+        // 帧计数只服务降载与算力档位的隔帧判定；分析器是单线程回调，无需加锁。
+        // 每次重绑重建分析器，计数器随之归零，避免沿用上一场会话的节拍
         var frameCount = 0
         val frameAnalyzer = ImageAnalysis.Analyzer { image ->
             // 降载档（PRD FR-13）关闭实时推流并隔帧分析：省电的代价必须落在“推流与画质”上，
             // 不能变成停止检测——否则用户会以为值守还在，实际整段时间都录不到事件
             frameCount++
-            if (!GuardRuntime.throttled) LanFrameHub.publish(image)
-            if (GuardRuntime.throttled && frameCount % THROTTLE_FRAME_SKIP != 0) {
+            val throttled = GuardRuntime.throttled
+            if (!throttled) LanFrameHub.publish(image)
+            val skipForThrottle = throttled && frameCount % THROTTLE_FRAME_SKIP != 0
+            val skipForCapability = frameCount % detection.detectEveryNFrames != 0
+            if (skipForThrottle || skipForCapability) {
                 // 跳过的帧必须自己关闭，漏掉一次相机缓冲就会卡死整条分析管线
                 image.close()
             } else {
@@ -247,16 +249,7 @@ class CaptureService : LifecycleService() {
         }
         analysis = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .setResolutionSelector(
-                ResolutionSelector.Builder()
-                    .setResolutionStrategy(
-                        ResolutionStrategy(
-                            Size(640, 480),
-                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
-                        )
-                    )
-                    .build()
-            )
+            .setResolutionSelector(DetectionProfile.analysisSelector(detection))
             .build()
             .also { it.setAnalyzer(analysisExecutor, frameAnalyzer) }
         try {

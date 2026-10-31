@@ -40,6 +40,7 @@ object Diagnostics {
         add(network(context))
         add(storage(context))
         add(thermal(context))
+        add(detection(context))
         add(pairing(context))
     }
 
@@ -158,6 +159,23 @@ object Diagnostics {
             label = context.getString(R.string.diag_thermal),
             status = if (severe) Status.WARN else Status.PASS,
             detail = context.getString(R.string.diag_thermal_level, status),
+            target = Target.NONE,
+        )
+    }
+
+    /**
+     * 端侧检测档位（W26）：这里不做“支持/不支持”的猜测，只展示真实探测到的档位。
+     * 人形检测当前恒为未启用，直接写进 detail，避免用户以为“没看到人形事件”是漏检。
+     */
+    private fun detection(context: Context): Check {
+        val profile = DetectionProfile.of(context)
+        return Check(
+            label = context.getString(R.string.diag_detection),
+            status = Status.PASS,
+            detail = context.getString(
+                R.string.diag_detection_detail,
+                context.getString(profile.tier.labelRes)
+            ),
             target = Target.NONE,
         )
     }
