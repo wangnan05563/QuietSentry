@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- 离线期间事件本地排队、恢复后补发摘要，需要读取当前网络状态 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- 锁屏后未豁免的 UID 会被 ROM 冻结（Samsung Freecess），前台服务挡不住，需要引导用户加入白名单 -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- API 28 没有分区存储的 MediaStore 免权限写入，导出相册必须显式授权；29+ 一律不需要 -->

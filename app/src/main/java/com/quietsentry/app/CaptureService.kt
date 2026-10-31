@@ -9,6 +9,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.MediaMetadataRetriever
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -55,6 +57,14 @@ class CaptureService : LifecycleService() {
     private val clipDir by lazy { File(filesDir, "clips").apply { mkdirs() } }
     private val thumbnailDir by lazy { File(filesDir, "events/thumbs").apply { mkdirs() } }
     private val eventStore by lazy { EventStore(this) }
+    private val notifier by lazy { EventNotifier(this) }
+
+    /** 网络状态供离线排队摘要使用；回调来自系统线程，因此用 @Volatile 暴露 */
+    @Volatile
+    private var networkAvailable = true
+    private var offlineEvents = 0
+    private var connectivity: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     /** 已入库但还没挂上片段的“检测中”事件；检测器在分析/录音线程触发，用并发队列避免跨线程改列表 */
     private val pendingEvents = ConcurrentLinkedQueue<Long>()
@@ -79,6 +89,8 @@ class CaptureService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         createChannel()
+        // 事件通道必须在第一次 notify 之前建好，否则 Android 8+ 会直接丢弃通知
+        notifier.ensureChannels()
         startForegroundWithType()
     }
 
@@ -101,6 +113,7 @@ class CaptureService : LifecycleService() {
         repairInterruptedClips()
         // 启动即执行一次保留策略：进程可能已经很久没运行过，期间新录的内容可能已超出过期或配额
         StorageKeeper.enforce(this)
+        startNetworkMonitor()
         updateNotification(getString(R.string.capture_starting))
 
         val future = ProcessCameraProvider.getInstance(this)
@@ -226,12 +239,71 @@ class CaptureService : LifecycleService() {
      * 再把界面侧动作切回主线程。声音事件没有对应画面，缩略图为 null。
      */
     private fun onDetected(type: EventType, typeRes: Int, confidence: Int, thumbnail: File?) {
-        val eventId = eventStore.record(type, confidence, thumbnail)
-        pendingEvents.add(eventId)
+        val outcome = eventStore.record(type, confidence, thumbnail)
+        pendingEvents.add(outcome.id)
+        // 合并进既有事件时不再提醒：同源 60 秒内的连续触发只推一次（PRD FR-09）
+        if (!outcome.merged) {
+            eventStore.get(outcome.id)?.let { notifyEvent(it) }
+        }
         segmentTimer.post {
             val time = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
             updateNotification(getString(typeRes, time))
-            Log.i(TAG, "detected type=${type.raw} time=$time confidence=$confidence eventId=$eventId")
+            Log.i(
+                TAG,
+                "detected type=${type.raw} time=$time confidence=$confidence " +
+                    "eventId=${outcome.id} merged=${outcome.merged}"
+            )
+        }
+    }
+
+    /**
+     * 发送前置判定全部在端侧完成：免打扰时段与接收级别只过滤“打扰方式”，
+     * 事件本身已入库，不会因为被过滤而丢失（PRD FR-09）。
+     */
+    private fun notifyEvent(event: Event) {
+        if (!networkAvailable) {
+            // 离线只累计，恢复后补一条摘要；不在这里逐条重发，避免恢复瞬间刷屏
+            offlineEvents++
+        }
+        if (AlertPolicy.isQuietNow(this)) return
+        val level = AlertPolicy.levelOf(event.type, event.triggers)
+        if (!AlertPolicy.accepts(this, level)) return
+        notifier.showEvent(event, level)
+    }
+
+    /**
+     * 网络监听只在值守期间有意义：离线计数与“恢复后摘要”都绑定这一场值守，
+     * 服务销毁时注销，避免回调泄漏到进程级。
+     */
+    private fun startNetworkMonitor() {
+        if (networkCallback != null) return
+        val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        connectivity = manager
+        networkAvailable = manager.activeNetwork != null
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                val wasOffline = !networkAvailable
+                networkAvailable = true
+                val queued = offlineEvents
+                offlineEvents = 0
+                if (wasOffline && queued > 0) notifier.showOfflineSummary(queued)
+            }
+
+            override fun onLost(network: Network) {
+                networkAvailable = false
+            }
+        }
+        networkCallback = callback
+        runCatching { manager.registerDefaultNetworkCallback(callback) }
+    }
+
+    private fun stopNetworkMonitor() {
+        val manager = connectivity
+        val callback = networkCallback
+        networkCallback = null
+        connectivity = null
+        if (manager != null && callback != null) {
+            runCatching { manager.unregisterNetworkCallback(callback) }
         }
     }
 
@@ -331,6 +403,7 @@ class CaptureService : LifecycleService() {
 
     override fun onDestroy() {
         segmentTimer.removeCallbacks(stopCurrentSegment)
+        stopNetworkMonitor()
         soundDetector?.stop()
         soundDetector = null
         analysis = null

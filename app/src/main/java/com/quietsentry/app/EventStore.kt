@@ -34,7 +34,7 @@ class EventStore(context: Context) : SQLiteOpenHelper(
         confidence: Int,
         thumbnail: File?,
         occurredAt: Long = System.currentTimeMillis(),
-    ): Long {
+    ): RecordOutcome {
         val db = writableDatabase
         val merged = findMergeCandidate(db, type, occurredAt)
         if (merged != null) {
@@ -45,7 +45,7 @@ class EventStore(context: Context) : SQLiteOpenHelper(
                 put(COL_UPDATED_AT, System.currentTimeMillis())
             }
             db.update(TABLE, values, "$COL_ID=?", arrayOf(merged.id.toString()))
-            return merged.id
+            return RecordOutcome(merged.id, merged = true)
         }
 
         val now = System.currentTimeMillis()
@@ -62,7 +62,24 @@ class EventStore(context: Context) : SQLiteOpenHelper(
             put(COL_CREATED_AT, now)
             put(COL_UPDATED_AT, now)
         }
-        return db.insert(TABLE, null, values)
+        return RecordOutcome(db.insert(TABLE, null, values), merged = false)
+    }
+
+    /** 单条读取：通知需要完整的事件对象（类型、置信度、缩略图、触发次数）。 */
+    @Synchronized
+    fun get(id: Long): Event? {
+        writableDatabase.query(
+            TABLE,
+            COLUMNS,
+            "$COL_ID=?",
+            arrayOf(id.toString()),
+            null,
+            null,
+            null,
+            "1"
+        ).use { cursor ->
+            return if (cursor.moveToFirst()) cursor.toEvent() else null
+        }
     }
 
     /**

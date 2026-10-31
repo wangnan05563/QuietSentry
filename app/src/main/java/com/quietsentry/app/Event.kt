@@ -26,6 +26,12 @@ enum class EventStatus(val raw: String) {
 }
 
 /**
+ * 写入索引的结果。merged=true 表示落进了 60 秒窗口内的既有事件：
+ * 调用方据此不再重复提醒（PRD FR-09 同设备同类型 60 秒内只推一次摘要）。
+ */
+data class RecordOutcome(val id: Long, val merged: Boolean)
+
+/**
  * 事件条目。thumbnail 与 clip 用 File 而非 String：回看页要判断文件是否还在
  * （StorageKeeper 会按配额清理缩略图），保留路径也就保留了“文件不可用”的提示依据。
  */
