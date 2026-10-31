@@ -46,6 +46,16 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
+        <activity
+            android:name=".EventTimelineActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".EventPlayerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <service
             android:name=".CaptureService"
             android:exported="false"

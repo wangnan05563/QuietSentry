@@ -3,6 +3,7 @@ package com.quietsentry.app
 import android.content.ContentValues
 import android.content.Context
 import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -16,21 +17,25 @@ import java.io.File
  */
 object GalleryExporter {
 
-    private const val MIME = "video/mp4"
-    private const val ALBUM = "QuietSentry"
+    /**
+     * 一条导出结果。source 是私有原件路径（导出成功后会被删除），uri 是之后仍可再次打开的位置。
+     * 回看页必须依赖 uri 而不是 File 路径，否则停止值守后所有历史事件都会变成“文件不可用”。
+     */
+    data class Exported(val source: File, val uri: String)
 
-    /** 返回成功写入相册的文件数；单条失败不影响其余分片，避免一个坏片导致整场导出失败。 */
-    fun export(context: Context, files: List<File>): Int = files.count { file ->
+    /** 返回成功写入相册的条目；单条失败不影响其余分片，避免一个坏片导致整场导出失败。 */
+    fun export(context: Context, files: List<File>): List<Exported> = files.mapNotNull { file ->
         if (!file.isFile || file.length() == 0L) {
-            false
+            null
         } else {
             runCatching { copy(context, file) }
                 .onSuccess { file.delete() }
-                .isSuccess
+                .getOrNull()
+                ?.let { Exported(file, it.toString()) }
         }
     }
 
-    private fun copy(context: Context, file: File) {
+    private fun copy(context: Context, file: File): Uri {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val values = ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
@@ -47,15 +52,21 @@ object GalleryExporter {
             context.contentResolver.openOutputStream(uri)?.use { output ->
                 file.inputStream().use { it.copyTo(output) }
             } ?: error("MediaStore 输出流不可用")
-        } else {
-            // Android 9 没有分区存储，只能落公共 Movies 目录再交给媒体库扫描
-            val dir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
-                ALBUM
-            ).apply { mkdirs() }
-            val target = File(dir, file.name)
-            file.copyTo(target, overwrite = true)
-            MediaScannerConnection.scanFile(context, arrayOf(target.absolutePath), arrayOf(MIME), null)
+            return uri
         }
+
+        // Android 9 没有分区存储，只能落公共 Movies 目录再交给媒体库扫描。
+        // 扫描是异步的，这里返回 file:// 定位即可：应用本身持有读权限，回看直接按文件路径打开。
+        val dir = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
+            ALBUM
+        ).apply { mkdirs() }
+        val target = File(dir, file.name)
+        file.copyTo(target, overwrite = true)
+        MediaScannerConnection.scanFile(context, arrayOf(target.absolutePath), arrayOf(MIME), null)
+        return Uri.fromFile(target)
     }
+
+    private const val MIME = "video/mp4"
+    private const val ALBUM = "QuietSentry"
 }

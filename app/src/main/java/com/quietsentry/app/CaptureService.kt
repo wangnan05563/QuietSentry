@@ -338,9 +338,14 @@ class CaptureService : LifecycleService() {
             file.isFile && !file.name.endsWith(".pending") && file.lastModified() >= from
         }.orEmpty().toList()
         Thread {
-            val saved = GalleryExporter.export(this, clips)
+            val exported = GalleryExporter.export(this, clips)
+            // 私有原件已在导出成功后删除，索引必须回写相册定位，否则回看页永远显示“文件不可用”
+            exported.forEach { eventStore.markExported(it.source.absolutePath, it.uri) }
+            // 每次收尾顺手清理过期的“最近删除”，不依赖用户下次打开回看页才有空间回收
+            eventStore.purgeDeletedBefore(System.currentTimeMillis() - DELETED_RETAIN_MS)
             sendBroadcast(
-                Intent(ACTION_EXPORTED).setPackage(packageName).putExtra(EXTRA_EXPORTED, saved)
+                Intent(ACTION_EXPORTED).setPackage(packageName)
+                    .putExtra(EXTRA_EXPORTED, exported.size)
             )
             stopSelf()
         }.start()
@@ -440,6 +445,9 @@ class CaptureService : LifecycleService() {
 
         /** 进程重启后 sessionStartMs 已丢失，兜底只导最近 10 分钟，避免把历史分片重新灌进相册。 */
         private const val FALLBACK_SESSION_MS = 10 * 60 * 1000L
+
+        /** “最近删除”保留期（PRD O6：7 天），超期后才允许物理清除索引与私有文件。 */
+        private val DELETED_RETAIN_MS = 7L * 24 * 60 * 60 * 1000
 
         /** 供界面判断值守是否在运行；相机是独占资源，值守与黑屏模式不能同时绑定。仅由本服务写入。 */
         @Volatile

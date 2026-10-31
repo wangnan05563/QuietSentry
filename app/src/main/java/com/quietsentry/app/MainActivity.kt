@@ -80,6 +80,8 @@ class MainActivity : AppCompatActivity() {
         previewView = findViewById(R.id.preview_view)
         statusText = findViewById(R.id.status_text)
         stopButton = findViewById(R.id.stop_button)
+        // 通知点击直达回放：MainActivity 只是中转，用户真正要看的是那一段片段
+        consumeEventIntent(intent)
         ContextCompat.registerReceiver(
             this,
             exportedReceiver,
@@ -122,6 +124,9 @@ class MainActivity : AppCompatActivity() {
             }
             startActivity(Intent(this, BlackScreenActivity::class.java))
         }
+        findViewById<Button>(R.id.timeline_button).setOnClickListener {
+            startActivity(Intent(this, EventTimelineActivity::class.java))
+        }
 
         if (requiredPermissions.all(::hasPermission)) {
             startCamera()
@@ -133,6 +138,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun hasPermission(permission: String): Boolean =
         ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+    /**
+     * 通知里携带事件 id 时直接进播放器。MainActivity 不 finish：
+     * 播放器返回后仍能回到值守主界面，用户不必从桌面重新找入口。
+     */
+    private fun consumeEventIntent(intent: Intent?) {
+        val eventId = intent?.getLongExtra(EventNotifier.EXTRA_EVENT_ID, -1L) ?: -1L
+        if (eventId <= 0L) return
+        startActivity(
+            Intent(this, EventPlayerActivity::class.java)
+                .putExtra(EventPlayerActivity.EXTRA_EVENT_ID, eventId)
+        )
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        consumeEventIntent(intent)
+    }
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(exportedReceiver) }

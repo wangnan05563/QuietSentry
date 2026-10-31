@@ -48,4 +48,11 @@ data class Event(
     val synced: Boolean,
     /** 60 秒窗口内被合并的触发次数：1 表示单次触发，越大说明事件越持续 */
     val triggers: Int,
+    /**
+     * 片段导出到系统相册后的 content:// 定位。停止值守时私有原件会被删除，
+     * 只留 File 路径会让回看全部失效，因此导出成功后必须回写可再次打开的 Uri。
+     */
+    val clipUri: String? = null,
+    /** 软删除时间（毫秒）。非空表示在“最近删除”里，保留期内可恢复，超期才物理清除 */
+    val deletedAt: Long? = null,
 )

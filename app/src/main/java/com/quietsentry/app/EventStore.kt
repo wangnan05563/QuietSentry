@@ -122,11 +122,105 @@ class EventStore(context: Context) : SQLiteOpenHelper(
         writableDatabase.update(TABLE, values, "$COL_ID IN ($clause)", null)
     }
 
-    /** 事件时间轴数据源（FR-11），最新的在前。 */
+    /** 事件时间轴数据源（FR-11），最新的在前；已进“最近删除”的不参与主时间轴。 */
     @Synchronized
     fun recent(limit: Int = 100): List<Event> =
-        query(null, null, "$COL_OCCURRED_AT DESC", limit)
+        query("$COL_DELETED_AT IS NULL", null, "$COL_OCCURRED_AT DESC", limit)
 
+    /**
+     * 时间轴数据源（FR-11）：按日分组由界面层完成，这里只负责筛选与排序。
+     * onlyDeleted=true 用于“最近删除”页；软删除的事件在保留期内不出现在主时间轴。
+     */
+    @Synchronized
+    fun timeline(
+        type: EventType?,
+        unreadOnly: Boolean,
+        lockedOnly: Boolean,
+        onlyDeleted: Boolean = false,
+        limit: Int = 200,
+    ): List<Event> {
+        val cond = StringBuilder("$COL_DELETED_AT IS " + if (onlyDeleted) "NOT NULL" else "NULL")
+        val args = ArrayList<String>()
+        if (type != null) {
+            cond.append(" AND $COL_TYPE=?")
+            args += type.raw
+        }
+        if (unreadOnly) cond.append(" AND $COL_READ=0")
+        if (lockedOnly) cond.append(" AND $COL_LOCKED=1")
+        return query(cond.toString(), args.toTypedArray(), "$COL_OCCURRED_AT DESC", limit)
+    }
+
+    /** 软删除：先移到“最近删除”，给用户 7 天反悔窗口（PRD FR-11 删除后进入最近删除） */
+    @Synchronized
+    fun markDeleted(id: Long) {
+        val values = ContentValues().apply {
+            put(COL_DELETED_AT, System.currentTimeMillis())
+            put(COL_UPDATED_AT, System.currentTimeMillis())
+        }
+        writableDatabase.update(TABLE, values, "$COL_ID=?", arrayOf(id.toString()))
+    }
+
+    @Synchronized
+    fun restoreDeleted(id: Long) {
+        val values = ContentValues().apply {
+            putNull(COL_DELETED_AT)
+            put(COL_UPDATED_AT, System.currentTimeMillis())
+        }
+        writableDatabase.update(TABLE, values, "$COL_ID=?", arrayOf(id.toString()))
+    }
+
+    /**
+     * “最近删除”里的彻底删除：索引与私有文件一起清掉。
+     * clip_uri 指向相册副本，用户可能已在相册里单独保留，这里不能跟着删。
+     */
+    @Synchronized
+    fun deleteForever(id: Long) {
+        val event = get(id) ?: return
+        event.thumbnail?.delete()
+        event.clip?.delete()
+        writableDatabase.delete(TABLE, "$COL_ID=?", arrayOf(id.toString()))
+    }
+
+    /**
+     * 清除超过保留期的“最近删除”。锁定的条目即使被删也保留索引：
+     * 用户标记重要的事件不应因为一次误删就彻底消失（PRD FR-11 标记重要）。
+     *
+     * 先删落盘文件再删索引：只删索引会让缩略图和私有分片永远留在应用目录里没人回收。
+     * clip_uri 指向相册副本，不属于应用私有空间，不能在这里动。
+     */
+    @Synchronized
+    fun purgeDeletedBefore(cutoffMs: Long): Int {
+        query(
+            "$COL_DELETED_AT IS NOT NULL AND $COL_DELETED_AT<? AND $COL_LOCKED=0",
+            arrayOf(cutoffMs.toString()),
+            "$COL_OCCURRED_AT ASC",
+            Int.MAX_VALUE
+        ).forEach { event ->
+            event.thumbnail?.delete()
+            event.clip?.delete()
+        }
+        return writableDatabase.delete(
+            TABLE,
+            "$COL_DELETED_AT IS NOT NULL AND $COL_DELETED_AT<? AND $COL_LOCKED=0",
+            arrayOf(cutoffMs.toString())
+        )
+    }
+
+    /**
+     * 片段导出到相册后回写定位（PRD FR-13 / T03769）：私有原件会被删除，
+     * 只保留 File 路径会让回看永远停在“文件不可用”。
+     */
+    @Synchronized
+    fun markExported(clipPath: String, uri: String) {
+        if (clipPath.isEmpty() || uri.isEmpty()) return
+        val values = ContentValues().apply {
+            put(COL_CLIP_URI, uri)
+            put(COL_UPDATED_AT, System.currentTimeMillis())
+        }
+        writableDatabase.update(TABLE, values, "$COL_CLIP=?", arrayOf(clipPath))
+    }
+
+    /** 通知点击直达时把该条事件标记已读；时间轴上点击同样调用。 */
     @Synchronized
     fun markRead(id: Long) {
         val values = ContentValues().apply {
@@ -152,9 +246,12 @@ class EventStore(context: Context) : SQLiteOpenHelper(
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // 索引是可再生数据（原始片段在私有目录、缩略图随配额清理），升级期直接重建最省事
-        db.execSQL("DROP TABLE IF EXISTS $TABLE")
-        onCreate(db)
+        // v1→v2 只加列：事件记录已经进入用户可见的回看页，升级时整表重建会丢用户的历史索引，
+        // 这与“索引可再生”的早期假设不再成立
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE $TABLE ADD COLUMN $COL_CLIP_URI TEXT")
+            db.execSQL("ALTER TABLE $TABLE ADD COLUMN $COL_DELETED_AT INTEGER")
+        }
     }
 
     private data class MergeCandidate(val id: Long, val confidence: Int, val triggers: Int)
@@ -223,11 +320,13 @@ class EventStore(context: Context) : SQLiteOpenHelper(
         locked = getInt(getColumnIndexOrThrow(COL_LOCKED)) != 0,
         synced = getInt(getColumnIndexOrThrow(COL_SYNCED)) != 0,
         triggers = getInt(getColumnIndexOrThrow(COL_TRIGGERS)),
+        clipUri = getString(getColumnIndexOrThrow(COL_CLIP_URI)),
+        deletedAt = getLong(getColumnIndexOrThrow(COL_DELETED_AT)).takeIf { it > 0L },
     )
 
     companion object {
         private const val DB_NAME = "events.db"
-        private const val DB_VERSION = 1
+        private const val DB_VERSION = 2
         private const val TABLE = "events"
 
         private const val COL_ID = "_id"
@@ -243,10 +342,13 @@ class EventStore(context: Context) : SQLiteOpenHelper(
         private const val COL_TRIGGERS = "triggers"
         private const val COL_CREATED_AT = "created_at"
         private const val COL_UPDATED_AT = "updated_at"
+        private const val COL_CLIP_URI = "clip_uri"
+        private const val COL_DELETED_AT = "deleted_at"
 
         private val COLUMNS = arrayOf(
             COL_ID, COL_TYPE, COL_OCCURRED_AT, COL_CONFIDENCE, COL_THUMBNAIL,
-            COL_CLIP, COL_STATUS, COL_READ, COL_LOCKED, COL_SYNCED, COL_TRIGGERS
+            COL_CLIP, COL_STATUS, COL_READ, COL_LOCKED, COL_SYNCED, COL_TRIGGERS,
+            COL_CLIP_URI, COL_DELETED_AT
         )
 
         /** 同源合并窗口（PRD FR-07：60 秒） */
@@ -266,7 +368,9 @@ class EventStore(context: Context) : SQLiteOpenHelper(
                 $COL_SYNCED INTEGER NOT NULL DEFAULT 0,
                 $COL_TRIGGERS INTEGER NOT NULL DEFAULT 1,
                 $COL_CREATED_AT INTEGER NOT NULL,
-                $COL_UPDATED_AT INTEGER NOT NULL
+                $COL_UPDATED_AT INTEGER NOT NULL,
+                $COL_CLIP_URI TEXT,
+                $COL_DELETED_AT INTEGER
             )
         """
 
