@@ -19,6 +19,9 @@
     <string name="lens_front">已切换到前置镜头</string>
     <string name="notification_required">未授予通知权限：值守期间必须有常驻通知，你才能随时确认设备正在采集</string>
     <string name="guard_running_conflict">值守进行中，请先停止值守再进入黑屏记录</string>
+    <string name="saving_to_gallery">正在保存到相册…</string>
+    <string name="saved_to_gallery">已保存 %1$d 段视频到相册（Movies/QuietSentry）</string>
+    <string name="save_failed">未能写入相册，可稍后重试或检查存储空间</string>
     <string name="consent_progress">%1$d / %2$d</string>
     <string name="consent_next">下一步</string>
     <string name="consent_start">开始使用</string>

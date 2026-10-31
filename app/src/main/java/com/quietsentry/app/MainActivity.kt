@@ -1,7 +1,10 @@
 package com.quietsentry.app
 
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -34,7 +37,26 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(Manifest.permission.POST_NOTIFICATIONS)
         }
+        // API 28 导出相册走公共目录 + 媒体扫描，没有该权限会直接写失败
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
     }.toTypedArray()
+
+    // 导出由服务在后台线程完成，结果只能靠广播回来；否则“停止”点了之后界面毫无变化
+    private val exportedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val saved = intent.getIntExtra(CaptureService.EXTRA_EXPORTED, 0)
+            stopButton.isEnabled = true
+            statusText.text = if (saved > 0) {
+                getString(R.string.saved_to_gallery, saved)
+            } else {
+                getString(R.string.save_failed)
+            }
+        }
+    }
+
+    private lateinit var stopButton: Button
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -57,6 +79,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         previewView = findViewById(R.id.preview_view)
         statusText = findViewById(R.id.status_text)
+        stopButton = findViewById(R.id.stop_button)
+        ContextCompat.registerReceiver(
+            this,
+            exportedReceiver,
+            IntentFilter(CaptureService.ACTION_EXPORTED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
 
         findViewById<Button>(R.id.start_button).setOnClickListener {
             // camera 类型前台服务要求相机权限已授予，否则系统在 startForeground 时直接抛异常
@@ -79,7 +108,10 @@ class MainActivity : AppCompatActivity() {
             )
             statusText.text = getString(R.string.guard_started_tip)
         }
-        findViewById<Button>(R.id.stop_button).setOnClickListener {
+        stopButton.setOnClickListener {
+            // 导出要等最后一个分片 Finalize 后才开始，先给出“正在保存”提示并禁用以防重复点击
+            stopButton.isEnabled = false
+            statusText.text = getString(R.string.saving_to_gallery)
             startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP))
         }
         findViewById<Button>(R.id.black_mode_button).setOnClickListener {
@@ -101,6 +133,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun hasPermission(permission: String): Boolean =
         ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+    override fun onDestroy() {
+        runCatching { unregisterReceiver(exportedReceiver) }
+        super.onDestroy()
+    }
 
     private fun hasNotificationPermission(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||

@@ -55,6 +55,9 @@ class CaptureService : LifecycleService() {
     private var stopping = false
     private var segmentIndex = 0
 
+    // 本场值守的起点，用来区分“本次要导出到相册的分片”和目录里的历史文件
+    private var sessionStartMs = 0L
+
     // CameraX 没有“分片时长上限”API，只能计时到点主动 stop()，由 Finalize 回调再开下一片。
     // 没有这个计时器时单片会一直写下去，实测 5 分钟就积累到 719MB，进程被杀时损失整段
     private val segmentTimer = Handler(Looper.getMainLooper())
@@ -80,6 +83,7 @@ class CaptureService : LifecycleService() {
         stopping = false
         running = true
         isRunning = true
+        sessionStartMs = System.currentTimeMillis()
         // 上一次进程被杀会留下未收敛的分片，先修复再开新片，避免索引里出现打不开的文件
         repairInterruptedClips()
         // 启动即执行一次保留策略：进程可能已经很久没运行过，期间新录的内容可能已超出过期或配额
@@ -133,7 +137,8 @@ class CaptureService : LifecycleService() {
             if (event.hasError()) {
                 updateNotification(getString(R.string.segment_error, event.error))
             }
-            startNextSegment()
+            // 停止守值时最后一个分片要靠这次 Finalize 收敛，收敛后才能安全导出
+            if (stopping) finishSession() else startNextSegment()
         }
         // 到点主动收片：片长可控，被杀或断电时最多损失一个分片
         segmentTimer.postDelayed(stopCurrentSegment, SEGMENT_DURATION_MS)
@@ -171,9 +176,28 @@ class CaptureService : LifecycleService() {
         isRunning = false
         // 先摘掉计时器，避免它落在一个已经不存在的录制上
         segmentTimer.removeCallbacks(stopCurrentSegment)
-        recording?.stop()
+        val active = recording
         recording = null
-        stopSelf()
+        // 没有进行中的录制（进程重启后用户直接点停止）：不等待不存在的 Finalize，直接收尾
+        if (active == null) finishSession() else active.stop()
+    }
+
+    /**
+     * 把本场值守的分片导出到相册，导出完成后才真正结束服务。
+     * 复制整段视频是 IO 密集型操作，必须离开主线程；也不能提前 stopSelf，否则进程收尾会掐断导出。
+     */
+    private fun finishSession() {
+        val from = if (sessionStartMs > 0L) sessionStartMs else System.currentTimeMillis() - FALLBACK_SESSION_MS
+        val clips = clipDir.listFiles { file ->
+            file.isFile && !file.name.endsWith(".pending") && file.lastModified() >= from
+        }.orEmpty().toList()
+        Thread {
+            val saved = GalleryExporter.export(this, clips)
+            sendBroadcast(
+                Intent(ACTION_EXPORTED).setPackage(packageName).putExtra(EXTRA_EXPORTED, saved)
+            )
+            stopSelf()
+        }.start()
     }
 
     private fun hasAudioPermission(): Boolean =
@@ -253,6 +277,12 @@ class CaptureService : LifecycleService() {
 
         /** 分片时长上限；PRD §10 约定 30 秒，兼顾“被杀损失最小”与“文件数量可接受”。 */
         private const val SEGMENT_DURATION_MS = 30_000L
+
+        const val ACTION_EXPORTED = "com.quietsentry.app.action.EXPORTED"
+        const val EXTRA_EXPORTED = "exported_count"
+
+        /** 进程重启后 sessionStartMs 已丢失，兜底只导最近 10 分钟，避免把历史分片重新灌进相册。 */
+        private const val FALLBACK_SESSION_MS = 10 * 60 * 1000L
 
         /** 供界面判断值守是否在运行；相机是独占资源，值守与黑屏模式不能同时绑定。仅由本服务写入。 */
         @Volatile
