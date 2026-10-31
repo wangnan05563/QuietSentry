@@ -45,6 +45,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 未确认合法用途前不展示任何采集入口：先能用再补确认，会被商店判定为未显著披露
+        if (!ConsentStore.isAccepted(this)) {
+            startActivity(Intent(this, ConsentActivity::class.java))
+            finish()
+            return
+        }
         setContentView(R.layout.activity_main)
         previewView = findViewById(R.id.preview_view)
         statusText = findViewById(R.id.status_text)
@@ -54,6 +60,12 @@ class MainActivity : AppCompatActivity() {
             if (!hasPermission(Manifest.permission.CAMERA)) {
                 requestPermissions.launch(requiredPermissions)
                 statusText.text = getString(R.string.permission_required)
+                return@setOnClickListener
+            }
+            // PRD §10.5：常驻通知是用户确认“正在采集”的唯一可见凭据，没有它就不允许启动
+            if (!hasNotificationPermission()) {
+                requestPermissions.launch(requiredPermissions)
+                statusText.text = getString(R.string.notification_required)
                 return@setOnClickListener
             }
             ContextCompat.startForegroundService(
@@ -66,6 +78,11 @@ class MainActivity : AppCompatActivity() {
             startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP))
         }
         findViewById<Button>(R.id.black_mode_button).setOnClickListener {
+            // 值守与黑屏都通过 unbindAll 独占相机，同时进入会让值守录像静默中断
+            if (CaptureService.isRunning) {
+                statusText.text = getString(R.string.guard_running_conflict)
+                return@setOnClickListener
+            }
             startActivity(Intent(this, BlackScreenActivity::class.java))
         }
 
@@ -79,6 +96,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun hasPermission(permission: String): Boolean =
         ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+    private fun hasNotificationPermission(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            hasPermission(Manifest.permission.POST_NOTIFICATIONS)
 
     private fun startCamera() {
         val future = ProcessCameraProvider.getInstance(this)

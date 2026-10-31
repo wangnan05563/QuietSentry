@@ -29,6 +29,11 @@
         </activity>
 
         <activity
+            android:name=".ConsentActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".BlackScreenActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

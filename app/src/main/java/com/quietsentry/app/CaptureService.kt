@@ -72,6 +72,7 @@ class CaptureService : LifecycleService() {
         if (running) return
         stopping = false
         running = true
+        isRunning = true
         // 上一次进程被杀会留下未收敛的分片，先修复再开新片，避免索引里出现打不开的文件
         repairInterruptedClips()
         // 启动即执行一次保留策略：进程可能已经很久没运行过，期间新录的内容可能已超出过期或配额
@@ -92,6 +93,7 @@ class CaptureService : LifecycleService() {
                 // 相机被其他应用占用或设备无后置镜头：让用户看到原因，而不是一直显示“采集中”
                 updateNotification(getString(R.string.camera_open_failed, e.message ?: ""))
                 running = false
+                isRunning = false
             }
         }, ContextCompat.getMainExecutor(this))
     }
@@ -155,6 +157,7 @@ class CaptureService : LifecycleService() {
     private fun stopCapture() {
         stopping = true
         running = false
+        isRunning = false
         recording?.stop()
         recording = null
         stopSelf()
@@ -221,6 +224,7 @@ class CaptureService : LifecycleService() {
         videoCapture = null
         recording = null
         running = false
+        isRunning = false
         super.onDestroy()
     }
 
@@ -232,5 +236,9 @@ class CaptureService : LifecycleService() {
         private const val REQUEST_STOP = 1
         private const val REQUEST_OPEN = 2
         private const val CHECK_EVERY_SEGMENTS = 10
+
+        /** 供界面判断值守是否在运行；相机是独占资源，值守与黑屏模式不能同时绑定。仅由本服务写入。 */
+        @Volatile
+        var isRunning = false
     }
 }

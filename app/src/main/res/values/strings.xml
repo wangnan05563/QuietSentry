@@ -17,4 +17,16 @@
     <string name="photo_failed">拍照失败：%1$s</string>
     <string name="lens_back">已切换到后置镜头</string>
     <string name="lens_front">已切换到前置镜头</string>
+    <string name="notification_required">未授予通知权限：值守期间必须有常驻通知，你才能随时确认设备正在采集</string>
+    <string name="guard_running_conflict">值守进行中，请先停止值守再进入黑屏记录</string>
+    <string name="consent_progress">%1$d / %2$d</string>
+    <string name="consent_next">下一步</string>
+    <string name="consent_start">开始使用</string>
+    <string name="consent_page1_title">这是什么</string>
+    <string name="consent_page1_body">静哨把你家里闲置的 Android 设备变成一台值守摄像头。\n\n屏幕可以熄灭，画面仍会保存在这台设备本地。</string>
+    <string name="consent_page2_title">数据去哪</string>
+    <string name="consent_page2_body">画面默认只保存在这台设备里，不上传、不经过任何服务器。\n\n是否分享给家人，由你决定。</string>
+    <string name="consent_page3_title">不能用来做什么</string>
+    <string name="consent_page3_body">请只在你本人拥有，或已获得明确授权的场所使用。\n\n在他人不知情的情况下拍摄他人生活空间，在多数地区属于违法行为。\n\n采集期间会持续显示系统通知，且无法关闭。</string>
+    <string name="consent_checkbox">我确认仅在本人拥有或已获授权的场所使用本产品</string>
 </resources>
