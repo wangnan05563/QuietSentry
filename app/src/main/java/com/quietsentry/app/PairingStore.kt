@@ -34,12 +34,15 @@ class PairingStore(context: Context) {
         val key: ByteArray,
         /** 0 表示长期有效；Guest 为邀请截止时间 */
         val expiresAt: Long,
+        /** 首次加入时间；成员列表要回答“这是谁、什么时候来的” */
+        val joinedAt: Long,
     ) {
         fun isActive(now: Long = System.currentTimeMillis()): Boolean =
             expiresAt == 0L || expiresAt > now
     }
 
-    data class Invite(val token: String, val expiresAt: Long)
+    /** role 决定兑换后拿到的是长期成员还是限时访客，所以邀请必须自带角色 */
+    data class Invite(val token: String, val expiresAt: Long, val role: Role)
 
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -101,21 +104,41 @@ class PairingStore(context: Context) {
 
     @Synchronized
     fun pair(clientPublicKey: String, role: Role, ttlMs: Long, code: String? = null): Grant? {
-        if (code != null && !consumePairCode(code)) return null
         val peer = runCatching { CryptoBox.decodePublicKey(clientPublicKey) }.getOrNull() ?: return null
+        val fingerprint = CryptoBox.fingerprint(peer)
+        val existing = readGrants().firstOrNull { it.fingerprint == fingerprint }
+        // 同一台设备重配不占新名额，但要继承首次加入时间，列表里不该因为重连把资历刷掉
+        if (existing == null && activeGrants().size >= MAX_GRANTS) return null
+        if (code != null && !consumePairCode(code)) return null
         val own = identity()
         val salt = MessageDigest.getInstance("SHA-256")
             .digest(CryptoBox.encodePublicKey(own.public).toByteArray() + clientPublicKey.toByteArray())
         val key = CryptoBox.sharedSecret(own.private, peer, salt)
+        val now = System.currentTimeMillis()
         val grant = Grant(
             token = CryptoBox.randomToken(),
             role = role,
-            fingerprint = CryptoBox.fingerprint(peer),
+            fingerprint = fingerprint,
             key = key,
-            expiresAt = if (ttlMs > 0L) System.currentTimeMillis() + ttlMs else 0L,
+            expiresAt = if (ttlMs > 0L) now + ttlMs else 0L,
+            joinedAt = existing?.joinedAt?.takeIf { it > 0L } ?: now,
         )
         saveGrant(grant)
         return grant
+    }
+
+    /** 名额包含 Owner：PRD §4.4 规定单台摄像头最多 5 人（O3） */
+    @Synchronized
+    fun atCapacity(): Boolean = activeGrants().size >= MAX_GRANTS
+
+    /** 供界面显示“已授权 x/5”与上限提示 */
+    val maxGrants: Int get() = MAX_GRANTS
+
+    @Synchronized
+    fun hasGrant(clientPublicKey: String): Boolean {
+        val peer = runCatching { CryptoBox.decodePublicKey(clientPublicKey) }.getOrNull() ?: return false
+        val fingerprint = CryptoBox.fingerprint(peer)
+        return activeGrants().any { it.fingerprint == fingerprint }
     }
 
     /** 令牌鉴权；过期条目在这里顺手清掉，避免长期堆积成无效授权 */
@@ -149,17 +172,22 @@ class PairingStore(context: Context) {
     }
 
     /**
-     * 成员邀请：Owner 生成一条限时令牌，Member 凭它配对后直接获得 Guest 级权限。
-     * 邀请本身不绑定具体设备，谁先redeem谁获得——这也是“临时访客”的语义。
+     * 成员 / 访客邀请（PRD FR-12）：邀请本身不绑定具体设备，谁先兑换谁获得。
+     * 同一条链接可以被转发，所以它必须一次性、且带有效期，不能变成长期通行证。
      */
     @Synchronized
-    fun createInvite(ttlMs: Long): Invite {
+    fun createInvite(role: Role, ttlMs: Long): Invite {
         val now = System.currentTimeMillis()
-        val invite = Invite(CryptoBox.randomToken(), now + ttlMs.coerceAtLeast(MIN_INVITE_MS))
+        val invite = Invite(
+            token = CryptoBox.randomToken(),
+            expiresAt = now + ttlMs.coerceIn(MIN_INVITE_MS, MAX_INVITE_MS),
+            role = role,
+        )
         val array = readJsonArray(KEY_INVITES)
         array.put(JSONObject().apply {
             put("token", invite.token)
             put("expiresAt", invite.expiresAt)
+            put("role", invite.role.raw)
         })
         prefs.edit().putString(KEY_INVITES, array.toString()).apply()
         return invite
@@ -173,7 +201,11 @@ class PairingStore(context: Context) {
             .map { invites.getJSONObject(it) }
             .firstOrNull { it.optString("token") == inviteToken && it.optLong("expiresAt") > now }
             ?: return null
-        val grant = pair(clientPublicKey, Role.GUEST, hit.optLong("expiresAt") - now)
+        val role = Role.fromRaw(hit.optString("role"))
+        // Member 是长期身份，邀请的有效期只限制“多久内可兑换”；
+        // Guest 的权限本身就是限时的，所以授权止于邀请到期时间。
+        val ttl = if (role == Role.GUEST) hit.optLong("expiresAt") - now else 0L
+        val grant = pair(clientPublicKey, role, ttl)
             ?: return null
         // 邀请是一次性的：成功兑换后从列表移除，防止一条链接被无限转发
         val remaining = JSONArray()
@@ -201,6 +233,7 @@ class PairingStore(context: Context) {
             put("fingerprint", grant.fingerprint)
             put("key", android.util.Base64.encodeToString(grant.key, android.util.Base64.NO_WRAP))
             put("expiresAt", grant.expiresAt)
+            put("joinedAt", grant.joinedAt)
         })
         prefs.edit().putString(KEY_GRANTS, cleaned.toString()).apply()
     }
@@ -219,6 +252,7 @@ class PairingStore(context: Context) {
                 fingerprint = obj.optString("fingerprint"),
                 key = key,
                 expiresAt = obj.optLong("expiresAt"),
+                joinedAt = obj.optLong("joinedAt"),
             )
         }
         return result
@@ -233,6 +267,7 @@ class PairingStore(context: Context) {
                 put("fingerprint", grant.fingerprint)
                 put("key", android.util.Base64.encodeToString(grant.key, android.util.Base64.NO_WRAP))
                 put("expiresAt", grant.expiresAt)
+                put("joinedAt", grant.joinedAt)
             })
         }
         prefs.edit().putString(KEY_GRANTS, array.toString()).apply()
@@ -254,5 +289,10 @@ class PairingStore(context: Context) {
         /** 二维码/配对码有效期：够用户从相机端走到观看端，又不至于长期留在相册截图里 */
         const val PAIR_CODE_TTL_MS = 5 * 60 * 1000L
         const val MIN_INVITE_MS = 10 * 60 * 1000L
+        /** PRD FR-12 给 Guest 的有效期上限是 24 小时，邀请窗口不应超过它 */
+        const val MAX_INVITE_MS = 24 * 60 * 60 * 1000L
+
+        /** PRD §4.4（决策 O3）：单台摄像头最多 5 人，含 Owner */
+        const val MAX_GRANTS = 5
     }
 }

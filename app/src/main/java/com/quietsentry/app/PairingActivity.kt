@@ -31,11 +31,14 @@ class PairingActivity : AppCompatActivity() {
     private lateinit var qrImage: ImageView
     private lateinit var codeText: TextView
     private lateinit var fingerprintText: TextView
+    private lateinit var deviceTitle: TextView
     private lateinit var deviceList: LinearLayout
     private lateinit var emptyDevices: TextView
 
     /** 非空表示当前二维码是这条一次性邀请，而不是常驻配对码 */
     private var inviteLink: String? = null
+    /** 生成邀请时记下角色，刷新后提示文案才不会说错权限 */
+    private var inviteRole: PairingStore.Role? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,6 +48,7 @@ class PairingActivity : AppCompatActivity() {
         qrImage = findViewById(R.id.pairing_qr)
         codeText = findViewById(R.id.pairing_code)
         fingerprintText = findViewById(R.id.pairing_fingerprint)
+        deviceTitle = findViewById(R.id.pairing_devices_title)
         deviceList = findViewById(R.id.pairing_devices)
         emptyDevices = findViewById(R.id.pairing_devices_empty)
 
@@ -52,9 +56,15 @@ class PairingActivity : AppCompatActivity() {
         findViewById<Button>(R.id.pairing_refresh).setOnClickListener {
             // 刷新回到常驻配对码：邀请是一次性的，不能靠“刷新”续命
             inviteLink = null
+            inviteRole = null
             refresh()
         }
-        findViewById<Button>(R.id.pairing_invite).setOnClickListener { showInvite() }
+        findViewById<Button>(R.id.pairing_invite).setOnClickListener {
+            showInvite(PairingStore.Role.MEMBER)
+        }
+        findViewById<Button>(R.id.pairing_invite_guest).setOnClickListener {
+            showInvite(PairingStore.Role.GUEST)
+        }
         findViewById<Button>(R.id.pairing_revoke_all).setOnClickListener { confirmRevokeAll() }
         refresh()
     }
@@ -68,7 +78,13 @@ class PairingActivity : AppCompatActivity() {
 
         val invite = inviteLink
         if (invite != null) {
-            hintText.text = getString(R.string.pairing_invite_ready)
+            hintText.text = getString(
+                if (inviteRole == PairingStore.Role.MEMBER) {
+                    R.string.pairing_invite_ready_member
+                } else {
+                    R.string.pairing_invite_ready_guest
+                }
+            )
             codeText.text = getString(R.string.pairing_invite_label)
             showQr(invite)
         } else {
@@ -95,21 +111,39 @@ class PairingActivity : AppCompatActivity() {
         }
     }
 
-    private fun showInvite() {
+    private fun showInvite(role: PairingStore.Role) {
         val port = LanServerHost.ensure(applicationContext)
         val host = PairingQr.localIpv4(this)
         if (port == null || host == null) {
             Toast.makeText(this, R.string.pairing_no_address, Toast.LENGTH_SHORT).show()
             return
         }
-        // 30 分钟够对方走到设备前扫码；再长会让一条链接在聊天记录里变成长期通行证
-        val invite = pairing.createInvite(INVITE_TTL_MS)
+        // 名额包含 Owner：满 5 人时必须先撤销，界面在这里拦一次，服务端还会再拦一次
+        if (pairing.atCapacity()) {
+            Toast.makeText(
+                this,
+                getString(
+                    R.string.pairing_invite_limit,
+                    pairing.activeGrants().size,
+                    pairing.maxGrants
+                ),
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        // 成员邀请的 24 小时只限制“多久内可加入”；访客的有效期就是这 1 小时
+        val ttl = if (role == PairingStore.Role.GUEST) GUEST_INVITE_TTL_MS else MEMBER_INVITE_TTL_MS
+        val invite = pairing.createInvite(role, ttl)
+        // 邀请等同于一把限时钥匙，生成动作本身就该留痕，事后才能查是谁放进来的人
+        AuditLog.record(this, AuditLog.PAIR, "生成邀请 role=${role.raw}")
+        inviteRole = role
         inviteLink = PairingQr.joinLink(host, port, invite.token, pairing.fingerprint())
         refresh()
     }
 
     private fun renderDevices() {
         val grants = pairing.activeGrants()
+        deviceTitle.text = getString(R.string.pairing_devices_count, grants.size, pairing.maxGrants)
         deviceList.removeAllViews()
         emptyDevices.visibility = if (grants.isEmpty()) View.VISIBLE else View.GONE
         grants.forEach { deviceList.addView(deviceRow(it)) }
@@ -138,6 +172,16 @@ class PairingActivity : AppCompatActivity() {
                         )
                     }
                 )
+                // 旧版本配对的记录没有加入时间，宁可不显示，也不要编一个“1970 年加入”
+                if (grant.joinedAt > 0L) {
+                    append('\n')
+                    append(
+                        getString(
+                            R.string.pairing_device_joined,
+                            TIME_FORMAT.format(Date(grant.joinedAt))
+                        )
+                    )
+                }
             }
             setTextColor(0xFFF2F2F2.toInt())
             textSize = 13f
@@ -190,7 +234,10 @@ class PairingActivity : AppCompatActivity() {
     private companion object {
         /** 输出 480px 而不是屏上的 240dp：低清二维码在稍远距离或弱光下识别率明显下降 */
         const val QR_SIZE_PX = 480
-        const val INVITE_TTL_MS = 30 * 60 * 1000L
+        /** 成员邀请窗口：够对方在一天内抽空扫码，又不至于变成一张长期通行证 */
+        const val MEMBER_INVITE_TTL_MS = 24 * 60 * 60 * 1000L
+        /** 访客授权与邀请有效期一致：PRD FR-12 的下限是 1 小时 */
+        const val GUEST_INVITE_TTL_MS = 60 * 60 * 1000L
         val TIME_FORMAT = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
     }
 }

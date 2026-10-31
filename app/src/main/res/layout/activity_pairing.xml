@@ -82,7 +82,15 @@
             android:layout_marginTop="8dp"
             android:text="@string/pairing_invite" />
 
+        <Button
+            android:id="@+id/pairing_invite_guest"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/pairing_invite_guest" />
+
         <TextView
+            android:id="@+id/pairing_devices_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"

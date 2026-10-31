@@ -187,6 +187,10 @@ class DeviceServer(
         val publicKey = body.optString("publicKey")
         if (publicKey.isEmpty()) return respond(out, 400, errorBody("missing_public_key"))
         val invite = body.optString("invite").takeIf { it.isNotEmpty() }
+        // 上限检查放在消耗配对码之前：满员时不该先把用户手里的码作废
+        if (pairing.atCapacity() && !pairing.hasGrant(publicKey)) {
+            return respond(out, 403, errorBody("limit_reached"))
+        }
         if (invite != null) {
             // 邀请令牌自带有效期，兑换成功即失效（PairingStore 负责），这里只做角色降级
             val grant = pairing.redeemInvite(invite, publicKey)
