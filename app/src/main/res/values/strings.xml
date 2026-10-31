@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">静哨 QuietSentry</string>
+    <string name="camera_permission_denied">未授予相机权限，无法继续</string>
+    <string name="camera_open_failed">相机打开失败：%1$s</string>
+    <string name="capture_channel_name">采集状态</string>
+    <string name="capture_starting">正在启动采集…</string>
+    <string name="capture_running">值守中 · 采集中</string>
+    <string name="segment_error">分片录制中断：错误码 %1$d</string>
+    <string name="start_guard">开始值守</string>
+    <string name="stop_guard">停止</string>
+    <string name="guard_started_tip">值守中：按电源键熄屏后采集继续，通知栏可随时确认</string>
+    <string name="permission_required">需要相机、录音与通知权限</string>
+    <string name="black_mode_entry">黑屏记录</string>
+    <string name="black_hint">采集中 · 单击拍照 · 双击切镜头 · 长按退出</string>
+    <string name="photo_saved">已拍照：%1$s</string>
+    <string name="photo_failed">拍照失败：%1$s</string>
+    <string name="lens_back">已切换到后置镜头</string>
+    <string name="lens_front">已切换到前置镜头</string>
+</resources>

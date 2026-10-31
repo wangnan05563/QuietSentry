@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>静哨 QuietSentry · 产品需求文档 v0.9</title>
+<!-- 单文件交付：不依赖外部字体与 CDN，保证离线评审与长期归档可读 -->
+<style>
+  :root{
+    --bg:#f4f6f8; --panel:#ffffff; --ink:#111827; --ink-2:#374151; --muted:#6b7280;
+    --line:#e3e7ec; --line-strong:#cfd6de;
+    --brand:#0e7c66; --brand-dark:#0a5c4c; --brand-soft:#e7f4f0;
+    --p0:#b42318; --p0-bg:#fdecea;
+    --p1:#b45309; --p1-bg:#fdf3e7;
+    --p2:#475467; --p2-bg:#f2f4f7;
+    --night:#0d1520; --night-2:#16202e;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(16,24,40,.05),0 4px 12px rgba(16,24,40,.04);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px;line-height:1.72;-webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--brand-dark);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ---------- 侧栏目录 ---------- */
+  .sidenav{
+    position:fixed;top:0;left:0;bottom:0;width:252px;background:var(--night);color:#cbd5e1;
+    padding:22px 14px 40px;overflow-y:auto;z-index:20;
+  }
+  .sidenav .brandline{display:flex;align-items:center;gap:9px;padding:0 8px 16px;border-bottom:1px solid rgba(255,255,255,.09)}
+  .sidenav .dot{width:9px;height:9px;border-radius:50%;background:#34d399;box-shadow:0 0 0 4px rgba(52,211,153,.14)}
+  .sidenav .brandname{font-weight:700;color:#f8fafc;font-size:15px;letter-spacing:.4px}
+  .sidenav .ver{font-size:11px;color:#94a3b8}
+  .sidenav ul{list-style:none;margin:14px 0 0;padding:0}
+  .sidenav li{margin:2px 0}
+  .sidenav li a{
+    display:block;padding:6px 10px;border-radius:7px;color:#aebccd;font-size:13px;line-height:1.4;
+  }
+  .sidenav li a:hover{background:rgba(255,255,255,.06);color:#fff;text-decoration:none}
+  .sidenav li a.active{background:rgba(52,211,153,.13);color:#eafff7;box-shadow:inset 2px 0 0 #34d399}
+  .sidenav .grp{margin:15px 8px 4px;font-size:11px;letter-spacing:1.2px;color:#5d6b7d;text-transform:uppercase}
+  .sidenav .foot{font-size:11px;color:#64748b;padding:18px 10px 0;border-top:1px solid rgba(255,255,255,.07);margin-top:16px}
+
+  /* ---------- 主区域 ---------- */
+  .main{margin-left:252px;padding:0 0 90px}
+  .wrap{max-width:1060px;padding:0 44px;margin:0 auto}
+
+  /* ---------- 封面 ---------- */
+  .hero{
+    background:radial-gradient(1200px 400px at 15% -10%, #1b6b58 0%, transparent 60%),
+               linear-gradient(160deg,#0d1520 0%,#0f2b25 100%);
+    color:#e8f3ef;padding:56px 0 44px;margin-bottom:34px;
+  }
+  .hero .eyebrow{font-size:12px;letter-spacing:2px;color:#7fe0c4;text-transform:uppercase;margin-bottom:12px}
+  .hero h1{font-size:36px;line-height:1.25;margin:0 0 10px;color:#fff;font-weight:750;letter-spacing:-.5px}
+  .hero .sub{font-size:16px;color:#c8d8d4;max-width:760px;margin:0 0 26px}
+  .meta{display:flex;flex-wrap:wrap;gap:10px}
+  .meta .chip{
+    border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);
+    padding:5px 11px;border-radius:999px;font-size:12px;color:#dbe9e5;
+  }
+  .meta .chip b{color:#8ff0d2;font-weight:600}
+
+  /* ---------- 标题 ---------- */
+  section{padding-top:8px;margin-bottom:44px}
+  h2{
+    font-size:24px;line-height:1.35;margin:0 0 18px;padding-bottom:10px;
+    border-bottom:1px solid var(--line-strong);font-weight:720;letter-spacing:-.2px;
+  }
+  h2 .no{color:var(--brand);font-variant-numeric:tabular-nums;margin-right:9px}
+  h3{font-size:18px;margin:28px 0 10px;font-weight:650}
+  h4{font-size:15px;margin:18px 0 8px;font-weight:650;color:var(--ink-2)}
+  p{margin:0 0 12px;color:var(--ink-2)}
+  .lead{font-size:15.5px;color:var(--ink-2)}
+  .muted{color:var(--muted)}
+  .small{font-size:13px}
+
+  /* ---------- 卡片与表格 ---------- */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px;margin:14px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media (max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;margin:10px 0 18px;background:var(--panel);font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:9px 11px;vertical-align:top;text-align:left}
+  th{background:#f8fafb;font-weight:650;color:var(--ink);white-space:nowrap}
+  td{color:var(--ink-2)}
+  table.compact th,table.compact td{padding:7px 9px;font-size:13px}
+  .tablewrap{overflow-x:auto;margin:10px 0 18px;border-radius:var(--radius)}
+  .tablewrap table{margin:0}
+  .kv th{width:104px;white-space:nowrap;background:#fbfcfd}
+  .kv ul{margin:0;padding-left:18px}
+  .kv li{margin:2px 0}
+
+  /* ---------- 标签 ---------- */
+  .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11.5px;font-weight:700;letter-spacing:.3px}
+  .p0{background:var(--p0-bg);color:var(--p0)}
+  .p1{background:var(--p1-bg);color:var(--p1)}
+  .p2{background:var(--p2-bg);color:var(--p2)}
+  .tag{display:inline-block;background:var(--brand-soft);color:var(--brand-dark);border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600}
+  .tag.gray{background:#f2f4f7;color:#475467}
+  .tag.warn{background:#fdf3e7;color:#b45309}
+  .tag.risk{background:#fdecea;color:#b42318}
+
+  /* ---------- 功能需求 ---------- */
+  .fr{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:8px;padding:18px 20px 8px;margin:16px 0;box-shadow:var(--shadow)}
+  .fr-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .fr-head h3{margin:0;font-size:16.5px}
+  .fr .purpose{margin:2px 0 10px;color:var(--ink-2);font-size:14px}
+  .fr .purpose b{color:var(--ink)}
+
+  /* ---------- 流程条 ---------- */
+  .flow{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch;margin:14px 0}
+  .step{flex:1 1 120px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;position:relative}
+  .step .n{font-size:11px;color:var(--brand);font-weight:700;letter-spacing:.8px}
+  .step .t{font-weight:650;font-size:13.5px;margin-top:2px}
+  .step .d{font-size:12px;color:var(--muted);margin-top:3px}
+  .arrow{align-self:center;color:#9aa7b6;font-size:14px;padding:0 1px}
+  @media (max-width:900px){.arrow{display:none}}
+
+  /* ---------- 架构图 ---------- */
+  .arch{background:#0d1520;border-radius:var(--radius);padding:20px;color:#dbe7e4;margin:16px 0}
+  .arch .layer{margin:10px 0}
+  .arch .ltitle{font-size:11px;letter-spacing:1.4px;color:#7fe0c4;margin:0 0 7px}
+  .arch .row{display:flex;gap:8px;flex-wrap:wrap}
+  .arch .box{flex:1 1 140px;background:#16202e;border:1px solid #24313f;border-radius:7px;padding:9px 11px;font-size:12.5px;color:#cfdcd8}
+  .arch .box b{display:block;color:#fff;font-size:13px;margin-bottom:2px}
+  .arch .box span{color:#8fa3a0;font-size:11.5px}
+  .arch .down{text-align:center;color:#3f8f7c;font-size:12px;margin:2px 0}
+
+  /* ---------- 手机线框 ---------- */
+  .wirephones{display:flex;gap:22px;flex-wrap:wrap;margin:18px 0}
+  .phone{width:236px;border:8px solid #111a26;border-radius:26px;background:#0b1118;overflow:hidden;box-shadow:0 10px 24px rgba(15,23,42,.18)}
+  .phone .screen{background:#f9fafb;min-height:430px;padding:12px 11px;font-size:11px;color:#334155;position:relative}
+  .phone .screen.dark{background:#05070a;color:#cbd5e1}
+  .phone .sbar{display:flex;justify-content:space-between;font-size:9.5px;color:#64748b;margin-bottom:8px}
+  .phone h5{margin:4px 0 8px;font-size:12.5px;color:#111827}
+  .phone .screen.dark h5{color:#e2e8f0}
+  .ph-card{background:#fff;border:1px solid #e5e7eb;border-radius:9px;padding:8px;margin-bottom:7px}
+  .ph-thumb{height:62px;border-radius:6px;background:linear-gradient(135deg,#202b39,#3f5b52);display:flex;align-items:center;justify-content:center;color:#9fb8b2;font-size:10px}
+  .ph-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+  .ph-pill{font-size:8.5px;padding:1px 6px;border-radius:99px;background:#e7f4f0;color:#0a5c4c}
+  .ph-pill.gray{background:#f2f4f7;color:#64748b}
+  .ph-line{height:1px;background:#e5e7eb;margin:7px 0}
+  .ph-btn{background:#0e7c66;color:#fff;border-radius:7px;padding:7px;text-align:center;font-weight:600;margin-top:8px;font-size:11px}
+  .ph-btn.ghost{background:#fff;color:#0e7c66;border:1px solid #c9e3da}
+  .ph-tabs{display:flex;gap:4px;margin-top:10px}
+  .ph-tab{flex:1;text-align:center;padding:5px 0;border-radius:6px;background:#fff;border:1px solid #e5e7eb;color:#64748b;font-size:9px}
+  .ph-tab.on{background:#0e7c66;color:#fff;border-color:#0e7c66}
+  .ph-event{display:flex;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid #eef1f4}
+  .ph-dot{width:22px;height:22px;border-radius:5px;background:#e7f4f0;flex:none;display:flex;align-items:center;justify-content:center;color:#0a5c4c;font-size:8px}
+  .dark .ph-event{border-bottom-color:#1a2431}
+  .dark .ph-dot{background:#13231f;color:#7fe0c4}
+  .gesture{position:absolute;left:0;right:0;bottom:34px;text-align:center;color:#4b5563;font-size:10px}
+  .breath{position:absolute;right:12px;bottom:12px;width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.22)}
+  .ph-label{font-size:11.5px;color:var(--muted);text-align:center;margin-top:8px}
+
+  /* ---------- 提示 ---------- */
+  .note{border:1px solid #f0d9b5;background:#fffbf3;border-radius:8px;padding:11px 14px;font-size:13px;color:#7c4a03;margin:12px 0}
+  .note.info{border-color:#cfe3ef;background:#f5fbfe;color:#20556e}
+  .note.risk{border-color:#f3c7c2;background:#fff7f6;color:#8f231a}
+  .note b{font-weight:700}
+
+  /* ---------- 目录树 ---------- */
+  .tree{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 20px;font-size:13.5px;color:var(--ink-2)}
+  .tree .l1{font-weight:650;color:var(--ink)}
+  .tree .l2{padding-left:18px}
+  .tree .l3{padding-left:36px;color:var(--muted)}
+
+  /* ---------- 交互演示 ---------- */
+  .demo{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;background:var(--night);border-radius:12px;padding:22px;margin:18px 0}
+  .demo-phone{width:224px;border:8px solid #1f2937;border-radius:24px;background:#000;overflow:hidden;flex:none}
+  .demo-screen{height:400px;position:relative;display:flex;flex-direction:column;color:#94a3b8;font-size:12px;cursor:pointer;user-select:none;background:#05070a}
+  .demo-screen .dtop{display:flex;justify-content:space-between;padding:9px 12px;font-size:10px;color:#475569}
+  .demo-screen .dmid{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;text-align:center;padding:0 16px}
+  .demo-screen .dbot{padding:10px 12px;font-size:10px;color:#64748b;border-top:1px solid #111a26;text-align:center}
+  .demo-toast{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);background:rgba(15,23,42,.9);color:#a7f3d0;padding:6px 12px;border-radius:999px;font-size:11px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+  .demo-toast.show{opacity:1}
+  .demo-side{flex:1 1 320px;min-width:280px}
+  .demo-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .demo-tabs button{border:1px solid #2b3a49;background:#16202e;color:#aebccd;border-radius:7px;padding:7px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}
+  .demo-tabs button.on{background:#0e7c66;border-color:#0e7c66;color:#fff;font-weight:600}
+  .demo-desc{color:#b8c7c3;font-size:13px;line-height:1.7;min-height:44px}
+  .demo-state{background:#16202e;border:1px solid #24313f;border-radius:8px;padding:12px 14px;color:#cbd5e1;font-size:12.5px;margin-top:12px;line-height:1.8}
+  .demo-state b{color:#8ff0d2}
+  .demo-foot{color:#5d6b7d;font-size:11px;margin-top:10px}
+
+  /* ---------- 打印 ---------- */
+  @media print{
+    .sidenav{display:none}
+    .main{margin:0}
+    .wrap{max-width:none;padding:0 16mm}
+    .hero{background:#0d1520 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    section{break-inside:auto;margin-bottom:26px}
+    .fr,.card,table{break-inside:avoid}
+    body{font-size:12px}
+  }
+</style>
+</head>
+<body>
+
+<nav class="sidenav" id="sidenav">
+  <div class="brandline">
+    <span class="dot"></span>
+    <div>
+      <div class="brandname">静哨 QuietSentry</div>
+      <div class="ver">PRD v0.9 · 评审稿</div>
+    </div>
+  </div>
+  <div class="grp">概览</div>
+  <ul>
+    <li><a href="#summary">0 一页结论</a></li>
+    <li><a href="#background">1 背景与目标</a></li>
+    <li><a href="#research">2 调研基线</a></li>
+    <li><a href="#positioning">3 产品定位</a></li>
+  </ul>
+  <div class="grp">定义</div>
+  <ul>
+    <li><a href="#users">4 用户与角色</a></li>
+    <li><a href="#model">5 产品模型与范围</a></li>
+    <li><a href="#journey">6 核心旅程</a></li>
+  </ul>
+  <div class="grp">需求</div>
+  <ul>
+    <li><a href="#requirements">7 功能需求</a></li>
+    <li><a href="#rules">8 共享规则与异常</a></li>
+    <li><a href="#nfr">9 非功能要求</a></li>
+  </ul>
+  <div class="grp">工程与设计</div>
+  <ul>
+    <li><a href="#tech">10 技术实现要点</a></li>
+    <li><a href="#experience">11 体验提升与扩展</a></li>
+    <li><a href="#ui">12 UI 升级方案</a></li>
+  </ul>
+  <div class="grp">收尾</div>
+  <ul>
+    <li><a href="#metrics">13 验证口径</a></li>
+    <li><a href="#questions">14 开放问题</a></li>
+    <li><a href="#sources">15 调研来源</a></li>
+  </ul>
+  <div class="foot">内部评审材料<br>最后更新 2026-10-31</div>
+</nav>
+
+<div class="main">
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Product Requirements Document</div>
+    <h1>静哨 QuietSentry</h1>
+    <p class="sub">把闲置 Android 手机或平板，变成一台可以息屏值守、本地优先、随时远程查看的家用监控摄像头。参考 QuietCam 的黑屏交互，结合 FadCam、lenscast、android-ip-camera 等开源实现，收敛为一条可交付的产品主线。</p>
+    <div class="meta">
+      <span class="chip">版本 <b>v0.9</b></span>
+      <span class="chip">状态 <b>待评审</b></span>
+      <span class="chip">日期 <b>2026-10-31</b></span>
+      <span class="chip">平台 <b>Android 首发</b></span>
+      <span class="chip">文档类型 <b>常规 PRD（Heavy）</b></span>
+    </div>
+    <div class="note" style="margin-top:18px;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16);color:#c8d8d4">
+      <b>版本提示：</b>本文件为 v0.9 可视化评审稿，仅用于阅读体验与交互演示。Q1–Q8 的决策已回填至 <code>PRD-QuietSentry.md</code>（v1.0），两者冲突时以 Markdown 版为准。
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- ================= 0 一页结论 ================= -->
+<section id="summary">
+  <h2><span class="no">00</span>一页结论</h2>
+
+  <p class="lead">用户不需要再买一台摄像头：家里那台被淘汰的手机，只要能持续拍摄、安静地待在一个角落、并且随时能看到，就已经是一台可用的监控设备。本 PRD 定义的产品，负责把这个"已经存在但没人用起来"的能力，变成一条三分钟内可以走完的完整路径。</p>
+
+  <div class="grid3">
+    <div class="card">
+      <span class="tag">产品主张</span>
+      <h4>三分钟，把旧设备变成摄像头</h4>
+      <p class="small">摄像头端生成配对码，观看端扫码即连；不强制注册账号；默认局域网直连，数据不出家门。</p>
+    </div>
+    <div class="card">
+      <span class="tag">核心体验</span>
+      <h4>屏幕可以全黑，采集不能中断</h4>
+      <p class="small">值守模式真正熄屏；黑屏记录模式保留 QuietCam 的"点击即拍"；两者都通过持续前台通知让采集状态可被确认。</p>
+    </div>
+    <div class="card">
+      <span class="tag">商业与合规</span>
+      <h4>本地优先，云端可选</h4>
+      <p class="small">默认不把原始画面交给第三方；云备份、远程中继是显式开启项。明确排除"无通知的隐蔽拍摄"。</p>
+    </div>
+  </div>
+
+  <h3>三个必须同时成立的判断</h3>
+  <table class="compact">
+    <tr><th style="width:150px">判断</th><th>依据</th><th style="width:220px">对产品的影响</th></tr>
+    <tr>
+      <td>需求真实存在</td>
+      <td>Alfred 累计覆盖 7000 万以上家庭；GitHub 上十余个"旧手机变摄像头"项目在 2025–2026 年持续活跃。这说明"用旧设备做监控"不是小众玩法。</td>
+      <td>不与硬件厂商正面竞争，主打"零硬件成本 + 旧设备复用"。</td>
+    </tr>
+    <tr>
+      <td>现有方案是碎片化的</td>
+      <td>开源项目大多只解决一段：IP 摄像头只做推流，录制类只做落盘，AI 类只做检测，多机位方案还需要自建服务器。商业方案则把回看、多机位、AI 锁进订阅。</td>
+      <td>产品价值来自"串起来"：配对、值守、告警、回看、恢复在同一条链路里。</td>
+    </tr>
+    <tr>
+      <td>平台有硬约束</td>
+      <td>Android 14 起，camera 类型前台服务不能从后台创建，也不能从开机广播启动；持续通知不可隐藏；部分市场强制快门音。</td>
+      <td>"静默"只能定义为不亮屏、不显示预览、不播放应用内提示音；不能承诺"无痕"或"开机自动偷拍"。</td>
+    </tr>
+  </table>
+
+  <div class="note">
+    <b>本文档中的标记：</b>确认为事实的内容直接陈述并附来源；产品判断会说明理由；<span class="tag warn">[假设, TBD]</span> 表示尚需验证的默认值；<span class="tag gray">[TBD]</span> 表示必须在评审中拍板的开放项。
+  </div>
+</section>
+
+<!-- ================= 1 背景与目标 ================= -->
+<section id="background">
+  <h2><span class="no">01</span>背景与目标</h2>
+
+  <h3>1.1 观察到的现象</h3>
+  <table class="compact">
+    <tr><th style="width:170px">现象</th><th>具体表现</th><th style="width:190px">用户代价</th></tr>
+    <tr>
+      <td>旧设备大量闲置</td>
+      <td>换机后旧手机、旧平板留在抽屉里，硬件完好、摄像头可用、电池尚可，但没有再用处。</td>
+      <td>沉没成本；想临时看家时又要买新设备。</td>
+    </tr>
+    <tr>
+      <td>商业方案收紧免费额度</td>
+      <td>AlfredCamera 2026 年免费版限制为最多 2 台在线摄像头，Premium Standard 年费由 29.99 美元上调至 35.99 美元；回看与事件功能对新账号进入付费墙。</td>
+      <td>"先免费用用看"的路径变窄，用户开始寻找买断或自托管方案。</td>
+    </tr>
+    <tr>
+      <td>隐私顾虑阻止使用</td>
+      <td>多数商业方案默认把画面传到厂商云；部分应用的数据安全标签披露位置等信息的收集。</td>
+      <td>家庭内部画面不愿上云；对"谁在看"没有可见证据。</td>
+    </tr>
+    <tr>
+      <td>开源方案只解决单点</td>
+      <td>FadCam 解决后台息屏录制与抗损坏文件；lenscast / android-ip-camera 解决局域网流与远程 Web 控制；Retired-Sentinel 解决端侧人形识别；HomeSentry 需要自建服务端。</td>
+      <td>普通用户要在三四个 App 之间拼装，且缺少统一的设备管理、告警与回看。</td>
+    </tr>
+  </table>
+
+  <h3>1.2 目标用户与关键时刻</h3>
+  <p>目标用户是"有闲置设备、有临时或长期看护需求、但不想新增硬件或订阅"的家庭用户。触发时刻通常很具体：出差前想看门口、白天上班想知道宠物在做什么、老人独居需要有人知道有没有异常、租房期间担心入户。</p>
+
+  <h3>1.3 产品回应</h3>
+  <p>把三个动作合成一条路径：<b>配对 → 值守 → 回看</b>。摄像头端只做一件事：稳定采集并把事件留在本地；观看端只做一件事：让我随时知道家里发生了什么。所有跨设备的复杂度（发现、连接、加密、重试、补传）由产品吸收，不交给用户。</p>
+
+  <h3>1.4 可观察的成功标准</h3>
+  <ul>
+    <li>新用户从安装到摄像头端进入值守，全程不超过 3 分钟，且不需要阅读帮助文档。</li>
+    <li>观看端在局域网内能打开实时画面，画面延迟低于 1 秒量级；公网访问有可用路径。</li>
+    <li>发生运动事件后，用户能在事件列表中看到一段可播放的片段，并且能判断事件发生的时间与位置。</li>
+    <li>摄像头端被系统杀死、断网、低电、过热时，观看端能收到明确的原因提示，而不是"设备离线"四个字。</li>
+    <li>在完全不启用云服务的情况下，以上链路仍然成立。</li>
+  </ul>
+</section>
+
+<!-- ================= 2 调研基线 ================= -->
+<section id="research">
+  <h2><span class="no">02</span>调研基线</h2>
+
+  <h3>2.1 QuietCam：被点名参考的黑屏交互</h3>
+  <p>QuietCam 是一款同时发布于 iOS 与 Android 的黑屏相机，由独立开发者维护。它解决的不是"监控"，而是"在不点亮屏幕的情况下记录"。对本产品最有价值的不是它的功能清单，而是它验证过的三条交互：屏幕保持黑色时相机仍在工作；点击任意位置即可拍摄；长时间按住可以隐藏界面控件。</p>
+  <table class="compact">
+    <tr><th style="width:150px">能力</th><th>QuietCam 的做法</th><th style="width:260px">本产品的取舍</th></tr>
+    <tr><td>屏幕形态</td><td>纯黑、锁屏壁纸或自定义图片作为背景，界面无可见预览。</td><td>保留。作为"黑屏记录模式"，用于临时放置与私密记录。</td></tr>
+    <tr><td>拍摄方式</td><td>点击任意处拍照；长按隐藏控件。</td><td>保留单击拍照、长按隐藏；增加双击切换镜头。</td></tr>
+    <tr><td>存储</td><td>本地私有图库，不要求账号，不做分析上报。</td><td>保留本地优先；但监控场景必须增加事件索引与远程告警。</td></tr>
+    <tr><td>付费点</td><td>PRO 解锁 4K 60fps、音频录制、连拍。</td><td>不作为首发付费点；分辨率与帧率按设备能力开放。</td></tr>
+    <tr><td>平台差异</td><td>Android 不提供时间戳叠加；Action Button 为 iPhone 独有。</td><td>Android 端以"屏幕内水印 + 文件元数据"替代，不承诺硬件快捷键。</td></tr>
+    <tr><td>定位差异</td><td>个人私密记录工具，不提供远程观看与值守。</td><td>本产品在其交互之上叠加"值守 + 远程 + 事件"三段能力。</td></tr>
+  </table>
+  <div class="note info"><b>结论：</b>QuietCam 证明了"黑屏可用"，但没有证明"黑屏可长期值守"。后者需要前台服务、保活、事件检测与远程链路，正是本产品要补的部分。</div>
+
+  <h3>2.2 GitHub 同类项目全景</h3>
+  <p>下表按"能力拼图"排列，而不是按星标数排列。每一项都标注了可以直接借鉴的部分和它没有解决的问题。</p>
+  <div class="tablewrap">
+  <table class="compact">
+    <tr>
+      <th style="width:150px">项目</th><th style="width:110px">定位</th><th>可借鉴的实现</th><th style="width:180px">未覆盖的缺口</th>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/anonfaded/FadCam" target="_blank">FadCam</a></td>
+      <td>后台录制器</td>
+      <td>息屏后台录制；基于定制 Media3 的分片 MP4，边录边写、停止时收敛为通用 MP4；进程被杀后自动检测并修复中断文件；局域网直播 + Web UI 远程控制；4.0 规划云仪表盘。</td>
+      <td>不是监控产品：缺少设备配对、事件告警、家庭成员与回看时间轴。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/raulshma/lenscast" target="_blank">lenscast</a></td>
+      <td>局域网 WiFi 相机</td>
+      <td>MJPEG + 音频、手动曝光/ISO/对焦、间隔拍摄、定时录制；隐私遮罩（黑块/像素化/模糊）；HTTP Basic Auth；mDNS 发现；网络质量分级；前台服务保活；开机恢复（可开关）；快捷设置磁贴；警笛与手电自动触发。</td>
+      <td>依赖浏览器访问，缺少跨公网的观看端体验与事件化管理。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/DigitallyRefined/android-ip-camera" target="_blank">android-ip-camera</a></td>
+      <td>IP 摄像头</td>
+      <td>H.264 / MJPEG 双路；RTSP 主码流与子码流；ONVIF（WS-Discovery、快照、运动事件）；HTTPS/RTSPS 与账号密码；开机启动；关屏选项；远程 Web 控制（旋转、录制、音画同步、手电、分辨率、变焦、曝光）。</td>
+      <td>面向 NVR 集成，产品化交互与普通家庭用户距离较远。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/onepersonhere/camera-link" target="_blank">camera-link</a></td>
+      <td>IP 摄像头 + 组网</td>
+      <td>Android 12+；CameraX + Compose + NanoHTTPD；息屏持续推流；Tailscale keep-alive 定时探测，保证异地访问可用。</td>
+      <td>需要用户自备 Tailscale；无事件检测与本地回看。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/Feebami/Retired-Sentinel-App" target="_blank">Retired-Sentinel</a></td>
+      <td>端侧 AI 安防</td>
+      <td>YOLO + ML Kit + FaceNet 全本地推理；陌生人识别；通过 Telegram 推送带视频证据的告警；MIT 许可。</td>
+      <td>依赖第三方消息通道；缺少通用观看端与多设备管理。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/obrassard/HomeSentry" target="_blank">HomeSentry</a></td>
+      <td>分布式多机位</td>
+      <td>多台旧设备接入同一 Web 控制台；WebRTC 实时画面；移动端 + 服务端 + Web 三层结构。</td>
+      <td>需要自建服务端；对普通用户门槛高，且项目停留在 2020 年。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/Zektopic/RSTP-CCTV-App" target="_blank">RSTP-CCTV-App</a></td>
+      <td>RTSP 摄像头</td>
+      <td>设备内运行 RTSP 服务 + Web 仪表盘；可直接接入 VLC、OBS、Frigate。</td>
+      <td>协议层能力完整，产品层几乎为空。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/Damoon7/Security-Camera-Termux" target="_blank">Security-Camera-Termux</a></td>
+      <td>极客脚本方案</td>
+      <td>运动触发后录制证据、采集环境音、停止后自动结束；Telegram / ntfy / DeltaChat / SMS / 电话多通道告警；远程指令控制。</td>
+      <td>依赖 Termux 与命令行，不适合作为消费级产品基线。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/regulad/closecircuit" target="_blank">closecircuit</a></td>
+      <td>离线多机位</td>
+      <td>Wi-Fi Direct 组网；WS-Discovery 发现摄像头；监控端作为热点，多台设备直连，完全不依赖路由器。</td>
+      <td>场景极窄（车载/婴儿看护），无长期值守能力。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/guardianproject/haven" target="_blank">Haven</a></td>
+      <td>传感器安防</td>
+      <td>用运动、声音、震动、光线传感器做入侵监测；通过 Signal / Tor 安全告警；面向记者与人权工作者的威胁模型设计。</td>
+      <td>不做视频流与画面回看，与本产品是互补而非替代。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/GianvitoMarzo/OfflineMotionCamera" target="_blank">OfflineMotionCamera</a></td>
+      <td>纯离线相机</td>
+      <td>不申请 INTERNET 权限，运动触发拍摄，全部留在设备内。</td>
+      <td>无法远程查看，"离线"是优点也是边界。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/tobi01001/IP_Cam" target="_blank">IP_Cam</a></td>
+      <td>可管理 IP 相机</td>
+      <td>内置 Web 管理界面、HTTP API、在线检查与更新。</td>
+      <td>界面与运维方式偏工程化。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/ShashiLab/VigiLens" target="_blank">VigiLens</a></td>
+      <td>静默录制</td>
+      <td>息屏后台录制、本地存储、隐私优先的设计取向。</td>
+      <td>功能深度有限，缺少监控链路。</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/Cr3bain/IpCam" target="_blank">IpCam</a></td>
+      <td>MJPEG 发射器</td>
+      <td>CameraX + NanoHTTPD 的最小实现，适合作为协议层参考。</td>
+      <td>无产品化能力。</td>
+    </tr>
+  </table>
+  </div>
+
+  <h3>2.3 商业竞品对照</h3>
+  <div class="tablewrap">
+  <table class="compact">
+    <tr>
+      <th style="width:120px">产品</th><th>核心模式</th><th style="width:150px">息屏/后台</th><th style="width:130px">存储位置</th><th style="width:160px">主要短板</th>
+    </tr>
+    <tr>
+      <td>AlfredCamera</td>
+      <td>摄像头端 + 观看端双 App 角色，扫码配对，运动检测、双向语音、警笛、前后摄 360、App Lock、Trust Circle。</td>
+      <td>支持息屏运行</td>
+      <td>厂商云（免费 7 天）</td>
+      <td>免费版限制 2 台在线；回看进入订阅；隐私标签披露数据关联。</td>
+    </tr>
+    <tr>
+      <td>WardenCam</td>
+      <td>录制直接写入用户自己的 Google Drive / Dropbox。</td>
+      <td>支持</td>
+      <td>用户自有云盘</td>
+      <td>界面与交互落后；云盘配额由用户承担。</td>
+    </tr>
+    <tr>
+      <td>AtHome Camera</td>
+      <td>摄像头端与观看端分离，额外支持 PC 端。</td>
+      <td>支持</td>
+      <td>厂商云</td>
+      <td>产品模型复杂，配置项多。</td>
+    </tr>
+    <tr>
+      <td>IP Webcam</td>
+      <td>本机 RTSP / MJPEG 服务，面向 VLC、Home Assistant、Frigate。</td>
+      <td>需保持服务</td>
+      <td>本地</td>
+      <td>界面陈旧，无云观看、无内置运动录制。</td>
+    </tr>
+    <tr>
+      <td>Call Pet</td>
+      <td>无账号扫码配对；WebRTC DTLS/SRTP 媒体加密；X25519 + AES-256-GCM 保护控制与信令；TURN 只转发不解密。</td>
+      <td>支持</td>
+      <td>本地，可选手动录制</td>
+      <td>场景单一（宠物看护）。</td>
+    </tr>
+    <tr>
+      <td>QuietCam</td>
+      <td>黑屏拍摄工具，非监控系统。</td>
+      <td>屏幕保持黑色</td>
+      <td>本地私有图库</td>
+      <td>无远程、无事件、无值守。</td>
+    </tr>
+  </table>
+  </div>
+
+  <h3>2.4 平台与合规约束</h3>
+  <p>这些约束不接受产品愿望，只接受工程事实。它们直接决定哪些承诺可以写进 PRD。</p>
+  <div class="tablewrap">
+  <table class="compact">
+    <tr><th style="width:190px">约束</th><th>具体内容</th><th style="width:240px">对需求的改写</th></tr>
+    <tr>
+      <td>camera 前台服务类型</td>
+      <td>Android 14（API 34）起必须声明 <code>camera</code> 服务类型并申请 <code>FOREGROUND_SERVICE_CAMERA</code>，同时持有 CAMERA 运行时权限。</td>
+      <td>采集必须有前台服务与持续通知；不能仅靠后台线程。</td>
+    </tr>
+    <tr>
+      <td>后台启动限制</td>
+      <td>应用处于后台时不能创建 camera 类型前台服务；也不能从 <code>BOOT_COMPLETED</code> 广播启动该服务。</td>
+      <td>"关机重启后自动恢复拍摄"不可承诺；改为重启后提醒用户打开应用确认。</td>
+    </tr>
+    <tr>
+      <td>持续通知不可隐藏</td>
+      <td>前台服务必须显示持续通知；Android 13+ 还需要 POST_NOTIFICATIONS 授权。</td>
+      <td>"静默"限定为不亮屏、不显示预览、不播放应用内提示音；通知必须保留。</td>
+    </tr>
+    <tr>
+      <td>系统快门音</td>
+      <td>部分市场与机型对快门声有强制策略，第三方应用无法绕过。</td>
+      <td>能力清单中标注"受系统策略限制"，不作为卖点。</td>
+    </tr>
+    <tr>
+      <td>厂商后台管理</td>
+      <td>国内主流 ROM 会清理后台、限制自启动与传感器使用，需要用户手动加入白名单。</td>
+      <td>必须有保活引导与"被杀检测"，不能假设进程常驻。</td>
+    </tr>
+    <tr>
+      <td>相机独占与并发</td>
+      <td>相机通常被单一应用占用；部分设备不支持前后摄同时采集。</td>
+      <td>切换镜头需要短暂重连；不做"双摄同时直播"的默认承诺。</td>
+    </tr>
+    <tr>
+      <td>应用商店政策</td>
+      <td>商店普遍禁止隐蔽监视类应用，要求显著披露后台相机使用与合法用途。</td>
+      <td>首次启动必须做合法用途确认；产品文案不得出现"偷拍""无痕"。</td>
+    </tr>
+    <tr>
+      <td>热与功耗</td>
+      <td>持续采集 + 编码 + 无线传输会显著升温；边充边用会加剧。</td>
+      <td>必须有温度分级策略与低功耗档位。</td>
+    </tr>
+    <tr>
+      <td>数据合规</td>
+      <td>家庭画面属于个人信息；录音涉及他人声音；跨境传输有额外要求。</td>
+      <td>默认本地、加密传输、可删除、可审计；云功能单独授权。</td>
+    </tr>
+  </table>
+  </div>
+
+  <h3>2.5 调研结论：六条产品决策</h3>
+  <table class="compact">
+    <tr><th style="width:56px">#</th><th>决策</th><th style="width:320px">理由</th></tr>
+    <tr><td>D1</td><td>同一 App 内置摄像头端与观看端两种角色，而不是两个 App。</td><td>降低安装门槛；旧设备与新手机都能复用；与 Alfred 的双 App 模型相比少一次下载和一次理解成本。</td></tr>
+    <tr><td>D2</td><td>抽象出四种运行模式：值守、黑屏记录、直播、连续记录。</td><td>不同场景的屏幕策略、功耗策略、退出条件完全不同，混在一个开关里必然互相干扰。</td></tr>
+    <tr><td>D3</td><td>局域网直连是一等公民，公网访问是可选增强。</td><td>开源项目的共同短板是可访问性；商业项目的共同短板是必须上云。两者之间的空档正是机会。</td></tr>
+    <tr><td>D4</td><td>录制采用分片容器 + 断录修复。</td><td>FadCam 已验证：进程被杀、断电、卡满都会发生，普通 MP4 会整段损坏。监控产品的底线是"文件一定能打开"。</td></tr>
+    <tr><td>D5</td><td>事件检测放在端侧，告警才联网。</td><td>既控制流量和功耗，也避免把连续画面送出家门；端侧模型可离线工作。</td></tr>
+    <tr><td>D6</td><td>所有"静默"能力都以持续通知与合法用途确认为前提。</td><td>这是上架与长期运营的前提，也是与"隐蔽摄像头"类应用划清界限的方式。</td></tr>
+  </table>
+</section>
+
+<!-- ================= 3 产品定位 ================= -->
+<section id="positioning">
+  <h2><span class="no">03</span>产品定位</h2>
+
+  <div class="card">
+    <h4>一句话定位</h4>
+    <p style="font-size:16px;color:var(--ink)">给家里闲置的 Android 设备一次"值守"的机会：屏幕可以熄灭，画面不会中断；数据默认留在家里，需要时随时能看到。</p>
+  </div>
+
+  <h3>3.1 差异化</h3>
+  <table class="compact">
+    <tr><th style="width:150px">维度</th><th>同类做法</th><th>本产品</th></tr>
+    <tr><td>设备关系</td><td>摄像头端与观看端分离安装；或只做单机录制。</td><td>单 App 双角色，配对后自动切换界面重心。</td></tr>
+    <tr><td>屏幕策略</td><td>要么常亮预览，要么纯后台无界面。</td><td>四模式：真熄屏值守、黑屏记录、亮屏直播、连续记录。</td></tr>
+    <tr><td>数据路径</td><td>默认上云；或完全不可远程。</td><td>默认局域网直连；公网走端到端加密中继；云备份显式开启。</td></tr>
+    <tr><td>可靠性</td><td>断电即损坏；被杀即静默失联。</td><td>分片录制 + 自动修复 + 心跳失联告警 + 恢复引导。</td></tr>
+    <tr><td>与 NVR 的关系</td><td>二选一。</td><td>可作为 RTSP/ONVIF 信号源接入 Frigate、Home Assistant，同时保留自有观看端。</td></tr>
+    <tr><td>合规边界</td><td>模糊，靠用户自律。</td><td>写进产品：合法用途确认、持续通知、遮挡与暂停能力。</td></tr>
+  </table>
+
+  <h3>3.2 不做什么</h3>
+  <p>以下边界用于避免评审时反复拉扯，也用于指导文案与商店描述：</p>
+  <ul>
+    <li>不提供无通知、无指示的隐蔽拍摄；不提供绕过系统快门音的能力。</li>
+    <li>不承诺"重启后自动开始拍摄"（平台不允许），只承诺重启后提醒与一键恢复。</li>
+    <li>不把连续录像默认上传到任何第三方服务器。</li>
+    <li>不做陌生人脸识别、身份库比对等高风险能力；人形检测只用于事件分类。</li>
+    <li>不在首发版本做 iOS、Web 观看端与硬件配件（列为 P2）。</li>
+  </ul>
+</section>
+
+<!-- ================= 4 用户与角色 ================= -->
+<section id="users">
+  <h2><span class="no">04</span>用户与角色</h2>
+
+  <h3>4.1 目标用户</h3>
+  <table class="compact">
+    <tr><th style="width:150px">画像</th><th>典型场景</th><th style="width:230px">最在意的事</th></tr>
+    <tr>
+      <td>独居 / 租房青年</td>
+      <td>出差或上班期间想看门口与屋内；不想为短期需求买摄像头。</td>
+      <td>三分钟能用；不要月费；不要上传到别人服务器。</td>
+    </tr>
+    <tr>
+      <td>有老人或宠物的家庭</td>
+      <td>白天无人时观察活动情况；夜间需要低打扰地看一眼。</td>
+      <td>画面稳定、推送别太吵、能看到回放。</td>
+    </tr>
+    <tr>
+      <td>育儿家庭</td>
+      <td>婴儿房、临时看护；希望屏幕不刺眼、夜里不发光。</td>
+      <td>黑屏/低亮、双向语音、低延迟。</td>
+    </tr>
+    <tr>
+      <td>技术型用户</td>
+      <td>已有 Frigate / Home Assistant / NAS，想把旧手机当一路信号源。</td>
+      <td>RTSP/ONVIF、可配置、无广告、可自托管。</td>
+    </tr>
+    <tr>
+      <td>私密记录用户</td>
+      <td>会议、采访、课堂等需要屏幕不亮的记录场景（QuietCam 场景）。</td>
+      <td>黑屏、点击即拍、文件私密。</td>
+    </tr>
+  </table>
+
+  <h3>4.2 角色定义</h3>
+  <table class="compact">
+    <tr><th style="width:120px">角色</th><th>定义</th><th style="width:220px">典型设备</th></tr>
+    <tr><td>Owner（所有者）</td><td>首次配对发起人，拥有设备的全部权限，可移除设备、管理成员、开启云功能。</td><td>日常使用的手机</td></tr>
+    <tr><td>Member（家庭成员）</td><td>被邀请加入的家庭成员，可观看实时、回看事件、接收告警，不能修改设备与安全设置。</td><td>家人手机、平板</td></tr>
+    <tr><td>Guest（临时访客）</td><td>限时查看者，仅在授权时段内可看实时画面，看不到历史与设置。</td><td>临时照看者、保姆、邻居</td></tr>
+    <tr><td>Camera 设备</td><td>采集端设备本身，不是"人"。它的行为受 Owner 配置约束，并在通知中公开自己的采集状态。</td><td>旧手机、旧平板</td></tr>
+  </table>
+
+  <h3>4.3 权限矩阵</h3>
+  <div class="tablewrap">
+  <table class="compact">
+    <tr>
+      <th style="width:220px">能力</th><th>Owner</th><th>Member</th><th>Guest</th><th>Camera 设备</th>
+    </tr>
+    <tr><td>查看实时画面</td><td>可</td><td>可</td><td>授权时段内可</td><td>本机预览可</td></tr>
+    <tr><td>回看事件与片段</td><td>可</td><td>可</td><td>不可</td><td>仅本机存储页</td></tr>
+    <tr><td>接收告警</td><td>可</td><td>可（可自选级别）</td><td>不可</td><td>本机提示</td></tr>
+    <tr><td>开始 / 停止值守</td><td>可远程停止；启动需摄像头端确认</td><td>不可</td><td>不可</td><td>本机可（唯一启动入口）</td></tr>
+    <tr><td>修改画质、镜头、检测区域</td><td>可</td><td>不可</td><td>不可</td><td>本机可</td></tr>
+    <tr><td>删除片段</td><td>可</td><td>不可</td><td>不可</td><td>可删本机缓存</td></tr>
+    <tr><td>邀请 / 移除成员</td><td>可</td><td>不可</td><td>不可</td><td>不可</td></tr>
+    <tr><td>移除设备</td><td>可（二次确认）</td><td>不可</td><td>不可</td><td>不可</td></tr>
+    <tr><td>开启云备份 / 公网访问</td><td>可（二次确认）</td><td>不可</td><td>不可</td><td>不可</td></tr>
+    <tr><td>导出设备日志</td><td>可</td><td>不可</td><td>不可</td><td>可</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>产品判断：</b>任何角色都不能远程直接开启采集。值守意味着持续拍摄，远程开启会让被拍者不知情；Android 也限制应用在后台创建 camera 类型前台服务。因此唯一启动入口是摄像头端的本机确认：Owner 可发送"值守请求"，由现场用户点击确认；停止允许远程执行，因为停止是安全方向。</div>
+</section>
+
+<!-- ================= 5 产品模型与范围 ================= -->
+<section id="model">
+  <h2><span class="no">05</span>产品模型与范围</h2>
+
+  <h3>5.1 设备角色与运行模式</h3>
+  <p>设备角色回答"它是什么"，运行模式回答"它此刻在做什么"。同一台设备更换角色不需要重装，但同一时刻只能处于一种运行模式。</p>
+  <table class="compact">
+    <tr><th style="width:120px">模式</th><th>屏幕表现</th><th>采集行为</th><th>适用场景</th><th style="width:160px">退出条件</th></tr>
+    <tr>
+      <td><b>值守模式</b><br><span class="badge p0">P0</span></td>
+      <td>屏幕关闭（真熄屏）</td>
+      <td>持续低帧率分析；事件触发时录制；支持远程实时查看。</td>
+      <td>长期放置的居家监控、出门期间看家。</td>
+      <td>用户手动停止、电量过低、温度过高、权限被撤回。</td>
+    </tr>
+    <tr>
+      <td><b>黑屏记录</b><br><span class="badge p0">P0</span></td>
+      <td>屏幕点亮但显示纯黑 / 壁纸 / 自定义图</td>
+      <td>无预览；单击拍照；可录制视频；不参与远程值守。</td>
+      <td>QuietCam 式私密记录；临时放置但不希望屏幕发光。</td>
+      <td>长按退出、三指快捷退出、切回值守。</td>
+    </tr>
+    <tr>
+      <td><b>直播模式</b><br><span class="badge p1">P1</span></td>
+      <td>可亮屏显示地址与状态</td>
+      <td>局域网 MJPEG / RTSP，供浏览器或 NVR 拉流。</td>
+      <td>接入 Frigate、Home Assistant、VLC、OBS。</td>
+      <td>手动停止、网络断开超时。</td>
+    </tr>
+    <tr>
+      <td><b>连续记录</b><br><span class="badge p1">P1</span></td>
+      <td>屏幕可关闭</td>
+      <td>持续分段录制，不依赖事件触发。</td>
+      <td>需要完整证据链的场景（装修、纠纷、长时间看护）。</td>
+      <td>手动停止、存储配额耗尽、温度过高。</td>
+    </tr>
+  </table>
+
+  <h3>5.2 核心对象</h3>
+  <table class="compact">
+    <tr><th style="width:120px">对象</th><th>定义</th><th style="width:300px">关键属性</th></tr>
+    <tr><td>Device 设备</td><td>一台被配对为采集端的 Android 设备。</td><td>名称、房间、角色、在线状态、电量、温度、存储占用、当前模式、软件版本。</td></tr>
+    <tr><td>Event 事件</td><td>一次被检测到的值得关注的画面或声音变化。</td><td>类型（运动/声音/人形/遮挡/系统）、发生时间、置信度、关联片段、推送状态、处理状态。</td></tr>
+    <tr><td>Clip 片段</td><td>由事件或连续录制产生的一段视频文件。</td><td>开始时间、时长、分辨率、加密状态、锁定状态、文件完整性、所在存储位置。</td></tr>
+    <tr><td>Snapshot 快照</td><td>事件发生时的一帧静态图。</td><td>时间、来源镜头、缩略图、是否随通知发送。</td></tr>
+    <tr><td>Schedule 计划</td><td>用户定义的检测/值守时间段。</td><td>星期、起止时间、生效设备、静默规则。</td></tr>
+    <tr><td>Share 共享关系</td><td>Owner 与 Member / Guest 的授权记录。</td><td>成员身份、权限级别、有效期、状态、撤销时间。</td></tr>
+    <tr><td>Health 健康记录</td><td>设备自检与运行事件日志。</td><td>时间、类型（离线/低电/过热/被杀/修复）、处理建议、是否已读。</td></tr>
+  </table>
+
+  <h3>5.3 范围划分</h3>
+  <div class="grid2">
+    <div class="card">
+      <span class="badge p0">P0 · 首发必须</span>
+      <ul class="small">
+        <li>合法用途确认与隐私说明</li>
+        <li>双角色选择与扫码/配对码配对</li>
+        <li>设备列表、命名、移除</li>
+        <li>值守模式（真熄屏）与前台通知</li>
+        <li>黑屏记录模式（点击拍照、长按隐藏）</li>
+        <li>镜头切换与画质档位</li>
+        <li>运动检测、声音检测</li>
+        <li>局域网实时观看</li>
+        <li>事件推送与通知直达</li>
+        <li>本地事件录制、循环覆盖、断录修复</li>
+        <li>事件列表与回放</li>
+        <li>低电/过热/离线/被杀的告警与恢复引导</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="badge p1">P1 · 首个迭代</span>
+      <ul class="small">
+        <li>端侧人形检测与事件分类</li>
+        <li>公网远程访问（WebRTC + 中继）</li>
+        <li>家庭成员共享与临时访客</li>
+        <li>检测区域遮罩与隐私遮罩</li>
+        <li>双向语音、警笛、手电威慑</li>
+        <li>连续记录模式</li>
+        <li>RTSP / MJPEG / 局域网 Web 控制台（ONVIF 留到 P2）</li>
+        <li>定时计划与免打扰时段</li>
+        <li>片段批量导出到系统相册</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="badge p2">P2 · 后续扩展</span>
+      <ul class="small">
+        <li>宠物 / 车辆 / 包裹识别</li>
+        <li>iOS 观看端、Web 观看端、桌面端</li>
+        <li>多机位同屏与轮巡</li>
+        <li>ONVIF 完整事件对接（发现、快照、运动事件）</li>
+        <li>Home Assistant / MQTT / Webhook 集成</li>
+        <li>云备份与事件云存储（可选订阅）</li>
+        <li>地理围栏自动值守</li>
+        <li>4K / 60fps / 超广角与长焦多摄协同</li>
+        <li>Wear OS 查看与快捷磁贴</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="badge p2">明确不做</span>
+      <ul class="small">
+        <li>无通知的隐蔽拍摄</li>
+        <li>绕过系统快门音</li>
+        <li>陌生人脸识别与身份比对</li>
+        <li>开机自动启动相机采集</li>
+        <li>默认上传连续录像到第三方云</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 6 核心旅程 ================= -->
+<section id="journey">
+  <h2><span class="no">06</span>核心旅程</h2>
+
+  <h3>6.1 P0 主路径</h3>
+  <div class="flow">
+    <div class="step"><div class="n">STEP 1</div><div class="t">选择角色</div><div class="d">旧设备选"作为摄像头"，日常手机选"作为观看端"。</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">STEP 2</div><div class="t">配对</div><div class="d">摄像头端出二维码，观看端扫码；同一局域网内自动发现。</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">STEP 3</div><div class="t">放置与调试</div><div class="d">选镜头、看预览、调角度、给设备命名。</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">STEP 4</div><div class="t">开始值守</div><div class="d">摄像头端点击开始，屏幕熄灭，通知常驻。</div></div>
+  </div>
+  <div class="flow">
+    <div class="step"><div class="n">STEP 5</div><div class="t">事件发生</div><div class="d">检测到运动或声音，录制片段并推送。</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">STEP 6</div><div class="t">查看与回看</div><div class="d">点击通知看实时，或在时间轴播放片段。</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">STEP 7</div><div class="t">结束</div><div class="d">停止值守、保留或清除数据、解除配对。</div></div>
+  </div>
+
+  <h3>6.2 完成条件</h3>
+  <p>一次完整任务结束的标志不是"设置成功"，而是：观看端在设备列表中看到该设备处于"值守中"，能打开一路有画面的实时流，且至少收到过一条可回放的事件。三者缺一，旅程就没有闭环。</p>
+
+  <h3>6.3 必须覆盖的恢复路径</h3>
+  <table class="compact">
+    <tr><th style="width:180px">中断</th><th>用户看到什么</th><th>产品做什么</th></tr>
+    <tr><td>摄像头端被杀</td><td>设备卡片显示"已停止采集"，附原因与恢复按钮。</td><td>心跳缺失超过阈值触发告警；给出电池优化、自启动白名单的具体入口。</td></tr>
+    <tr><td>网络断开</td><td>"设备离线，仍在本地录制"。</td><td>本地继续录制与事件索引；恢复后补传事件摘要。</td></tr>
+    <tr><td>电量过低</td><td>"电量 15%，已暂停值守"。</td><td>分级降级；低于阈值前先推送，给用户时间接电源。</td></tr>
+    <tr><td>设备过热</td><td>"温度偏高，已降低帧率"。</td><td>逐级降载，必要时暂停并提示改善散热。</td></tr>
+    <tr><td>存储写满</td><td>"已循环覆盖最早的未锁定片段"。</td><td>按规则覆盖；锁定片段与最近事件优先保留。</td></tr>
+    <tr><td>相机被占用</td><td>"相机正被其他应用使用"。</td><td>提示关闭占用应用；恢复后自动重连。</td></tr>
+    <tr><td>设备重启</td><td>"设备已重启，请打开应用恢复值守"。</td><td>不尝试后台启动相机；推送一键恢复指引。</td></tr>
+    <tr><td>配对码过期</td><td>"二维码已失效，请刷新"。</td><td>重新生成；手输 6 位码作为兜底。</td></tr>
+  </table>
+</section>
+
+<!-- ================= 7 功能需求 ================= -->
+<section id="requirements">
+  <h2><span class="no">07</span>功能需求</h2>
+  <p class="lead">本章是文档主体。每条需求都按"目的 → 触发 → 处理规则 → 结果与状态 → 异常"展开，ID 在全文与 UI 评审中复用。</p>
+
+  <!-- FR-01 -->
+  <article class="fr" id="fr-01">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-01 首次启动与合法用途确认</h3></div>
+    <p class="purpose"><b>目的：</b>在用户拿起设备的第一分钟，就让"这台设备将开始采集"这件事被明确告知，并留下可追溯的确认记录。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>首次安装后打开应用；或隐私政策/确认条款版本升级后首次打开。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>用三屏说明产品定位、数据去向、禁止场景，不使用恐吓式文案。</li>
+          <li>必须主动勾选"我确认仅在本人拥有或已获授权的场所使用本产品"，并点击"同意并继续"。</li>
+          <li>不强制注册账号；允许跳过账号直接进入本地配对。</li>
+          <li>记录确认版本、时间、设备型号，仅保存在本机。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>确认后进入角色选择页；未确认时其余功能不可用，但可查看隐私说明与卸载指引。</td></tr>
+      <tr><th>异常</th><td>无网络也可完成确认；拒绝确认则停留在说明页，提供"仅浏览说明"入口。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-02 -->
+  <article class="fr" id="fr-02">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-02 设备角色选择与配对</h3></div>
+    <p class="purpose"><b>目的：</b>把"两台设备建立信任关系"压缩成一次扫码，且不依赖账号体系。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>完成 FR-01 后进入角色选择；或在设备列表点击"添加摄像头"。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>角色分为"作为摄像头""作为观看端""两者都要"，可随时在设置中更改。</li>
+          <li>摄像头端生成二维码，内容包含设备标识、临时配对令牌、公钥指纹；同时显示 6 位数字码作为兜底。</li>
+          <li>配对码有效期 5 分钟，一次性使用；每次刷新生成新码。</li>
+          <li>同一局域网内，观看端可自动发现处于配对状态的设备并提示"发现附近设备"。</li>
+          <li>配对时交换设备公钥，建立会话密钥；后续通信默认加密。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>配对成功后设备出现在观看端列表，状态为"在线·待机"；摄像头端显示"已连接 1 台观看设备"；配对记录写入本机审计。</td></tr>
+      <tr><th>异常</th><td>
+        <ul>
+          <li>二维码过期：提示刷新，不要求重新进入流程。</li>
+          <li>设备已被其他 Owner 配对：提示先解除原配对，需原 Owner 确认。</li>
+          <li>不在同一网络：提示切换局域网或改用"远程配对"（P1）。</li>
+          <li>扫码失败：允许手输 6 位码；连续 3 次失败后冷却 60 秒。</li>
+        </ul>
+      </td></tr>
+    </table>
+  </article>
+
+  <!-- FR-03 -->
+  <article class="fr" id="fr-03">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-03 设备管理</h3></div>
+    <p class="purpose"><b>目的：</b>让用户一眼看出"哪台设备在哪、现在是什么状态"，而不是只看到一个 IP 地址。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>进入观看端首页；或摄像头端被添加/移除时。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>设备卡片显示：自定义名称、房间标签、缩略图或占位图、在线状态、当前模式、电量、信号、最近事件时间。</li>
+          <li>支持重命名、更换房间、调整排序、更换封面图。</li>
+          <li>卡片提示优先级从高到低：告警中（叠加标识）&gt; 离线 &gt; 低电 &gt; 过热 &gt; 存储告警 &gt; 值守中 &gt; 待机。</li>
+          <li>移除设备需 Owner 二次确认，并说明"将删除本机保存的该设备事件索引"。</li>
+          <li>摄像头端被移除后立即停止采集，屏幕显示"已被所有者移除"。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>列表实时刷新，状态变化不需要下拉刷新；离线设备保留最近一张缩略图并标注时间。</td></tr>
+      <tr><th>异常</th><td>设备离线超过 24 小时，卡片显示"长期离线"，并提供排查入口；设备数量超过当前授权上限时，仅允许查看已有设备，新增时提示上限。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-04 -->
+  <article class="fr" id="fr-04">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-04 值守模式与屏幕策略</h3></div>
+    <p class="purpose"><b>目的：</b>这是产品的核心能力：屏幕熄灭、采集继续、状态可确认、随时可停止。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>摄像头端用户在可见界面上点击"开始值守"；或观看端（Owner）发送值守请求，摄像头端收到提醒后由现场用户确认启动。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li><b>启动位置：</b>必须由摄像头端的前台界面确认发起。观看端的请求只产生提醒，不直接启动采集——既符合 Android 对 camera 前台服务的限制，也避免设备在无人知晓时开始拍摄。</li>
+          <li><b>屏幕策略：</b>提供"立即熄屏""30 秒后熄屏""保持亮屏"三档。选择熄屏后，屏幕关闭但采集与检测继续。</li>
+          <li><b>检测策略：</b>默认开启运动检测，帧率档位分为省电、均衡、流畅；省电档以低帧率分析、事件时提升画质。</li>
+          <li><b>状态公开：</b>启动后必须显示持续通知，内容包含设备名、当前模式、已运行时长、停止按钮。</li>
+          <li><b>停止方式：</b>通知内停止、应用内停止、观看端远程停止（Owner，局域网内 P0 可用）、低电/过热自动停止。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>设备状态变为"值守中"；通知常驻；观看端可打开实时画面；本机缓存开始按事件写入。</td></tr>
+      <tr><th>异常</th><td>
+        <ul>
+          <li>相机被占用：启动失败并提示占用应用，提供重试。</li>
+          <li>通知权限未授予：阻止启动，说明"没有持续通知就无法合法采集"。</li>
+          <li>电池优化未关闭：启动成功但提示"可能被系统中断"，提供一键跳转设置。</li>
+          <li>屏幕被用户点亮：值守不中断，应用回到锁屏或显示极简状态页。</li>
+        </ul>
+      </td></tr>
+    </table>
+  </article>
+
+  <!-- FR-05 -->
+  <article class="fr" id="fr-05">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-05 黑屏记录模式</h3></div>
+    <p class="purpose"><b>目的：</b>承接 QuietCam 验证过的私密记录体验：屏幕不发光，但相机随时可用。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>摄像头端切换到"黑屏记录"模式；或从快捷方式/桌面小组件直接进入。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>屏幕背景可为纯黑、系统壁纸、用户自定义图片三选一；默认纯黑，亮度自动降到最低可读水平。</li>
+          <li>不显示取景预览；单击屏幕任意位置拍照，拍照后有轻微触觉反馈（可在设置中关闭）。</li>
+          <li>长按 1.5 秒隐藏所有控件；三指点击三次作为退出快捷手势，避免"进去出不来"。</li>
+          <li>双击切换前/后镜头；音量下键可配置为快门或录像开关。</li>
+          <li>视频录制可选 1080p/4K（依设备能力）；文件进入应用私有图库，不出现在系统相册。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>拍摄文件按时间命名并记录镜头、分辨率、时长；私有图库入口需要 PIN 或生物识别。</td></tr>
+      <tr><th>异常</th><td>
+        <ul>
+          <li>机型受系统快门音策略约束：首次进入该模式时明确提示"本机可能无法完全静音"。</li>
+          <li>屏幕被锁定：采集停止，返回后提示"锁屏会中断记录"。</li>
+          <li>误触：提供"最近删除"与 30 秒撤销。</li>
+        </ul>
+      </td></tr>
+    </table>
+  </article>
+
+  <!-- FR-06 -->
+  <article class="fr" id="fr-06">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-06 镜头与画质</h3></div>
+    <p class="purpose"><b>目的：</b>用旧设备的硬件差异做适配，而不是假设所有设备都有同样的摄像头。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>首次进入摄像头端设置；或观看端打开画面设置。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>自动枚举可用镜头：后置主摄、前置、超广角、长焦（受设备能力限制）。</li>
+          <li>分辨率档位：720p / 1080p / 2K / 4K，按设备与编码器能力动态置灰。</li>
+          <li>帧率：15 / 30 fps；值守省电档默认 15fps 分析、事件时提升。</li>
+          <li>编码：优先 HEVC（省流量），不支持则回退 H.264。</li>
+          <li>画面：旋转、镜像、时间戳水印、夜间增强开关。</li>
+          <li>切换镜头会短暂中断画面（约 1 秒），界面需明确提示而不是静默黑屏。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>设置立即生效并持久化；观看端与摄像头端显示一致的当前配置。</td></tr>
+      <tr><th>异常</th><td>不支持的分辨率不可选并说明原因；切换失败回退到上一档；高分辨率导致过热时自动降档并通知。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-07 -->
+  <article class="fr" id="fr-07">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-07 事件检测</h3></div>
+    <p class="purpose"><b>目的：</b>把"一直录"变成"有事才记"，这是功耗、存储与通知体验的共同前提。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>值守或连续记录模式运行中，检测器持续分析画面与声音。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li><b>运动检测：</b>基于低分辨率帧差与区域权重；灵敏度 1–5；支持划定检测区域（网格勾选）。</li>
+          <li><b>声音检测：</b>基于环境音量阈值与持续时间，阈值可调；麦克风权限单独申请。</li>
+          <li><b>人形检测：</b>P1，端侧模型输出"有人/无人"与置信度，仅用于分类与降噪，不做身份识别。</li>
+          <li><b>预录缓冲：</b>始终保留最近 5 秒环形缓冲，事件触发时从事件前 5 秒开始写入。</li>
+          <li><b>合并规则：</b>同一事件源 60 秒内的连续触发合并为一条事件，避免刷屏。</li>
+          <li><b>时段计划：</b>仅在设定时段内检测；时段外可继续录制但不推送。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>生成事件条目（类型、时间、置信度、缩略图），触发片段录制与推送；事件状态从"检测中"进入"已录制"。</td></tr>
+      <tr><th>异常</th><td>光线突变、镜头被遮挡、宠物走动造成的误报，通过灵敏度、区域与合并窗口控制；连续误报超过阈值时提示用户调整，而不是让用户关掉功能。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-08 -->
+  <article class="fr" id="fr-08">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-08 实时观看</h3></div>
+    <p class="purpose"><b>目的：</b>让用户在两秒内确认"家里现在是什么样"。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>观看端点击设备卡片；或点击告警通知中的"查看实时"。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>连接顺序：局域网直连 → 已配对的中继 → 提示网络不可达；每一步给出可读的状态文案。</li>
+          <li>画面支持：全屏、横屏、截图、静音、画质切换（流畅/标清/高清）、保存当前画面到相册。</li>
+          <li>实时画面不默认录制到观看端；如需保存证据，使用"录制本段"按钮并明确提示。</li>
+          <li>观看端切到后台超过 30 秒后暂停拉流，回到前台自动恢复。</li>
+          <li>多人同时观看时，摄像头端保持单一编码，由服务层做分发（并发上限 <span class="tag gray">[TBD]</span>）。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>画面显示当前时间、设备名、网络路径（局域网/中继）、码率与延迟指示。</td></tr>
+      <tr><th>异常</th><td>
+        <ul>
+          <li>连接超时：先展示最近一张快照与"最后在线时间"，再提供重试。</li>
+          <li>摄像头端正处于黑屏记录模式：实时观看不可用，提示切换模式。</li>
+          <li>带宽不足：自动降至子码流，并允许手动锁定清晰度。</li>
+        </ul>
+      </td></tr>
+    </table>
+  </article>
+
+  <!-- FR-09 -->
+  <article class="fr" id="fr-09">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-09 告警与通知</h3></div>
+    <p class="purpose"><b>目的：</b>在正确的时间把正确的信息推给正确的人，并且不制造通知疲劳。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>事件生成、设备状态异常（离线/低电/过热/被杀/存储满）、值守开始或停止。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>告警分三级：紧急（人形/连续运动）、普通（单次运动/声音）、提示（设备状态）。</li>
+          <li>通知内容包含设备名、事件类型、时间、缩略图（可在设置中关闭），点击直达事件详情。</li>
+          <li>同一设备同一类型 60 秒内只推送一次摘要；免打扰时段只记录不推送。</li>
+          <li>Member 可自行选择接收级别；Guest 不接收。</li>
+          <li>设备离线期间的事件在本地排队，恢复连接后推送一条"离线期间共 N 条事件"摘要，不逐条补推。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>通知状态记录为已发送/已送达/已点击；事件详情中可见推送历史。</td></tr>
+      <tr><th>异常</th><td>推送通道不可用（无 FCM 或用户禁用通知）：降级为应用内消息中心；投递失败重试 3 次后标记失败。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-10 -->
+  <article class="fr" id="fr-10">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-10 本地录制与存储</h3></div>
+    <p class="purpose"><b>目的：</b>保证"事件发生时一定留下了能打开的文件"，并让用户知道空间去哪了。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>事件触发录制；或连续记录模式启动。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>采用分片写入的 MP4 容器：录制过程中持续落盘，停止时收敛为通用 MP4；进程被杀或断电后，下次启动自动扫描并修复。</li>
+          <li>单段时长默认 30 秒（连续记录）/ 事件前后各 5 秒与 10 秒（事件录制）。</li>
+          <li>存储配额：用户可设上限，默认不超过设备可用空间的 50%；低于 15% 剩余空间时触发清理。</li>
+          <li>循环覆盖顺序：已过期且未锁定 → 最旧 → 最近。锁定片段、最近 24 小时事件永不自动删除。</li>
+          <li>文件默认存放于应用私有目录；导出到系统相册需用户手动触发。</li>
+          <li>可选本地加密（P1），密钥由 Android Keystore 保护，卸载后不可恢复。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>存储页显示已用空间、片段数量、最早与最晚时间；每个片段标注"完整/已修复/损坏"。</td></tr>
+      <tr><th>异常</th><td>写入失败降级到内部存储并提示；SD 卡被移除时暂停录制并告警；修复失败保留原始文件并标注，不自动删除。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-11 -->
+  <article class="fr" id="fr-11">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-11 事件回看</h3></div>
+    <p class="purpose"><b>目的：</b>让"发生了什么"在十秒内被理解，而不是让用户在一堆视频文件里翻找。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>观看端进入"事件"页；或从通知、设备详情进入。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>默认按日期分组的时间轴视图，同一小时内的多条事件折叠显示。</li>
+          <li>筛选项：设备、事件类型、时间段、是否已读、是否锁定。</li>
+          <li>播放器支持拖动、暂停、0.5×/1×/2×、逐帧、静音、保存快照。</li>
+          <li>操作：标记重要（锁定）、下载/导出、删除（需确认）、分享（P1，生成限时链接）。</li>
+          <li>删除后进入"最近删除"，保留 <span class="tag gray">[TBD]</span> 天，可恢复。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>事件状态更新为已读/已锁定/已归档；列表与设备端缓存保持一致（以观看端索引为准）。</td></tr>
+      <tr><th>异常</th><td>片段缺失时显示"文件不可用"，提供设备端重新上传入口；播放失败时回退到快照。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-12 -->
+  <article class="fr" id="fr-12">
+    <div class="fr-head"><span class="badge p1">P1</span><h3>FR-12 家人共享与权限</h3></div>
+    <p class="purpose"><b>目的：</b>让家庭里该看的人看得到，不该看的人看不到，并且随时能收回。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>Owner 在设备详情页选择"邀请成员"或"创建临时访客"。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>邀请方式：二维码、限时链接、同账号直邀（任选其一即可加入）。</li>
+          <li>Member 默认获得实时查看、事件回看、告警接收；不可修改设备设置。</li>
+          <li>Guest 有效期 1–24 小时，仅可看实时，不可回看与截图（截图行为无法完全阻止，需在协议中声明）。</li>
+          <li>Owner 可随时撤销；撤销后对方的下一次请求立即失效，正在观看的画面在 5 秒内断开。</li>
+          <li>所有成员变更写入审计记录，保留 <span class="tag gray">[TBD]</span> 天。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>成员列表显示身份、加入时间、有效期与状态；被邀请者收到通知并可一键加入。</td></tr>
+      <tr><th>异常</th><td>邀请链接过期需重新生成；成员已达到上限时提示；Owner 设备离线时邀请暂存，恢复后生效。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-13 -->
+  <article class="fr" id="fr-13">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-13 电源、保活与故障恢复</h3></div>
+    <p class="purpose"><b>目的：</b>承认"旧设备会没电、会发热、会被系统杀掉"，并把每一次失败都变成一次可解释的提示。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>值守中持续监测电量、温度、网络、进程存活与相机占用。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li><b>电量：</b>低于 20% 进入省电降级（降低分析帧率、关闭语音与实时推流）；低于 10% 停止值守并推送。充电中恢复标准档。</li>
+          <li><b>温度：</b>超过 45°C 降帧与降分辨率；超过 50°C 暂停采集并建议改善通风或降低画质；恢复后自动回到原配置。</li>
+          <li><b>心跳：</b>摄像头端每 30 秒上报一次；观看端超过 90 秒未收到则标记"疑似中断"，并给出排查步骤。</li>
+          <li><b>保活引导：</b>分步引导关闭电池优化、允许自启动、锁定后台；不同厂商给出对应入口名称。</li>
+          <li><b>重启：</b>不尝试自动启动相机；发送"设备已重启"通知，用户打开应用后一键恢复上一次模式与设置。</li>
+          <li><b>网络：</b>断网时本地录制继续；恢复后补传事件索引与缩略图。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>健康记录中保留最近 7 天的状态事件；设备卡片上直接展示当前最严重的一条。</td></tr>
+      <tr><th>异常</th><td>降级后仍过热：暂停并明确告知"设备需要休息"；连续 3 次被系统杀死：建议改用常电供电与降低画质。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-14 -->
+  <article class="fr" id="fr-14">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-14 隐私、安全与遮挡</h3></div>
+    <p class="purpose"><b>目的：</b>让用户相信"只有我能看"，并让这种相信有可见证据。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>配对完成、开启任何远程能力、成员访问、导出或删除数据时。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>配对时交换密钥；传输默认 TLS；公网中继传输端到端加密，中继节点无法解密画面。</li>
+          <li>私有图库、设置页、成员管理需 PIN 或生物识别（可开关）。</li>
+          <li>隐私遮罩：用户可在画面中划定区域，录制与直播时该区域被涂黑/模糊。</li>
+          <li>一键暂停：观看端可请求暂停，摄像头端收到后 5 秒内停止采集并显示"已被远程暂停"。</li>
+          <li>"谁在看"：摄像头端始终显示当前观看人数；观看端显示"画面仅你与 N 位成员可见"。</li>
+          <li>云备份默认关闭；开启需二次确认并单独说明数据去向、保留期与删除方式。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>安全设置变更记录在审计日志；远程暂停后设备状态变为"已暂停"，不会自动恢复。</td></tr>
+      <tr><th>异常</th><td>密钥轮换失败时阻止公网访问，仅保留局域网；设备丢失时 Owner 可远程解除配对并清空索引。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-15 -->
+  <article class="fr" id="fr-15">
+    <div class="fr-head"><span class="badge p1">P1</span><h3>FR-15 第三方集成（直播 / RTSP / ONVIF / 局域网控制台）</h3></div>
+    <p class="purpose"><b>目的：</b>让技术型用户把旧设备接入已有的 NVR 生态，而不是被锁在本产品里。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>用户在摄像头端"高级"页开启直播服务。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>默认关闭，开启前提示"局域网内其他设备可能访问该画面"。</li>
+          <li>提供访问地址、端口、用户名与一次性生成的访问令牌；令牌可重置。</li>
+          <li>协议：MJPEG 与快照（P1）；H.264 RTSP 主/子码流（P1）；ONVIF Profile S 发现与运动事件（P2）。</li>
+          <li>支持 mDNS 发现，便于 Home Assistant / Frigate 自动识别。</li>
+          <li>直播与值守可并行，但共用相机管线；开启直播会提高功耗与温度，需提示。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>页面显示当前连接数与实时码率；可一键关闭并踢出所有客户端。</td></tr>
+      <tr><th>异常</th><td>端口被占用时自动换端口并显示；无网络时不启动服务；认证失败 5 次后锁定 10 分钟。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-16 -->
+  <article class="fr" id="fr-16">
+    <div class="fr-head"><span class="badge p1">P1</span><h3>FR-16 双向语音与威慑</h3></div>
+    <p class="purpose"><b>目的：</b>把"看见"升级为"能回应"，同时避免误触扰民。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>用户在实时画面点击"对讲""警笛""手电"。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>对讲为按住说话，松开结束；默认不常开麦克风回传，需用户主动开启。</li>
+          <li>警笛与手电需二次确认，默认持续 10 秒后自动停止；可设置冷却时间 30 秒。</li>
+          <li>自动威慑（P2）：人形事件触发手电或短提示音，需 Owner 显式开启。</li>
+          <li>夜间与免打扰时段默认禁用警笛。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>摄像头端显示"正在对讲/警笛已触发"，事件记录中标注为人工操作。</td></tr>
+      <tr><th>异常</th><td>麦克风被占用或权限缺失时禁用对讲并说明原因；扬声器音量过低时提示。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-17 -->
+  <article class="fr" id="fr-17">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-17 设置、诊断与升级</h3></div>
+    <p class="purpose"><b>目的：</b>把"为什么不工作"变成可执行的检查项，而不是让用户去搜索论坛。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>用户进入"设备健康"页，或系统检测到异常。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>健康面板展示：相机权限、通知权限、麦克风权限、电池优化、自启动、网络、存储、温度、当前码率与帧率。</li>
+          <li>一键诊断按顺序检查并给出结果：通过 / 可优化 / 阻塞，每项附"去设置"入口。</li>
+          <li>日志导出：脱敏后的最近 24 小时运行日志，可分享给支持人员。</li>
+          <li>升级：默认走应用商店；提供"检查更新"入口；升级前提示"值守将暂停约 1 分钟"。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>诊断结果保存最近一次，设备卡片上可看到"有 2 项可优化"的提示。</td></tr>
+      <tr><th>异常</th><td>无法跳转系统设置时给出文字路径；日志过大时自动截断并标注。</td></tr>
+    </table>
+  </article>
+
+  <!-- FR-18 -->
+  <article class="fr" id="fr-18">
+    <div class="fr-head"><span class="badge p0">P0</span><h3>FR-18 跨端交互规范</h3></div>
+    <p class="purpose"><b>目的：</b>统一摄像头端与观看端的手势、状态语言与反馈方式，避免同一产品出现两套操作逻辑。</p>
+    <table class="kv compact">
+      <tr><th>触发</th><td>所有界面与交互设计。</td></tr>
+      <tr><th>处理规则</th><td>
+        <ul>
+          <li>同一动作在不同端保持同一含义：单击=查看/拍照，长按=隐藏或更多，双击=切换镜头。</li>
+          <li>所有破坏性操作（停止值守、删除片段、移除设备、解除配对）必须二次确认并说明后果。</li>
+          <li>状态色固定：绿色=正常值守，琥珀=需要注意，红色=中断/告警，灰色=离线。不得用颜色单独传达信息。</li>
+          <li>触控目标不小于 44×44 dp；支持系统字体放大至 200%；深色模式为默认。</li>
+          <li>所有空态给出下一步动作，而不是空白页。</li>
+        </ul>
+      </td></tr>
+      <tr><th>结果与状态</th><td>设计评审以本规范为准；新增界面需在评审中标注所使用的既有交互语言。</td></tr>
+      <tr><th>异常</th><td>小屏设备（&lt; 360dp）允许折叠次要信息，但不得隐藏状态与停止入口。</td></tr>
+    </table>
+  </article>
+
+</section>
+
+<!-- ================= 8 共享规则 ================= -->
+<section id="rules">
+  <h2><span class="no">08</span>共享规则与异常</h2>
+
+  <h3>8.1 设备状态机</h3>
+  <table class="compact">
+    <tr><th style="width:130px">状态</th><th>进入条件</th><th>允许的动作</th><th style="width:180px">离开条件</th></tr>
+    <tr><td>未配对</td><td>首次安装或已解除配对</td><td>生成配对码、扫描配对、查看说明</td><td>配对成功 → 待机</td></tr>
+    <tr><td>在线·待机</td><td>已配对且未采集</td><td>开始值守、切黑屏记录、开直播、修改设置</td><td>开始采集 → 对应模式</td></tr>
+    <tr><td>值守中</td><td>FR-04 启动成功</td><td>远程查看、远程暂停、修改画质（部分需重连）</td><td>手动停止/自动降级 → 待机或已暂停</td></tr>
+    <tr><td>黑屏记录中</td><td>切到黑屏模式</td><td>本机拍摄、手势退出</td><td>退出 → 待机</td></tr>
+    <tr><td>直播中</td><td>开启直播服务</td><td>NVR 拉流、Web 访问</td><td>关闭服务 → 待机或回到值守</td></tr>
+    <tr><td>已暂停</td><td>远程暂停、低电、过热、用户停止</td><td>查看原因、恢复采集</td><td>用户确认恢复 → 值守中</td></tr>
+    <tr><td>离线</td><td>心跳超时 / 网络不可达</td><td>查看最后画面、发起排查</td><td>心跳恢复 → 原状态</td></tr>
+    <tr><td>已被移除</td><td>Owner 移除设备</td><td>重新配对</td><td>重新配对 → 待机</td></tr>
+  </table>
+  <div class="note info"><b>不变量：</b>任何时刻，摄像头端屏幕必须能通过通知或状态页确认"正在采集"；不存在"用户不知道在拍"的合法状态。</div>
+  <div class="note info"><b>状态与标识：</b>告警（运动/声音/人形）是叠加在运行状态上的标识，不构成独立运行状态；一台"值守中"的设备可以同时处于"告警中"。上表只描述运行状态。</div>
+
+  <h3>8.2 事件生命周期</h3>
+  <div class="flow">
+    <div class="step"><div class="n">S1</div><div class="t">检测到变化</div><div class="d">运动/声音/人形达到阈值</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">S2</div><div class="t">生成事件</div><div class="d">写入时间、类型、缩略图</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">S3</div><div class="t">录制片段</div><div class="d">含预录缓冲，分片落盘</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">S4</div><div class="t">推送</div><div class="d">按级别与免打扰规则发送</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">S5</div><div class="t">处置</div><div class="d">已读/锁定/归档/删除</div></div>
+  </div>
+  <table class="compact">
+    <tr><th style="width:150px">状态</th><th>含义</th><th style="width:260px">自动流转</th></tr>
+    <tr><td>检测中</td><td>已触发，尚在录制</td><td>录制完成 → 已录制；超过 60 秒未完成 → 异常</td></tr>
+    <tr><td>已录制</td><td>片段可用</td><td>推送成功 → 已通知；用户查看 → 已读</td></tr>
+    <tr><td>已通知</td><td>推送已送达</td><td>超过保留期 → 过期</td></tr>
+    <tr><td>已锁定</td><td>用户标记重要</td><td>不参与循环覆盖；需手动解锁</td></tr>
+    <tr><td>已过期</td><td>超过保留期</td><td>进入清理队列，可恢复 <span class="tag gray">[TBD]</span> 天</td></tr>
+  </table>
+
+  <h3>8.3 存储与保留规则</h3>
+  <table class="compact">
+    <tr><th style="width:190px">规则</th><th>取值</th><th style="width:210px">说明</th></tr>
+    <tr><td>默认保留期</td><td>7 天 <span class="tag warn">[假设, TBD]</span></td><td>与多数免费方案的 7 天事件窗口对齐；以容量上限先到者为准。</td></tr>
+    <tr><td>容量上限</td><td>设备可用空间的 50% <span class="tag warn">[假设, TBD]</span></td><td>避免占满导致系统异常；用户可下调。</td></tr>
+    <tr><td>单段长度</td><td>事件录制 15 秒（前 5 后 10）；连续记录 30 秒</td><td>兼顾可回看性与文件完整性。</td></tr>
+    <tr><td>覆盖顺序</td><td>过期未锁定 → 最旧 → 最近</td><td>最近 24 小时与锁定片段受保护。</td></tr>
+    <tr><td>最近删除</td><td>保留 7 天 <span class="tag gray">[TBD]</span></td><td>误删可恢复。</td></tr>
+    <tr><td>卸载</td><td>立即删除应用私有数据</td><td>文案中必须明确说明。</td></tr>
+  </table>
+
+  <h3>8.4 告警与通知规则</h3>
+  <table class="compact">
+    <tr><th style="width:170px">规则</th><th>行为</th></tr>
+    <tr><td>合并窗口</td><td>同设备同类型 60 秒内合并为一条，计数累加。</td></tr>
+    <tr><td>免打扰</td><td>用户设定时段内不推送，事件仍记录；紧急级别可单独放行。</td></tr>
+    <tr><td>级别升级</td><td>同一区域连续 3 次运动 → 升级为紧急；人形默认紧急。</td></tr>
+    <tr><td>离线补推</td><td>恢复后只发一条摘要，不逐条补推。</td></tr>
+    <tr><td>成员差异</td><td>Member 可降级接收；Guest 不接收。</td></tr>
+  </table>
+
+  <h3>8.5 时间与一致性</h3>
+  <ul>
+    <li>事件时间以摄像头端本地时间为准，并记录时区；观看端按用户时区展示。</li>
+    <li>设备时间与网络时间偏差超过 60 秒时提示校准，避免"事件发生在昨天"的错觉。</li>
+    <li>观看端索引为展示主数据，摄像头端缓存为事实来源；两者不一致时以设备端补传为准。</li>
+    <li>同一事件不允许在列表中重复出现；合并后的计数在详情中展开。</li>
+  </ul>
+</section>
+
+<!-- ================= 9 非功能要求 ================= -->
+<section id="nfr">
+  <h2><span class="no">09</span>非功能要求</h2>
+  <table class="compact">
+    <tr><th style="width:150px">类别</th><th>要求</th><th style="width:190px">验证方式</th></tr>
+    <tr>
+      <td>性能</td>
+      <td>局域网实时画面端到端延迟 ≤ 1 秒量级；公网 ≤ 3 秒量级 <span class="tag gray">[TBD]</span>；打开实时画面到首帧 ≤ 2 秒。</td>
+      <td>两台真机同网 + 秒表视频对照；公网用中继环境测。</td>
+    </tr>
+    <tr>
+      <td>功耗</td>
+      <td>值守模式熄屏、1080p/15fps、无事件时，连续 8 小时的耗电与温升在可接受区间；目标值以实测基线确定 <span class="tag gray">[TBD]</span>。</td>
+      <td>固定机型、固定亮度、固定网络，记录电量曲线与表面温度。</td>
+    </tr>
+    <tr>
+      <td>稳定性</td>
+      <td>连续运行 7 天不崩溃；进程被杀后文件可修复；断网 30 分钟后恢复可续传索引。</td>
+      <td>自动化脚本杀进程、拔网、重启；检查事件完整率。</td>
+    </tr>
+    <tr>
+      <td>兼容性</td>
+      <td>Android 9（API 28）及以上 <span class="tag warn">[假设, TBD]</span>；覆盖主流厂商 ROM；平板与折叠屏布局可用。</td>
+      <td>兼容性矩阵真机验证，至少覆盖 8 个品牌。</td>
+    </tr>
+    <tr>
+      <td>可用性</td>
+      <td>核心流程无需阅读文档即可完成；首次配对成功率在受控环境下 ≥ 90% <span class="tag gray">[TBD]</span>。</td>
+      <td>5 人可用性测试，记录首次成功时间与失败点。</td>
+    </tr>
+    <tr>
+      <td>安全</td>
+      <td>传输加密；配对密钥不可导出；私有图库需认证；日志脱敏。</td>
+      <td>静态检查 + 抓包验证 + 越权测试。</td>
+    </tr>
+    <tr>
+      <td>隐私</td>
+      <td>默认不上传原始画面；云功能显式授权；删除即删除；权限申请逐项说明用途。</td>
+      <td>商店数据安全表单一致性检查；权限清单评审。</td>
+    </tr>
+    <tr>
+      <td>无障碍</td>
+      <td>支持系统字体放大、屏幕阅读器可读、对比度达标；不以颜色单独表达状态。</td>
+      <td>TalkBack 走查；对比度工具检测。</td>
+    </tr>
+  </table>
+</section>
+
+<!-- ================= 10 技术实现 ================= -->
+<section id="tech">
+  <h2><span class="no">10</span>技术实现要点</h2>
+  <div class="note info"><b>定位说明：</b>本章是产品级技术约束与实现策略，用于对齐可行性、风险与验收口径，不替代详细技术设计文档。具体类库、接口与数据结构由工程侧另行设计。</div>
+
+  <h3>10.1 分层架构</h3>
+  <div class="arch">
+    <div class="layer">
+      <div class="ltitle">表现层</div>
+      <div class="row">
+        <div class="box"><b>摄像头端界面</b><span>值守状态、黑屏记录、设置、诊断</span></div>
+        <div class="box"><b>观看端界面</b><span>设备列表、实时画面、事件时间轴</span></div>
+        <div class="box"><b>局域网 Web 控制台</b><span>P1：浏览器访问与配置</span></div>
+      </div>
+    </div>
+    <div class="down">▼ 调用</div>
+    <div class="layer">
+      <div class="ltitle">领域层</div>
+      <div class="row">
+        <div class="box"><b>设备与会话</b><span>配对、角色、在线状态</span></div>
+        <div class="box"><b>采集编排</b><span>模式切换、镜头、画质</span></div>
+        <div class="box"><b>事件与录制</b><span>检测、合并、片段、保留</span></div>
+        <div class="box"><b>告警与权限</b><span>级别、成员、免打扰</span></div>
+      </div>
+    </div>
+    <div class="down">▼ 依赖</div>
+    <div class="layer">
+      <div class="ltitle">基础设施层</div>
+      <div class="row">
+        <div class="box"><b>相机管线</b><span>采集、分析、编码</span></div>
+        <div class="box"><b>存储</b><span>分片写入、索引、修复</span></div>
+        <div class="box"><b>网络</b><span>发现、直连、中继、推流</span></div>
+        <div class="box"><b>系统集成</b><span>前台服务、通知、电源</span></div>
+      </div>
+    </div>
+    <div class="down">▼ 依赖</div>
+    <div class="layer">
+      <div class="ltitle">平台与外部</div>
+      <div class="row">
+        <div class="box"><b>Android 相机/编码能力</b><span>CameraX / Camera2 / MediaCodec</span></div>
+        <div class="box"><b>局域网</b><span>mDNS、HTTP、RTSP</span></div>
+        <div class="box"><b>公网中继</b><span>WebRTC + TURN（P1）</span></div>
+        <div class="box"><b>第三方 NVR</b><span>Frigate / Home Assistant</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>10.2 采集与录制管线</h3>
+  <div class="flow">
+    <div class="step"><div class="n">PIPE 1</div><div class="t">采集</div><div class="d">按模式绑定采集与分析用例；值守时不需要预览界面。</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">PIPE 2</div><div class="t">分析</div><div class="d">低分辨率、低帧率送检测；保持 5 秒环形缓冲。</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">PIPE 3</div><div class="t">编码</div><div class="d">事件时启动编码；HEVC 优先，硬件编码器。</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">PIPE 4</div><div class="t">落盘</div><div class="d">分片 MP4 持续写入；停止时收敛；启动时修复。</div></div>
+    <span class="arrow">→</span>
+    <div class="step"><div class="n">PIPE 5</div><div class="t">索引</div><div class="d">事件、缩略图、时长、完整性写入本地索引。</div></div>
+  </div>
+
+  <table class="compact">
+    <tr><th style="width:170px">环节</th><th>实现策略</th><th style="width:240px">理由</th></tr>
+    <tr><td>相机接入</td><td>优先采用 CameraX 的统一用例模型；对特殊机型回退 Camera2 能力探测。</td><td>旧设备碎片化严重，需要一层能力探测与降级。</td></tr>
+    <tr><td>无预览采集</td><td>值守模式不绑定预览用例，仅在分析/录制用例上运行。</td><td>避免屏幕点亮与额外 GPU 开销，这是"息屏可用"的前提。</td></tr>
+    <tr><td>编码</td><td>硬件编码优先；码率随画质档位与网络状况调整；支持 HEVC 回退 H.264。</td><td>软件编码在旧设备上会迅速升温降频。</td></tr>
+    <tr><td>文件格式</td><td>分片写入的 MP4，边录边写；停止时收敛；异常后扫描修复。</td><td>FadCam 已验证该方案能在进程被杀后保住大部分内容。</td></tr>
+    <tr><td>检测</td><td>低分辨率帧差为主，端侧轻量模型为辅；仅在 P1 引入人形分类。</td><td>控制功耗；旧设备算力有限；避免误报导致通知疲劳。</td></tr>
+    <tr><td>音视频同步</td><td>以采集时间戳对齐；对讲与录像使用不同通道，避免互相抢占。</td><td>双向语音与录制并发时最容易出现音画不同步。</td></tr>
+  </table>
+
+  <h3>10.3 连接与安全</h3>
+  <table class="compact">
+    <tr><th style="width:150px">能力</th><th>策略</th><th style="width:220px">说明</th></tr>
+    <tr><td>局域网发现</td><td>mDNS / NSD 广播服务；配对后记住设备指纹。</td><td>减少用户输入 IP 的成本。</td></tr>
+    <tr><td>局域网传输</td><td>HTTP 流 + 令牌认证；默认仅局域网可访问。</td><td>兼容浏览器与 NVR；令牌可重置。</td></tr>
+    <tr><td>公网访问</td><td>WebRTC 打洞优先，失败走 TURN 中继；媒体端到端加密。</td><td>中继只转发密文，降低"云能看到画面"的顾虑。</td></tr>
+    <tr><td>配对安全</td><td>二维码携带一次性令牌 + 公钥指纹；配对完成即失效。</td><td>防止截图重放与中间人。</td></tr>
+    <tr><td>本地数据</td><td>应用私有目录；可选加密；卸载即删除。</td><td>避免被其他应用或相册扫描读取。</td></tr>
+    <tr><td>远程控制</td><td>所有远程操作走已认证通道并记录审计。</td><td>暂停、停止、移除设备必须可追溯。</td></tr>
+  </table>
+
+  <h3>10.4 保活与功耗</h3>
+  <table class="compact">
+    <tr><th style="width:170px">问题</th><th>策略</th></tr>
+    <tr><td>系统回收</td><td>前台服务 + 持续通知；申请电池优化豁免；提供厂商自启动白名单引导。</td></tr>
+    <tr><td>屏幕关闭后休眠</td><td>使用部分唤醒锁维持 CPU 与采集；屏幕本身不保持唤醒。</td></tr>
+    <tr><td>功耗</td><td>动态帧率、按需编码、事件时提升画质、无事件时降低分析频率；充电时允许高性能档。</td></tr>
+    <tr><td>发热</td><td>温度分级降载；避免长时间 4K；提示移除保护壳与避免阳光直射。</td></tr>
+    <tr><td>重启恢复</td><td>不自动启动相机（平台限制）；改为通知 + 一键恢复上次模式。</td></tr>
+  </table>
+
+  <h3>10.5 兼容与能力矩阵</h3>
+  <table class="compact">
+    <tr><th style="width:170px">能力</th><th>最低要求</th><th style="width:220px">降级方案</th></tr>
+    <tr><td>无预览后台采集</td><td>CameraX 可用；Android 9+</td><td>回退 Camera2；仍不可用则仅支持黑屏模式。</td></tr>
+    <tr><td>硬件 HEVC</td><td>编码器支持 HEVC</td><td>H.264，提高码率补偿画质。</td></tr>
+    <tr><td>端侧人形检测</td><td>可用 NNAPI / GPU 加速</td><td>仅运动检测；人形能力置灰。</td></tr>
+    <tr><td>公网中继</td><td>可访问中继服务</td><td>仅局域网；提供 Tailscale 等自组网说明。</td></tr>
+    <tr><td>RTSP/ONVIF</td><td>局域网可监听端口</td><td>仅 MJPEG 与快照。</td></tr>
+    <tr><td>持续通知</td><td>Android 13+ 通知权限</td><td>无权限则不允许启动值守，避免非法采集。</td></tr>
+  </table>
+
+  <h3>10.6 技术风险</h3>
+  <table class="compact">
+    <tr><th style="width:190px">风险</th><th style="width:80px">等级</th><th>影响与应对</th></tr>
+    <tr><td>厂商 ROM 杀后台</td><td><span class="tag risk">高</span></td><td>直接导致值守中断。应对：心跳检测、白名单引导、降低功耗、提供"被杀原因"解释，而不是静默失败。</td></tr>
+    <tr><td>相机被其他应用占用</td><td><span class="tag warn">中</span></td><td>值守启动失败或中断。应对：占用检测、重试、提示关闭占用应用。</td></tr>
+    <tr><td>持续采集发热</td><td><span class="tag risk">高</span></td><td>旧设备散热差，夏天更明显。应对：温度分级、默认 1080p/15fps、避免 4K 长时间运行。</td></tr>
+    <tr><td>文件损坏</td><td><span class="tag warn">中</span></td><td>使用分片容器与修复机制；损坏文件标注而非删除。</td></tr>
+    <tr><td>公网打洞失败</td><td><span class="tag warn">中</span></td><td>中继兜底；中继成本与带宽需要商业模型支撑 <span class="tag gray">[TBD]</span>。</td></tr>
+    <tr><td>商店政策审核</td><td><span class="tag risk">高</span></td><td>后台相机与"黑屏"能力容易被误判为隐蔽监视。应对：显著披露、合法用途确认、商店描述避免敏感词、保留审核说明材料。</td></tr>
+    <tr><td>快门音地区差异</td><td><span class="tag warn">中</span></td><td>能力清单标注限制；不将其作为卖点。</td></tr>
+    <tr><td>旧设备性能基线过低</td><td><span class="tag warn">中</span></td><td>设置最低支持版本与"仅黑屏模式"降级路径。</td></tr>
+  </table>
+</section>
+
+<!-- ================= 11 体验与扩展 ================= -->
+<section id="experience">
+  <h2><span class="no">11</span>体验提升与功能扩展</h2>
+
+  <h3>11.1 体验提升清单</h3>
+  <p>这些不是新功能，而是把已有能力做得更像"人设计的产品"。每一条都能对应到具体需求。</p>
+  <table class="compact">
+    <tr><th style="width:52px">#</th><th style="width:190px">体验点</th><th>具体做法</th><th style="width:110px">关联</th></tr>
+    <tr><td>E1</td><td>三步配对</td><td>扫码即连，自动发现附近设备；失败时自动切换到 6 位码，不把用户丢回首页。</td><td>FR-02</td></tr>
+    <tr><td>E2</td><td>状态可感知</td><td>设备卡片直接显示"值守中/已暂停/离线/低电"，用一句话解释原因，而不是缩写。</td><td>FR-03/13</td></tr>
+    <tr><td>E3</td><td>通知不吵</td><td>合并窗口、免打扰、分级接收；离线恢复只发摘要。</td><td>FR-09</td></tr>
+    <tr><td>E4</td><td>首帧即所见</td><td>打开实时页先显示最近快照与最后在线时间，再连接实时流，避免长时间白屏。</td><td>FR-08</td></tr>
+    <tr><td>E5</td><td>断线自愈</td><td>网络切换、进程重启、相机占用解除后自动重连，并给出"已恢复"的明确反馈。</td><td>FR-13</td></tr>
+    <tr><td>E6</td><td>电量守护</td><td>低电前先提醒、分级降载、可设定"仅充电时值守"。</td><td>FR-13</td></tr>
+    <tr><td>E7</td><td>夜间不打扰</td><td>黑屏/低亮、静音时段、告警降级；夜间推送默认只保留人形。</td><td>FR-05/09</td></tr>
+    <tr><td>E8</td><td>单手可操作</td><td>实时页底部操作区集中在拇指可达范围；关键操作不超过两次点击。</td><td>FR-18</td></tr>
+    <tr><td>E9</td><td>家人可用</td><td>成员邀请用二维码而非账号密码；Guest 限时访问降低心理负担。</td><td>FR-12</td></tr>
+    <tr><td>E10</td><td>隐私可见</td><td>摄像头端显示观看人数；观看端显示可见范围；一键暂停 5 秒内生效。</td><td>FR-14</td></tr>
+    <tr><td>E11</td><td>可解释的失败</td><td>任何中断都给出"发生了什么 + 为什么 + 下一步"，不出现裸错误码。</td><td>FR-17</td></tr>
+    <tr><td>E12</td><td>退出也干净</td><td>停止值守、解除配对、卸载前都说明数据命运，并提供导出选项。</td><td>FR-10/14</td></tr>
+  </table>
+
+  <h3>11.2 功能扩展路线</h3>
+  <table class="compact">
+    <tr><th style="width:120px">阶段</th><th>扩展项</th><th style="width:250px">用户价值</th><th style="width:170px">依赖</th></tr>
+    <tr><td>P1</td><td>端侧人形检测</td><td>把"有动静"变成"有人来了"，显著降低误报。</td><td>轻量模型 + 算力探测</td></tr>
+    <tr><td>P1</td><td>公网远程访问</td><td>不在家也能看，是监控产品的基本预期。</td><td>WebRTC + 中继服务</td></tr>
+    <tr><td>P1</td><td>家庭成员与访客</td><td>多人协作看护，权限可收可放。</td><td>邀请与审计</td></tr>
+    <tr><td>P1</td><td>隐私遮罩与检测区域</td><td>避免拍到邻居窗户、走廊等敏感区域。</td><td>画面区域编辑</td></tr>
+    <tr><td>P1</td><td>双向语音与威慑</td><td>从"看见"到"能回应"。</td><td>音频通道与设备扬声器</td></tr>
+    <tr><td>P1</td><td>RTSP / ONVIF</td><td>接入 Frigate、Home Assistant，延长产品生命周期。</td><td>协议服务端</td></tr>
+    <tr><td>P2</td><td>宠物 / 车辆 / 包裹识别</td><td>按事件类型分流通知，减少无关打扰。</td><td>多类别端侧模型</td></tr>
+    <tr><td>P2</td><td>多机位同屏与轮巡</td><td>一台旧设备不够时，自然扩展到多台。</td><td>多设备会话管理</td></tr>
+    <tr><td>P2</td><td>iOS / Web 观看端</td><td>覆盖混合设备家庭；Web 端便于办公场景。</td><td>跨端协议与账号</td></tr>
+    <tr><td>P2</td><td>云备份（可选）</td><td>设备损坏或丢失时仍保留证据。</td><td>对象存储 + 加密上传</td></tr>
+    <tr><td>P2</td><td>地理围栏自动值守</td><td>离家自动开始、回家自动停止。</td><td>定位权限与规则引擎</td></tr>
+    <tr><td>P2</td><td>Wear OS / 快捷磁贴</td><td>抬手看一眼、一键开始值守。</td><td>可穿戴与系统快捷方式</td></tr>
+  </table>
+</section>
+
+<!-- ================= 12 UI ================= -->
+<section id="ui">
+  <h2><span class="no">12</span>UI 升级方案</h2>
+
+  <h3>12.1 设计原则</h3>
+  <div class="grid2">
+    <div class="card"><h4>暗色优先</h4><p class="small">监控多发生在夜间与弱光环境，默认深色可减少屏幕对环境的干扰，也贴合"设备应融入环境"的产品气质。</p></div>
+    <div class="card"><h4>一屏一任务</h4><p class="small">观看端首页只回答"我的设备现在怎么样"；实时页只回答"现在发生了什么"；事件页只回答"之前发生了什么"。</p></div>
+    <div class="card"><h4>状态永远可见</h4><p class="small">任何界面都能看到设备当前是否在采集、是否在线、电量是否足够。不使用隐藏式开关表达采集状态。</p></div>
+    <div class="card"><h4>破坏性操作可撤回</h4><p class="small">删除、停止、移除、解除配对都提供确认与短时撤销，避免误触造成证据丢失。</p></div>
+  </div>
+
+  <h3>12.2 信息架构</h3>
+  <div class="tree">
+    <div class="l1">观看端</div>
+    <div class="l2">首页 · 设备</div>
+    <div class="l3">设备卡片 → 实时画面 / 设备详情 / 健康诊断</div>
+    <div class="l2">事件</div>
+    <div class="l3">时间轴 → 事件详情 → 播放器 / 快照 / 锁定 / 删除</div>
+    <div class="l2">消息</div>
+    <div class="l3">告警列表 / 设备状态通知 / 成员邀请</div>
+    <div class="l2">我的</div>
+    <div class="l3">成员与访客 / 存储与保留 / 隐私与安全 / 帮助与诊断</div>
+    <div class="l1" style="margin-top:10px">摄像头端</div>
+    <div class="l2">状态页 · 值守中 / 已暂停 / 黑屏记录 / 直播中</div>
+    <div class="l3">大按钮：开始 / 停止 / 切换模式 / 打开设置</div>
+    <div class="l2">设置</div>
+    <div class="l3">镜头与画质 / 检测与计划 / 通知 / 电源与保活 / 高级与集成</div>
+  </div>
+
+  <h3>12.3 关键界面线框</h3>
+  <div class="wirephones">
+    <div>
+      <div class="phone"><div class="screen">
+        <div class="sbar"><span>9:41</span><span>WiFi · 82%</span></div>
+        <h5>我的设备</h5>
+        <div class="ph-card">
+          <div class="ph-thumb">客厅 · 实时画面占位</div>
+          <div class="ph-row"><b>客厅摄像头</b><span class="ph-pill">值守中</span></div>
+          <div class="ph-row small muted"><span>10 分钟前有移动</span><span>82%</span></div>
+        </div>
+        <div class="ph-card">
+          <div class="ph-thumb" style="background:linear-gradient(135deg,#2b2f36,#4b5563)">婴儿房 · 夜间</div>
+          <div class="ph-row"><b>婴儿房</b><span class="ph-pill gray">已暂停</span></div>
+          <div class="ph-row small muted"><span>电量 9%，已停止采集</span><span>充电提醒</span></div>
+        </div>
+        <div class="ph-btn">＋ 添加摄像头</div>
+        <div class="ph-tabs"><div class="ph-tab on">设备</div><div class="ph-tab">事件</div><div class="ph-tab">消息</div><div class="ph-tab">我的</div></div>
+      </div></div>
+      <div class="ph-label">观看端 · 设备列表（状态优先）</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="screen dark">
+        <div class="sbar"><span>9:41</span><span>局域网 · 1.0s</span></div>
+        <h5>客厅摄像头</h5>
+        <div class="ph-thumb" style="height:150px;background:linear-gradient(160deg,#1f2a37,#2f4a42)">实时画面（暗色）</div>
+        <div class="ph-row small" style="margin-top:6px"><span>1080p · 15fps</span><span>2 人在看</span></div>
+        <div class="ph-row" style="gap:5px;margin-top:8px">
+          <span class="ph-pill">对讲</span><span class="ph-pill">警笛</span><span class="ph-pill">截图</span><span class="ph-pill">录制</span>
+        </div>
+        <div class="ph-line" style="background:#1a2431"></div>
+        <div style="font-size:10px;color:#94a3b8">最近事件</div>
+        <div class="ph-event"><div class="ph-dot">人</div><div>09:12 检测到有人移动</div></div>
+        <div class="ph-event"><div class="ph-dot">移</div><div>08:47 客厅移动</div></div>
+        <div class="gesture" style="color:#64748b">点击通知可直达事件</div>
+        <div class="breath"></div>
+      </div></div>
+      <div class="ph-label">观看端 · 实时画面（暗色 + 状态角标）</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="screen">
+        <div class="sbar"><span>9:41</span><span>已连接</span></div>
+        <h5>事件</h5>
+        <div class="ph-row small muted" style="margin-bottom:6px"><span>今天 · 6 条</span><span>筛选</span></div>
+        <div class="ph-event"><div class="ph-dot">人</div><div>09:12 客厅 · 人形</div></div>
+        <div class="ph-event"><div class="ph-dot">移</div><div>08:47 客厅 · 移动</div></div>
+        <div class="ph-event"><div class="ph-dot">声</div><div>07:30 婴儿房 · 声音</div></div>
+        <div class="ph-line"></div>
+        <div class="ph-row small muted" style="margin-bottom:6px"><span>昨天 · 3 条</span><span></span></div>
+        <div class="ph-event"><div class="ph-dot">移</div><div>22:05 门口 · 移动</div></div>
+        <div class="ph-event"><div class="ph-dot">系</div><div>19:40 设备重启 · 已恢复</div></div>
+        <div class="ph-btn ghost">导出所选</div>
+        <div class="ph-tabs"><div class="ph-tab">设备</div><div class="ph-tab on">事件</div><div class="ph-tab">消息</div><div class="ph-tab">我的</div></div>
+      </div></div>
+      <div class="ph-label">观看端 · 事件时间轴（按日分组）</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="screen dark" style="min-height:430px">
+        <div class="sbar" style="color:#475569"><span>9:41</span><span>值守中</span></div>
+        <div style="position:absolute;top:46%;left:0;right:0;text-align:center;color:#1f2937;font-size:11px">
+          屏幕已关闭<br><span style="font-size:9.5px">采集中 · 点击任意处拍照</span>
+        </div>
+        <div class="gesture">长按 1.5 秒隐藏控件 · 三指点按退出</div>
+        <div class="breath"></div>
+      </div></div>
+      <div class="ph-label">摄像头端 · 黑屏记录（无预览）</div>
+    </div>
+  </div>
+
+  <h3>12.3.1 可交互模式演示</h3>
+  <p class="small muted">点击右侧按钮切换运行模式，观察屏幕表现、设备状态与通知文案的差异；黑屏模式下点击屏幕可模拟拍照。以下为演示数据，仅用于评审。</p>
+  <div class="demo">
+    <div class="demo-phone">
+      <div class="demo-screen" id="demoScreen">
+        <div class="dtop"><span>9:41</span><span id="demoTopRight">值守中</span></div>
+        <div class="dmid" id="demoMid"></div>
+        <div class="dbot" id="demoBot"></div>
+        <div class="demo-toast" id="demoToast">已拍摄 · 已保存到私有图库</div>
+      </div>
+    </div>
+    <div class="demo-side">
+      <div class="demo-tabs" id="demoTabs">
+        <button type="button" data-mode="watch" class="on">值守模式</button>
+        <button type="button" data-mode="black">黑屏记录</button>
+        <button type="button" data-mode="live">直播模式</button>
+        <button type="button" data-mode="record">连续记录</button>
+      </div>
+      <div class="demo-desc" id="demoDesc"></div>
+      <div class="demo-state" id="demoState"></div>
+      <div class="demo-foot">演示不连接真实设备；真实状态以设备心跳与持续通知为准。</div>
+    </div>
+  </div>
+
+  <h3>12.4 摄像头端黑屏交互细则</h3>
+  <table class="compact">
+    <tr><th style="width:150px">手势</th><th>行为</th><th style="width:250px">反馈</th></tr>
+    <tr><td>单击任意处</td><td>拍照</td><td>轻微触觉反馈 + 屏幕中央 1 像素级暗点闪烁（可关）。</td></tr>
+    <tr><td>长按 1.5 秒</td><td>隐藏所有控件与提示</td><td>再次长按恢复；不改变采集状态。</td></tr>
+    <tr><td>双击</td><td>切换前后镜头</td><td>一次短震动，画面不预览。</td></tr>
+    <tr><td>三指点按三次</td><td>退出黑屏模式</td><td>回到状态页，保留已拍文件。</td></tr>
+    <tr><td>音量键</td><td>可配置为快门或录像开关</td><td>与系统音量行为互斥，需在设置中明确。</td></tr>
+  </table>
+
+  <h3>12.5 设计语言</h3>
+  <table class="compact">
+    <tr><th style="width:130px">项</th><th>规范</th></tr>
+    <tr><td>色彩</td><td>主色深青绿（安全感、非警报红）；状态色固定为绿/琥珀/红/灰；深色背景接近纯黑但不使用绝对黑，避免 OLED 拖影。</td></tr>
+    <tr><td>字体</td><td>系统字体；标题 20/24，正文 14–16；数字使用等宽数字，便于对比时间与电量。</td></tr>
+    <tr><td>圆角与层级</td><td>卡片 12dp，按钮 10dp；用层级与留白区分信息，不依赖重阴影。</td></tr>
+    <tr><td>动效</td><td>状态切换 150–200ms 淡入；不使用弹跳、闪烁等干扰夜间使用的动效。</td></tr>
+    <tr><td>图标</td><td>线性图标，2px 描边；状态图标必须有文字伴随。</td></tr>
+    <tr><td>大屏适配</td><td>平板与折叠屏使用双栏：左侧设备列表，右侧实时画面；摄像头端横屏时控件下移，避免遮挡画面中心。</td></tr>
+  </table>
+</section>
+
+<!-- ================= 13 验证口径 ================= -->
+<section id="metrics">
+  <h2><span class="no">13</span>验证口径</h2>
+  <p>本 PRD 不编造目标数值。下表定义"怎么量"，具体阈值在首轮真机测试后回填，并标注为产品承诺。</p>
+  <table class="compact">
+    <tr><th style="width:190px">指标</th><th>定义与计算</th><th style="width:150px">目标</th></tr>
+    <tr><td>首次配对成功率</td><td>首次尝试即完成配对的会话 / 全部首次配对会话</td><td><span class="tag gray">[TBD]</span></td></tr>
+    <tr><td>配对耗时</td><td>从点击"作为摄像头"到观看端出现设备卡片的中位时长</td><td>≤ 3 分钟</td></tr>
+    <tr><td>值守连续时长</td><td>从开始值守到非用户主动停止的中位时长</td><td><span class="tag gray">[TBD]</span></td></tr>
+    <tr><td>文件可打开率</td><td>成功解码播放的片段 / 全部片段（含被杀、断电场景）</td><td><span class="tag gray">[TBD]</span></td></tr>
+    <tr><td>事件误报率</td><td>用户标记"无意义"的事件 / 全部事件</td><td><span class="tag gray">[TBD]</span></td></tr>
+    <tr><td>首帧时延</td><td>点击设备卡片到画面出现第一帧的时间</td><td><span class="tag gray">[TBD]</span></td></tr>
+    <tr><td>中断可解释率</td><td>中断后用户能看到具体原因的会话 / 全部中断会话</td><td>100%</td></tr>
+    <tr><td>数据外传率</td><td>未开启云功能时产生的外网原始画面传输次数</td><td>0</td></tr>
+  </table>
+
+  <h3>评审通过的最小条件</h3>
+  <ul>
+    <li>P0 清单中的每一条都能在本文档中找到对应的 FR 编号与异常处理。</li>
+    <li>四种模式的边界与退出条件没有歧义，特别是"黑屏记录"与"值守"的区别。</li>
+    <li>所有与平台限制冲突的承诺已删除或改写，尤其是"开机自动启动"与"完全静音"。</li>
+    <li>存储、保留、覆盖规则只有一套定义，且被 FR-10 与 FR-11 共同引用。</li>
+    <li>权限矩阵与成员能力不存在互相矛盾的描述。</li>
+  </ul>
+</section>
+
+<!-- ================= 14 开放问题 ================= -->
+<section id="questions">
+  <h2><span class="no">14</span>开放问题</h2>
+  <table class="compact">
+    <tr><th style="width:52px">#</th><th>问题</th><th style="width:230px">为什么必须在评审中拍板</th></tr>
+    <tr><td>Q1</td><td>正式产品名与商标是否可用？"静哨 QuietSentry"为工作名。</td><td>影响商店上架、域名、文案与图标设计。</td></tr>
+    <tr><td>Q2</td><td>是否需要账号体系？纯本地配对可离线，但成员共享与公网访问需要身份。</td><td>决定架构复杂度、隐私承诺与运营成本。</td></tr>
+    <tr><td>Q3</td><td>公网访问由自建中继承担，还是引导用户使用 Tailscale 等自组网？</td><td>中继带宽是持续成本；自组网会提高用户门槛。</td></tr>
+    <tr><td>Q4</td><td>免费与付费的边界：设备数、云备份、AI 分类，哪一项进入订阅？</td><td>直接影响商业模型与"本地优先"承诺的可信度。</td></tr>
+    <tr><td>Q5</td><td>最低支持版本定为 Android 9 还是 Android 10？</td><td>影响覆盖设备范围与相机能力基线。</td></tr>
+    <tr><td>Q6</td><td>是否在首发版本提供 RTSP/ONVIF，还是留到 P1？</td><td>技术型用户是关键口碑来源，但会拉长开发周期。</td></tr>
+    <tr><td>Q7</td><td>并发观看上限与设备数上限分别是多少？</td><td>影响编码策略、带宽估算与服务端设计。</td></tr>
+    <tr><td>Q8</td><td>是否需要"仅充电时值守"作为默认策略？</td><td>旧设备电池健康差异大，默认策略会影响可用性感知。</td></tr>
+    <tr><td>Q9</td><td>黑屏记录模式是否与主产品同包发布？</td><td>商店审核对"黑屏相机"敏感，可能需要独立产品线或更强的披露设计。</td></tr>
+  </table>
+</section>
+
+<!-- ================= 15 来源 ================= -->
+<section id="sources">
+  <h2><span class="no">15</span>调研来源</h2>
+  <p class="small muted">以下链接在 2026-10-31 访问。项目能力描述以各仓库 README 与官方页面为准；商业产品价格与免费额度以其公开页面为准，可能随时间变化。</p>
+
+  <h3>QuietCam</h3>
+  <ul class="small">
+    <li><a href="https://quietcam.chmiel.app/about" target="_blank">QuietCam · About</a> — 黑屏相机的定位与隐私取向。</li>
+    <li><a href="https://quietcam.chmiel.app/faq" target="_blank">QuietCam · FAQ</a> — 黑屏录制的工作方式、点击拍照与隐藏控件。</li>
+    <li><a href="https://quietcam.chmiel.app/faq/is-quietcam-available-on-android" target="_blank">QuietCam · Android 支持说明</a> — Android 端能力差异。</li>
+    <li><a href="https://quietcam.chmiel.app/faq/what-devices-are-supported" target="_blank">QuietCam · 支持设备</a> — 4K 60fps、音频、连拍与本地存储。</li>
+  </ul>
+
+  <h3>GitHub 开源项目</h3>
+  <ul class="small">
+    <li><a href="https://github.com/anonfaded/FadCam" target="_blank">anonfaded/FadCam</a> — 息屏后台录制、分片 MP4、断录修复、局域网直播与 Web 控制。</li>
+    <li><a href="https://github.com/raulshma/lenscast" target="_blank">raulshma/lenscast</a> — MJPEG/音频、隐私遮罩、mDNS、保活、快捷磁贴。</li>
+    <li><a href="https://github.com/DigitallyRefined/android-ip-camera" target="_blank">DigitallyRefined/android-ip-camera</a> — RTSP、ONVIF、TLS、开机启动、远程控制。</li>
+    <li><a href="https://github.com/onepersonhere/camera-link" target="_blank">onepersonhere/camera-link</a> — CameraX + NanoHTTPD、息屏推流、Tailscale keep-alive。</li>
+    <li><a href="https://github.com/Feebami/Retired-Sentinel-App" target="_blank">Feebami/Retired-Sentinel-App</a> — 端侧 YOLO/ML Kit/FaceNet、Telegram 视频告警。</li>
+    <li><a href="https://github.com/obrassard/HomeSentry" target="_blank">obrassard/HomeSentry</a> — 多设备分布式监控与 WebRTC。</li>
+    <li><a href="https://github.com/Zektopic/RSTP-CCTV-App" target="_blank">Zektopic/RSTP-CCTV-App</a> — 设备内 RTSP 服务与 Web 仪表盘。</li>
+    <li><a href="https://github.com/Damoon7/Security-Camera-Termux" target="_blank">Damoon7/Security-Camera-Termux</a> — 运动触发录制与多通道告警。</li>
+    <li><a href="https://github.com/regulad/closecircuit" target="_blank">regulad/closecircuit</a> — Wi-Fi Direct 多机位离线方案。</li>
+    <li><a href="https://github.com/guardianproject/haven" target="_blank">guardianproject/haven</a> — 传感器安防与安全告警。</li>
+    <li><a href="https://github.com/GianvitoMarzo/OfflineMotionCamera" target="_blank">GianvitoMarzo/OfflineMotionCamera</a> — 无 INTERNET 权限的纯离线运动相机。</li>
+    <li><a href="https://github.com/tobi01001/IP_Cam" target="_blank">tobi01001/IP_Cam</a> — Web 管理与在线更新。</li>
+    <li><a href="https://github.com/ShashiLab/VigiLens" target="_blank">ShashiLab/VigiLens</a> — 息屏静默录制。</li>
+    <li><a href="https://github.com/Cr3bain/IpCam" target="_blank">Cr3bain/IpCam</a> — CameraX + NanoHTTPD 的最小实现。</li>
+  </ul>
+
+  <h3>商业产品与市场</h3>
+  <ul class="small">
+    <li><a href="https://alfred.camera/blog/turn-old-phones-into-security-cameras" target="_blank">AlfredCamera · 旧手机变摄像头</a> — 双设备角色、70M+ 下载、功能与 Premium 定价。</li>
+    <li><a href="https://play.google.com/store/apps/details?id=com.ivuu" target="_blank">Alfred · Google Play</a> — 2026 年更新与数据安全标签。</li>
+    <li><a href="https://dev.to/superfunicular/best-free-no-subscription-apps-to-turn-an-old-android-phone-into-a-local-only-security-camera-4582" target="_blank">DEV · 本地监控 App 对比（2026-08）</a> — Alfred 免费版限制 2 台、Premium 涨价至 35.99 美元/年。</li>
+    <li><a href="https://unstore.io/discover/best-apps-for-old-phone-security-camera-android" target="_blank">Unstore · 旧手机监控 App 实测（2026）</a> — Alfred / WardenCam / IP Webcam 的差异。</li>
+    <li><a href="https://www.callpet.me/blog/alfred-vs-wardencam-vs-call-pet-en" target="_blank">Call Pet 对比</a> — WebRTC DTLS/SRTP、X25519 + AES-256-GCM、TURN 不解密。</li>
+  </ul>
+
+  <h3>平台文档</h3>
+  <ul class="small">
+    <li><a href="https://developer.android.com/develop/background-work/services/fgs/service-types" target="_blank">Android · 前台服务类型</a> — camera 类型所需的权限与声明。</li>
+    <li><a href="https://developer.android.com/develop/background-work/services/fgs/service-types?hl=zh-cn" target="_blank">Android · 前台服务类型（中文）</a> — Android 14 起的类型声明要求。</li>
+    <li><a href="https://dev.android.com/develop/background-work/services/fg-service-types?hl=zh-tw" target="_blank">Android · 前台服务类型（繁中）</a> — camera 前台服务不能在后台创建、不能由 BOOT_COMPLETED 启动。</li>
+  </ul>
+
+  <div class="note" style="margin-top:22px">
+    <b>文档结束。</b>本文档为评审稿，所有 <span class="tag gray">[TBD]</span> 与 <span class="tag warn">[假设, TBD]</span> 需在评审会后回填；回填后版本号更新为 v1.0，方可进入设计与开发排期。
+  </div>
+</section>
+
+</div><!-- /wrap -->
+</div><!-- /main -->
+
+<script>
+  // 侧栏滚动高亮：让评审时始终知道当前章节位置
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.sidenav a'));
+    var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+    function update() {
+      var pos = window.scrollY + 140;
+      var current = targets[0];
+      targets.forEach(function (t) { if (t.offsetTop <= pos) current = t; });
+      links.forEach(function (a) { a.classList.toggle('active', current && a.getAttribute('href') === '#' + current.id); });
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+  })();
+
+  // 模式演示：用最小的状态机把四种模式的屏幕与状态差异可视化，避免评审时靠想象
+  (function () {
+    var modes = {
+      watch: {
+        top: '值守中',
+        mid: '<div style="width:62px;height:62px;border-radius:50%;border:1px solid #143b33;display:flex;align-items:center;justify-content:center;color:#2f6f60;font-size:11px">熄屏</div><div style="color:#3f6b60">采集中 · 不显示预览</div>',
+        bot: '通知常驻 · 点击停止',
+        desc: '屏幕真正关闭，采集与检测继续；事件发生时自动录制。',
+        state: '设备状态：<b>值守中</b>　心跳：正常<br>通知：常驻可见　实时观看：可用'
+      },
+      black: {
+        top: '黑屏记录',
+        mid: '<div style="color:#334155">屏幕已黑</div><div style="color:#475569;font-size:11px">点击任意处拍照</div>',
+        bot: '长按 1.5 秒隐藏控件 · 三指点按退出',
+        desc: '屏幕点亮但显示纯黑，无预览；单击拍照，长按隐藏控件。此模式不参与远程值守。',
+        state: '设备状态：<b>黑屏记录中</b>　实时观看：不可用<br>通知：持续可见　文件：应用私有图库'
+      },
+      live: {
+        top: '直播中',
+        mid: '<div style="font-family:ui-monospace,monospace;color:#7fe0c4;font-size:11px">http://192.168.1.8:8080</div><div style="color:#64748b;font-size:11px">MJPEG · 1 位观看</div>',
+        bot: '令牌认证已开启 · 仅局域网',
+        desc: '为 Frigate、Home Assistant、VLC 提供流；开启会提高功耗与温度。',
+        state: '设备状态：<b>直播中</b>　协议：MJPEG（RTSP 为 P1）<br>连接数：1　访问范围：局域网'
+      },
+      record: {
+        top: '连续记录',
+        mid: '<div style="color:#f87171;font-size:12px">● REC 00:12:34</div><div style="color:#64748b;font-size:11px">已生成 25 个分段</div>',
+        bot: '分片写入 · 断电可修复',
+        desc: '不依赖事件触发，持续分段录制；适合需要完整证据链的场景。',
+        state: '设备状态：<b>连续记录中</b>　存储：已用 32%<br>文件完整性：正常　覆盖策略：过期优先'
+      }
+    };
+    var tabs = document.getElementById('demoTabs');
+    var screen = document.getElementById('demoScreen');
+    if (!tabs || !screen) return;
+    var topRight = document.getElementById('demoTopRight');
+    var mid = document.getElementById('demoMid');
+    var bot = document.getElementById('demoBot');
+    var desc = document.getElementById('demoDesc');
+    var state = document.getElementById('demoState');
+    var toast = document.getElementById('demoToast');
+    var current = 'watch';
+    function render(key) {
+      current = key;
+      var m = modes[key];
+      topRight.textContent = m.top;
+      mid.innerHTML = m.mid;
+      bot.textContent = m.bot;
+      desc.textContent = m.desc;
+      state.innerHTML = m.state;
+      Array.prototype.forEach.call(tabs.querySelectorAll('button'), function (b) {
+        b.classList.toggle('on', b.getAttribute('data-mode') === key);
+      });
+    }
+    tabs.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-mode]');
+      if (b) render(b.getAttribute('data-mode'));
+    });
+    var timer;
+    screen.addEventListener('click', function () {
+      if (current !== 'black') return;
+      toast.classList.add('show');
+      clearTimeout(timer);
+      timer = setTimeout(function () { toast.classList.remove('show'); }, 1200);
+    });
+    render('watch');
+  })();
+</script>
+</body>
+</html>
