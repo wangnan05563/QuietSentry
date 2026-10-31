@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -58,11 +59,13 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var stopButton: Button
 
+    // 值守期间相机由服务独占，界面预览被主动隐藏；用标记记住，停止值守回到界面后才恢复（T03770）
+    private var previewSuppressed = false
+
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             if (result[Manifest.permission.CAMERA] == true) {
-                startCamera()
-                statusText.text = CameraCapabilities.describe(this)
+                showCameraOrGuard()
             } else {
                 statusText.text = getString(R.string.camera_permission_denied)
             }
@@ -90,6 +93,11 @@ class MainActivity : AppCompatActivity() {
         )
 
         findViewById<Button>(R.id.start_button).setOnClickListener {
+            // 服务已在采集时再发 START 会被内部直接忽略，界面必须自己给出反馈，否则用户以为没点上
+            if (CaptureService.isRunning) {
+                statusText.text = getString(R.string.guard_already_running)
+                return@setOnClickListener
+            }
             // camera 类型前台服务要求相机权限已授予，否则系统在 startForeground 时直接抛异常
             if (!hasPermission(Manifest.permission.CAMERA)) {
                 requestPermissions.launch(requiredPermissions)
@@ -108,7 +116,8 @@ class MainActivity : AppCompatActivity() {
                 this,
                 Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_START)
             )
-            statusText.text = getString(R.string.guard_started_tip)
+            // 服务启动会 unbindAll 抢走相机，界面预览先收起来，避免留下一个永远黑屏的取景框
+            suppressPreview()
         }
         stopButton.setOnClickListener {
             // 导出要等最后一个分片 Finalize 后才开始，先给出“正在保存”提示并禁用以防重复点击
@@ -129,11 +138,46 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (requiredPermissions.all(::hasPermission)) {
-            startCamera()
-            statusText.text = CameraCapabilities.describe(this)
+            showCameraOrGuard()
         } else {
             requestPermissions.launch(requiredPermissions)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 值守中打开 App：界面再次 bind 会把服务已经绑定的采集一并解绑，必须让相机归后台（T03770）
+        if (CaptureService.isRunning) {
+            suppressPreview()
+        } else if (previewSuppressed) {
+            previewSuppressed = false
+            previewView.visibility = View.VISIBLE
+            if (requiredPermissions.all(::hasPermission)) {
+                startCamera()
+                statusText.text = CameraCapabilities.describe(this)
+            }
+        }
+    }
+
+    /**
+     * 值守与否决定相机归谁：服务运行中只展示状态，不打开预览；
+     * 否则正常绑定预览。两个入口（权限回调、onCreate）都走这里，避免漏掉其中一条。
+     */
+    private fun showCameraOrGuard() {
+        if (CaptureService.isRunning) {
+            suppressPreview()
+            return
+        }
+        previewSuppressed = false
+        previewView.visibility = View.VISIBLE
+        startCamera()
+        statusText.text = CameraCapabilities.describe(this)
+    }
+
+    private fun suppressPreview() {
+        previewView.visibility = View.GONE
+        previewSuppressed = true
+        statusText.text = getString(R.string.guard_running_preview)
     }
 
     private fun hasPermission(permission: String): Boolean =
