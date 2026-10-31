@@ -84,6 +84,12 @@
             android:exported="false"
             android:screenOrientation="sensor" />
 
+        <!-- 设置与诊断：免打扰、接收级别、健康面板与日志导出 -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <service
             android:name=".CaptureService"
             android:exported="false"

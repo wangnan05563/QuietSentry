@@ -68,4 +68,48 @@ object AlertPolicy {
             else -> level == AlertLevel.NORMAL
         }
     }
+
+    /**
+     * 设置页要读的免打扰配置。集中在这里读写，避免界面直接拼 prefs 键名——
+     * 键名一旦被第二个地方复制，改名时就会有一处静默失效。
+     */
+    data class Quiet(val enabled: Boolean, val startMin: Int, val endMin: Int) {
+        /** 时段跨越午夜（如 22:00–07:00）需要单独提示，否则用户会以为配置反了 */
+        val crossesMidnight: Boolean get() = startMin > endMin
+        fun startLabel(): String = format(startMin)
+        fun endLabel(): String = format(endMin)
+
+        private fun format(minuteOfDay: Int): String =
+            String.format("%02d:%02d", minuteOfDay / 60, minuteOfDay % 60)
+    }
+
+    fun quiet(context: Context): Quiet {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return Quiet(
+            enabled = prefs.getBoolean(KEY_QUIET_ENABLED, false),
+            startMin = prefs.getInt(KEY_QUIET_START, DEFAULT_QUIET_START),
+            endMin = prefs.getInt(KEY_QUIET_END, DEFAULT_QUIET_END),
+        )
+    }
+
+    /** 写入即生效：EventNotifier 每次发通知前都会重新读 prefs，不需要重启值守服务 */
+    fun setQuiet(context: Context, quiet: Quiet) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_QUIET_ENABLED, quiet.enabled)
+            .putInt(KEY_QUIET_START, quiet.startMin)
+            .putInt(KEY_QUIET_END, quiet.endMin)
+            .apply()
+    }
+
+    fun minLevel(context: Context): AlertLevel {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_MIN_LEVEL, AlertLevel.NORMAL.raw)
+        return AlertLevel.values().firstOrNull { it.raw == raw } ?: AlertLevel.NORMAL
+    }
+
+    fun setMinLevel(context: Context, level: AlertLevel) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_MIN_LEVEL, level.raw)
+            .apply()
+    }
 }
