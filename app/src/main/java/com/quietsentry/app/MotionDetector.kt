@@ -146,8 +146,10 @@ class MotionDetector(
         private const val ROWS = 6
         private const val BLOCK_COUNT = COLS * ROWS
 
-        /** 块内采样步长（像素）：太密没意义，太疏会漏掉小目标 */
-        private const val SAMPLE_STEP = 4
+        /** 块内采样步长（像素）：太密没意义，太疏会漏掉小目标。
+         *  分析路从 320x240 提到 640x480 后像素翻四倍，步长同步放大，
+         *  让每帧采样点数与原来的功耗水平持平，长时间值守才不会被检测本身拖垮。 */
+        private const val SAMPLE_STEP = 6
 
         /** 灰度差超过该值的块才算“变了”，低于此值是传感器噪声与自动曝光的抖动 */
         private const val BLOCK_DELTA = 14

@@ -37,6 +37,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.Executors
 
 /**
  * 值守模式的前台服务：相机与录制都在服务内绑定，屏幕熄灭、Activity 退到后台后仍持续采集。
@@ -77,6 +78,16 @@ class CaptureService : LifecycleService() {
     private var running = false
     private var stopping = false
     private var segmentIndex = 0
+
+    /**
+     * 相机分析与 JPEG 编码放在独立单线程：CameraX 默认用传入的 executor 回调，
+     * 640x480 的 YUV→Bitmap→JPEG 每帧约 10ms，放在主线程会直接造成通知与界面掉帧，
+     * 也会让录制回调延迟。KEEP_ONLY_LATEST 保证积压时只保留最新帧，不会无限排队。
+     */
+    private val analysisExecutor = Executors.newSingleThreadExecutor()
+
+    private var lanServer: DeviceServer? = null
+    private var advertiser: LanAdvertiser? = null
 
     // 事件前覆盖（PRD FR-07）需要两样东西：本片起点用于算事件偏移，上一片用于补齐片头 5 秒
     private var segmentStartMs = 0L
@@ -130,7 +141,7 @@ class CaptureService : LifecycleService() {
             provider = cameraProvider
             val capture = VideoCapture.withOutput(Recorder.Builder().build())
             videoCapture = capture
-            // 运动检测复用同一路相机流；分析路用 320x240，逐块帧差不需要高分辨率
+            // 运动检测复用同一路相机流；640x480 同时作为主码流源，320x240 时无法提供能看清的直播画面
             val detector = MotionDetector(
                 DETECTION_SENSITIVITY,
                 MotionDetector.ALL_GRID,
@@ -138,20 +149,26 @@ class CaptureService : LifecycleService() {
             ) { confidence, thumbnail ->
                 onDetected(EventType.MOTION, R.string.detection_motion, confidence, thumbnail)
             }
+            val frameAnalyzer = ImageAnalysis.Analyzer { image ->
+                // 先发布到实时流再交给检测器；检测器负责 image.close()，
+                // 这里不能提前关闭，否则 JPEG 编码与运动检测都会拿到失效缓冲
+                LanFrameHub.publish(image)
+                detector.analyze(image)
+            }
             analysis = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .setResolutionSelector(
                     ResolutionSelector.Builder()
                         .setResolutionStrategy(
                             ResolutionStrategy(
-                                Size(320, 240),
+                                Size(640, 480),
                                 ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
                             )
                         )
                         .build()
                 )
                 .build()
-                .also { it.setAnalyzer(ContextCompat.getMainExecutor(this), detector) }
+                .also { it.setAnalyzer(analysisExecutor, frameAnalyzer) }
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(
@@ -162,6 +179,8 @@ class CaptureService : LifecycleService() {
                 )
                 startSoundDetector()
                 startNextSegment()
+                // 相机绑定成功后才值得对外提供服务：否则观看端只能拿到一个“在线但永远无画面”的设备
+                startLanServer()
             } catch (e: Exception) {
                 // 相机被其他应用占用或设备无后置镜头：让用户看到原因，而不是一直显示“采集中”
                 updateNotification(getString(R.string.camera_open_failed, e.message ?: ""))
@@ -332,12 +351,40 @@ class CaptureService : LifecycleService() {
         eventStore.markRecorded(ids, clip, clipStartMs, prev)
     }
 
+    /**
+     * 局域网服务只在值守期间存在：配对信息与令牌是持久的，但监听端口不常驻，
+     * 这样用户停止值守后，局域网里不会留下一个仍可被探测的摄像头服务。
+     */
+    private fun startLanServer() {
+        if (lanServer != null) return
+        val pairing = PairingStore(this)
+        val server = DeviceServer(this, eventStore, pairing)
+        val port = runCatching { server.start() }.getOrElse {
+            // 端口全被占用属于极端情况：采集与本地回看不受影响，只损失跨设备观看
+            Log.w(TAG, "lan server unavailable", it)
+            return
+        }
+        lanServer = server
+        val registrar = LanAdvertiser(this)
+        registrar.advertise(port, pairing.fingerprint(), Build.MODEL)
+        advertiser = registrar
+    }
+
+    private fun stopLanServer() {
+        advertiser?.stop()
+        advertiser = null
+        lanServer?.stop()
+        lanServer = null
+    }
+
     private fun stopCapture() {
         stopping = true
         running = false
         isRunning = false
         // 用户主动停止必须清除恢复标记：进程再被重建也不能把值守自己拉起来
         markGuardActive(false)
+        // 停止值守即结束直播：继续监听会让观看端以为设备仍在线，实际已无画面可推
+        stopLanServer()
         // 停止即结束检测：导出期间继续分析画面没有意义，只多耗电
         soundDetector?.stop()
         soundDetector = null
@@ -441,15 +488,20 @@ class CaptureService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        // 服务实例销毁可能发生在 stopLanServer 之前（例如系统直接回收进程），这里必须再兜一次
+        stopLanServer()
         segmentTimer.removeCallbacks(stopCurrentSegment)
         stopNetworkMonitor()
         soundDetector?.stop()
         soundDetector = null
         analysis = null
+        // 先解绑相机再关线程池：正在执行的 analyze 会继续使用 CameraX 的 ImageProxy，
+        // 顺序反过来会让 shutdownNow 中断一个仍持有相机缓冲的线程
         provider?.unbindAll()
         provider = null
         videoCapture = null
         recording = null
+        analysisExecutor.shutdownNow()
         running = false
         isRunning = false
         // 服务实例销毁后进程可能还活着，不关连接会随每次启停累积未释放的 SQLite 句柄
