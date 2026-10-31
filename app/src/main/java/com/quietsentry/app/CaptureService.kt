@@ -86,9 +86,6 @@ class CaptureService : LifecycleService() {
      */
     private val analysisExecutor = Executors.newSingleThreadExecutor()
 
-    private var lanServer: DeviceServer? = null
-    private var advertiser: LanAdvertiser? = null
-
     // 事件前覆盖（PRD FR-07）需要两样东西：本片起点用于算事件偏移，上一片用于补齐片头 5 秒
     private var segmentStartMs = 0L
     private var previousClip: File? = null
@@ -352,29 +349,11 @@ class CaptureService : LifecycleService() {
     }
 
     /**
-     * 局域网服务只在值守期间存在：配对信息与令牌是持久的，但监听端口不常驻，
-     * 这样用户停止值守后，局域网里不会留下一个仍可被探测的摄像头服务。
+     * 局域网服务由 LanServerHost 常驻，值守只是让它开始有画面可推。
+     * 这里仅做一次幂等拉起，失败不影响采集：端口全被占用属于极端情况，只损失跨设备观看。
      */
     private fun startLanServer() {
-        if (lanServer != null) return
-        val pairing = PairingStore(this)
-        val server = DeviceServer(this, eventStore, pairing)
-        val port = runCatching { server.start() }.getOrElse {
-            // 端口全被占用属于极端情况：采集与本地回看不受影响，只损失跨设备观看
-            Log.w(TAG, "lan server unavailable", it)
-            return
-        }
-        lanServer = server
-        val registrar = LanAdvertiser(this)
-        registrar.advertise(port, pairing.fingerprint(), Build.MODEL)
-        advertiser = registrar
-    }
-
-    private fun stopLanServer() {
-        advertiser?.stop()
-        advertiser = null
-        lanServer?.stop()
-        lanServer = null
+        LanServerHost.ensure(this)
     }
 
     private fun stopCapture() {
@@ -383,8 +362,8 @@ class CaptureService : LifecycleService() {
         isRunning = false
         // 用户主动停止必须清除恢复标记：进程再被重建也不能把值守自己拉起来
         markGuardActive(false)
-        // 停止值守即结束直播：继续监听会让观看端以为设备仍在线，实际已无画面可推
-        stopLanServer()
+        // 不关闭局域网监听：设备要在“在线·待机”下继续可发现、可配对，
+        // 直播则因没有新帧自然断开（LanFrameHub 长时间无帧）
         // 停止即结束检测：导出期间继续分析画面没有意义，只多耗电
         soundDetector?.stop()
         soundDetector = null
@@ -488,8 +467,6 @@ class CaptureService : LifecycleService() {
     }
 
     override fun onDestroy() {
-        // 服务实例销毁可能发生在 stopLanServer 之前（例如系统直接回收进程），这里必须再兜一次
-        stopLanServer()
         segmentTimer.removeCallbacks(stopCurrentSegment)
         stopNetworkMonitor()
         soundDetector?.stop()

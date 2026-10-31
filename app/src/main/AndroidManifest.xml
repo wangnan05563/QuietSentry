@@ -60,6 +60,12 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
+        <!-- 配对页负责颁发令牌，必须在值守与待机下都可用 -->
+        <activity
+            android:name=".PairingActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <service
             android:name=".CaptureService"
             android:exported="false"

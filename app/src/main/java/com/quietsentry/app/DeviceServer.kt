@@ -284,7 +284,7 @@ class DeviceServer(
      * 等下一帧会让观看端白屏到 2 秒以上，直接违反“打开实时画面到首帧 ≤2 秒”。
      */
     private fun handleLive(socket: Socket, req: Request, out: OutputStream) {
-        requireGrant(req, out, allowGuest = true) ?: return
+        val grant = requireGrant(req, out, allowGuest = true) ?: return
         if (viewers.incrementAndGet() > MAX_VIEWERS) {
             viewers.decrementAndGet()
             // 第 6 人明确收到提示，而不是无声地转圈（PRD FR-08 异常：并发已满）
@@ -310,7 +310,15 @@ class DeviceServer(
                 out.flush()
             }
             var idleTicks = 0
+            var lastAuthMs = System.currentTimeMillis()
             while (running) {
+                // 撤销必须在下一次心跳内生效：Owner 踢人后若画面还在继续推送，
+                // “撤销”就只是删了一条记录，PRD FR-14 的 5 秒内生效无从保证
+                val now = System.currentTimeMillis()
+                if (now - lastAuthMs >= AUTH_CHECK_MS) {
+                    lastAuthMs = now
+                    if (pairing.authenticate(grant.token) == null) break
+                }
                 val next = LanFrameHub.await(lastSequence, main, LIVE_WAIT_MS)
                 if (next == null) {
                     // 无新帧可能是相机被停止或黑屏记录模式；连续多个空窗后关闭连接，
@@ -656,10 +664,18 @@ class DeviceServer(
         private const val MAX_VIEWERS = 5
 
         private const val READ_TIMEOUT_MS = 15_000
-        private const val LIVE_WAIT_MS = 5_000L
 
-        /** 连续 3 个空窗（15 秒）无新帧即关闭直播连接，让观看端落到“设备未在直播” */
-        private const val LIVE_IDLE_TICKS = 3
+        /**
+         * 取帧等待切到 1 秒一次：这是令牌心跳的节拍上限。
+         * 若沿用 5 秒一次，撤销最长要 5 秒才被发现，再加上写入失败重试就超出 PRD 的 5 秒窗口。
+         */
+        private const val LIVE_WAIT_MS = 1_000L
+
+        /** 连续 15 个空窗（15 秒）无新帧即关闭直播连接，让观看端落到“设备未在直播” */
+        private const val LIVE_IDLE_TICKS = 15
+
+        /** 直播中的令牌复查间隔；撤销后最多 2 秒断开（含取帧等待） */
+        private const val AUTH_CHECK_MS = 2_000L
 
         private const val DEFAULT_EVENT_LIMIT = 50
         private const val MAX_EVENT_LIMIT = 200

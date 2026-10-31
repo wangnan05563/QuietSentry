@@ -93,4 +93,32 @@
     <string name="player_snapshot_failed">快照保存失败</string>
     <string name="player_pre_roll">正在播放事件前画面…</string>
     <string name="player_pre_roll_short">%1$s（可用前置画面不足 5 秒）</string>
+
+    <string name="pairing_entry">配对与设备</string>
+    <string name="pairing_title">配对与设备</string>
+    <string name="pairing_back">返回</string>
+    <string name="pairing_hint">用观看端扫描下方二维码；扫不出来时输入 6 位配对码</string>
+    <string name="pairing_qr_desc">配对二维码</string>
+    <string name="pairing_code_label">配对码 %1$s</string>
+    <string name="pairing_fingerprint">设备指纹 %1$s</string>
+    <string name="pairing_refresh">刷新配对码</string>
+    <string name="pairing_invite">邀请成员（30 分钟）</string>
+    <string name="pairing_invite_label">一次性邀请链接已生成</string>
+    <string name="pairing_invite_ready">邀请 30 分钟内一次有效，对方扫码即为访客权限</string>
+    <string name="pairing_no_address">当前没有局域网地址：请先连接 Wi-Fi，再刷新二维码</string>
+    <string name="pairing_qr_failed">二维码生成失败</string>
+    <string name="pairing_devices_title">已配对设备</string>
+    <string name="pairing_devices_empty">还没有其他设备配对</string>
+    <string name="pairing_device_longterm">长期有效</string>
+    <string name="pairing_device_expires">有效期至 %1$s</string>
+    <string name="pairing_role_owner">所有者</string>
+    <string name="pairing_role_member">成员</string>
+    <string name="pairing_role_guest">访客</string>
+    <string name="pairing_revoke">撤销</string>
+    <string name="pairing_revoke_all">撤销全部授权</string>
+    <string name="pairing_revoke_title">撤销这台设备的授权？</string>
+    <string name="pairing_revoke_message">对方将立即失去实时画面与回看权限。</string>
+    <string name="pairing_revoke_all_title">撤销全部授权？</string>
+    <string name="pairing_revoke_all_message">所有观看端都会断开，需要重新配对才能访问。</string>
+    <string name="pairing_revoked">已撤销</string>
 </resources>

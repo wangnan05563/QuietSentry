@@ -43,4 +43,5 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:${property("depCameraXVersion")}")
     implementation("androidx.camera:camera-video:${property("depCameraXVersion")}")
     implementation("androidx.camera:camera-view:${property("depCameraXVersion")}")
+    implementation("com.google.zxing:core:${property("depZxingVersion")}")
 }
