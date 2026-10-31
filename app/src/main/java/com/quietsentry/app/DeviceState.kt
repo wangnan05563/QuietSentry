@@ -19,6 +19,9 @@ object DeviceState {
         val maxViewers: Int,
         val lastEventAt: Long,
         val seenAt: Long,
+        /** 值守中但心跳超时：进程可能被系统冻结，画面已停但 HTTP 还能应答（PRD FR-13） */
+        val heartbeatStale: Boolean = false,
+        val throttled: Boolean = false,
     )
 
     fun evaluate(status: DeviceHttp.Status?, lastEventAt: Long, seenAt: Long, now: Long): View {
@@ -41,7 +44,20 @@ object DeviceState {
             maxViewers = status?.maxViewers ?: DEFAULT_MAX_VIEWERS,
             lastEventAt = maxOf(lastEventAt, status?.lastEventAt ?: 0L),
             seenAt = seenAt,
+            heartbeatStale = heartbeatStale(status),
+            throttled = status?.throttled == true,
         )
+    }
+
+    /**
+     * 只有在“声称值守”时才检查心跳：待机设备本来就不巡检，
+     * 用同一个阈值判断会把所有待机设备都误标成中断。
+     */
+    private fun heartbeatStale(status: DeviceHttp.Status?): Boolean {
+        if (status == null || status.mode != MODE_GUARD) return false
+        if (status.heartbeatAt <= 0L) return true
+        // 两端时钟可能不同步，只用相机端自己的 serverTime 相减
+        return status.serverTime - status.heartbeatAt > HEARTBEAT_TIMEOUT_MS
     }
 
     private const val MODE_GUARD = "guard"
@@ -50,4 +66,7 @@ object DeviceState {
     private const val LOW_BATTERY_PERCENT = 20
     private const val THERMAL_SEVERE = 3
     private const val LOW_STORAGE_MB = 500L
+
+    /** PRD FR-13：心跳每 30 秒一次，超过 90 秒未更新即视为疑似中断 */
+    private const val HEARTBEAT_TIMEOUT_MS = 90_000L
 }

@@ -200,6 +200,9 @@ class DeviceServer(
             .put("grants", pairing.activeGrants().size)
             .put("live", LanFrameHub.hasFrame())
             .put("lastEventAt", lastEventAt())
+            // 心跳与降载标记由 CaptureService 写入：观看端据此区分“正常采集”“降载中”与“疑似中断”
+            .put("heartbeatAt", GuardRuntime.heartbeatAt)
+            .put("throttled", GuardRuntime.throttled)
             .put("serverTime", System.currentTimeMillis())
         respond(out, 200, body.toString())
     }
@@ -580,21 +583,13 @@ class DeviceServer(
 
     /**
      * 具体温度读数需要系统权限（HardwarePropertiesManager），普通 App 只能拿热状态等级。
-     * 卡片上展示等级足够让用户理解“设备很热”，也避免伪造一个读不到的精确温度。
+     * 这里必须返回数字档位（0-6，与 PowerManager.THERMAL_STATUS_* 一致）：
+     * 之前返回 "moderate" 这类字符串，观看端用 optInt 读到的永远是 0，过热状态从未真正出现过。
      */
-    private fun thermalStatus(): String {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return "unknown"
-        val power = context.getSystemService(PowerManager::class.java) ?: return "unknown"
-        return when (power.currentThermalStatus) {
-            PowerManager.THERMAL_STATUS_NONE -> "none"
-            PowerManager.THERMAL_STATUS_LIGHT -> "light"
-            PowerManager.THERMAL_STATUS_MODERATE -> "moderate"
-            PowerManager.THERMAL_STATUS_SEVERE -> "severe"
-            PowerManager.THERMAL_STATUS_CRITICAL -> "critical"
-            PowerManager.THERMAL_STATUS_EMERGENCY -> "emergency"
-            PowerManager.THERMAL_STATUS_SHUTDOWN -> "shutdown"
-            else -> "unknown"
-        }
+    private fun thermalStatus(): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        val power = context.getSystemService(PowerManager::class.java) ?: return 0
+        return power.currentThermalStatus
     }
 
     private data class Request(

@@ -22,7 +22,7 @@ object Diagnostics {
     enum class Status { PASS, WARN, BLOCK }
 
     /** 每项检查对应的跳转目标；NONE 表示无需用户操作 */
-    enum class Target { NONE, APP_SETTINGS, NOTIFICATION, BATTERY, WIFI }
+    enum class Target { NONE, APP_SETTINGS, NOTIFICATION, BATTERY, AUTO_START, WIFI }
 
     data class Check(
         val label: String,
@@ -35,6 +35,7 @@ object Diagnostics {
         add(camera(context))
         add(notification(context))
         add(battery(context))
+        add(autoStart(context))
         add(service(context))
         add(network(context))
         add(storage(context))
@@ -86,6 +87,24 @@ object Diagnostics {
             status = if (exempt) Status.PASS else Status.WARN,
             detail = context.getString(if (exempt) R.string.diag_exempt else R.string.diag_not_exempt),
             target = if (exempt) Target.NONE else Target.BATTERY,
+        )
+    }
+
+    /**
+     * 自启动没有标准 API 可查：各 ROM 的白名单是私有数据库，第三方应用读不到。
+     * 因此按厂商给出“需要手动确认”的提示，而不是伪造一个“已允许”的结论；
+     * AOSP 类系统只要声明了 RECEIVE_BOOT_COMPLETED 就能收到广播，视为通过。
+     */
+    private fun autoStart(context: Context): Check {
+        val brand = "${Build.MANUFACTURER} ${Build.BRAND}".lowercase(Locale.US)
+        val restricted = LIMITED_AUTOSTART_BRANDS.any { brand.contains(it) }
+        return Check(
+            label = context.getString(R.string.diag_autostart),
+            status = if (restricted) Status.WARN else Status.PASS,
+            detail = context.getString(
+                if (restricted) R.string.diag_autostart_manual else R.string.diag_autostart_ok
+            ),
+            target = if (restricted) Target.AUTO_START else Target.NONE,
         )
     }
 
@@ -164,4 +183,10 @@ object Diagnostics {
     }.getOrNull() ?: "unknown"
 
     private const val LOW_STORAGE_MB = 500L
+
+    /** 定制系统普遍在“应用启动管理”里另设自启动开关，默认关闭 */
+    private val LIMITED_AUTOSTART_BRANDS = listOf(
+        "xiaomi", "redmi", "huawei", "honor", "oppo", "realme",
+        "vivo", "iqoo", "meizu", "samsung", "asus", "lenovo",
+    )
 }

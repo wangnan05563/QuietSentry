@@ -98,6 +98,17 @@ class CaptureService : LifecycleService() {
     private val segmentTimer = Handler(Looper.getMainLooper())
     private val stopCurrentSegment = Runnable { recording?.stop() }
 
+    /**
+     * 电源守护（PRD FR-13）：每 30 秒检查一次电量、温度与“未充电时长”。
+     * 与心跳同频既省唤醒，也让观看端看到的心跳间隔与降载判定是同一时刻的结论。
+     */
+    private val powerTimer = Handler(Looper.getMainLooper())
+    private val powerTick = Runnable { checkPower() }
+
+    /** 本次值守中“开始未充电”的时刻；充电后清零，用来算 PRD O2 的 2 小时限制 */
+    private var unpluggedSince = 0L
+    private var lastThrottled = false
+
     override fun onCreate() {
         super.onCreate()
         createChannel()
@@ -123,8 +134,25 @@ class CaptureService : LifecycleService() {
         stopping = false
         running = true
         isRunning = true
+        // 标记仍是“值守中”说明上次是被杀或设备重启：这就是被杀检测的证据，先记账再继续采集
+        if (GuardState.isActive(this)) {
+            val count = GuardState.crashCount(this) + 1
+            GuardState.setCrashCount(this, count)
+            if (count >= GuardState.CRASH_ADVICE_THRESHOLD) {
+                notifier.showGuardNote(
+                    getString(R.string.power_crash_title),
+                    getString(R.string.power_crash_body, count)
+                )
+            }
+        }
         markGuardActive(true)
         sessionStartMs = System.currentTimeMillis()
+        unpluggedSince = 0L
+        lastThrottled = false
+        // 心跳与降载标记只活在内存里：新一轮值守必须从干净状态起步，否则重启后会沿用上一次的降载状态
+        GuardRuntime.reset()
+        GuardRuntime.beat()
+        schedulePowerTick()
         // 上一次进程被杀会留下未收敛的分片，先修复再开新片，避免索引里出现打不开的文件
         repairInterruptedClips()
         // 启动即执行一次保留策略：进程可能已经很久没运行过，期间新录的内容可能已超出过期或配额
@@ -146,11 +174,21 @@ class CaptureService : LifecycleService() {
             ) { confidence, thumbnail ->
                 onDetected(EventType.MOTION, R.string.detection_motion, confidence, thumbnail)
             }
+            // 帧计数只服务于降载档的隔帧判定；分析器是单线程回调，无需加锁
+            var frameCount = 0
             val frameAnalyzer = ImageAnalysis.Analyzer { image ->
-                // 先发布到实时流再交给检测器；检测器负责 image.close()，
-                // 这里不能提前关闭，否则 JPEG 编码与运动检测都会拿到失效缓冲
-                LanFrameHub.publish(image)
-                detector.analyze(image)
+                // 降载档（PRD FR-13）关闭实时推流并隔帧分析：省电的代价必须落在“推流与画质”上，
+                // 不能变成停止检测——否则用户会以为值守还在，实际整段时间都录不到事件
+                frameCount++
+                if (!GuardRuntime.throttled) LanFrameHub.publish(image)
+                if (GuardRuntime.throttled && frameCount % THROTTLE_FRAME_SKIP != 0) {
+                    // 跳过的帧必须自己关闭，漏掉一次相机缓冲就会卡死整条分析管线
+                    image.close()
+                } else {
+                    // 先发布到实时流再交给检测器；检测器负责 image.close()，
+                    // 这里不能提前关闭，否则 JPEG 编码与运动检测都会拿到失效缓冲
+                    detector.analyze(image)
+                }
             }
             analysis = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -362,6 +400,9 @@ class CaptureService : LifecycleService() {
         isRunning = false
         // 用户主动停止必须清除恢复标记：进程再被重建也不能把值守自己拉起来
         markGuardActive(false)
+        // 停掉电源巡检再清运行态：留着定时器会让已经收尾的服务继续被唤醒
+        powerTimer.removeCallbacks(powerTick)
+        GuardRuntime.reset()
         // 不关闭局域网监听：设备要在“在线·待机”下继续可发现、可配对，
         // 直播则因没有新帧自然断开（LanFrameHub 长时间无帧）
         // 停止即结束检测：导出期间继续分析画面没有意义，只多耗电
@@ -399,17 +440,89 @@ class CaptureService : LifecycleService() {
     }
 
     /**
+     * 电源巡检（PRD FR-13）：同一时刻刷新心跳，观看端据此判断“进程还在但采集卡住”。
+     * 判定与心跳必须同源，否则会出现“心跳新、状态旧”的自相矛盾读数。
+     */
+    private fun schedulePowerTick() {
+        powerTimer.removeCallbacks(powerTick)
+        if (!running) return
+        powerTimer.postDelayed(powerTick, POWER_CHECK_INTERVAL_MS)
+    }
+
+    private fun checkPower() {
+        if (!running || stopping) return
+        GuardRuntime.beat()
+        val snapshot = PowerGuard.snapshot(this)
+        val now = System.currentTimeMillis()
+        // 未充电计时从本场值守起点算：在此之前没人记账，从会话起点起步才符合“最多跑 2 小时”的承诺
+        if (snapshot.charging) {
+            unpluggedSince = 0L
+        } else if (unpluggedSince == 0L) {
+            unpluggedSince = if (sessionStartMs > 0L) sessionStartMs else now
+        }
+        val overTime = PowerGuard.chargeOnly(this) &&
+            unpluggedSince > 0L && now - unpluggedSince >= PowerGuard.UNPLUGGED_LIMIT_MS
+        val action = PowerGuard.evaluate(snapshot)
+        val reason = when {
+            action == PowerGuard.Action.STOP -> PowerGuard.reason(snapshot, action)
+            // 限时是用户设定的策略，优先级低于设备安全：热或电量已经要停时不再改写停止原因
+            overTime -> PowerGuard.Reason.TIME_LIMIT
+            else -> PowerGuard.Reason.NONE
+        }
+        if (reason != PowerGuard.Reason.NONE) {
+            stopForPower(reason, snapshot)
+            return
+        }
+        applyThrottle(action == PowerGuard.Action.THROTTLE, snapshot)
+        schedulePowerTick()
+    }
+
+    /**
+     * 降载只在状态切换时提示：每 30 秒刷一次通知会让必须常驻的通知变成骚扰源。
+     */
+    private fun applyThrottle(on: Boolean, snapshot: PowerGuard.Snapshot) {
+        GuardRuntime.throttled = on
+        if (on == lastThrottled) return
+        lastThrottled = on
+        if (on) {
+            val text = powerText(PowerGuard.reason(snapshot, PowerGuard.Action.THROTTLE), snapshot)
+            updateNotification(text)
+            notifier.showGuardNote(getString(R.string.power_note_title), text)
+        } else {
+            updateNotification(getString(R.string.capture_running))
+        }
+    }
+
+    private fun powerText(reason: PowerGuard.Reason, snapshot: PowerGuard.Snapshot): String = when (reason) {
+        PowerGuard.Reason.HEAT -> getString(R.string.power_throttle_heat)
+        PowerGuard.Reason.LOW_BATTERY -> getString(R.string.power_throttle_low, snapshot.battery)
+        else -> getString(R.string.capture_running)
+    }
+
+    /**
+     * 自动停止必须留下可追溯的原因：用户往往人不在场，只有通知能解释“为什么停了”。
+     * 先在通知里写明原因再停服务，顺序反过来通知会被停止流程覆盖成“正在保存”。
+     */
+    private fun stopForPower(reason: PowerGuard.Reason, snapshot: PowerGuard.Snapshot) {
+        val text = when (reason) {
+            PowerGuard.Reason.HEAT_STOP -> getString(R.string.power_stop_heat)
+            PowerGuard.Reason.TIME_LIMIT -> getString(R.string.power_stop_time)
+            else -> getString(R.string.power_stop_low, snapshot.battery)
+        }
+        updateNotification(text)
+        notifier.showGuardNote(getString(R.string.power_stop_title), text)
+        stopCapture()
+        // stopCapture 会清空运行态，停止原因要放在它之后再写，否则观看端读不到原因
+        GuardRuntime.stoppedReason = reason
+    }
+
+    /**
      * 为什么要落盘而不是只靠 running 字段：START_STICKY 重建发生在全新服务实例里，
      * 内存状态早已清零，只有持久化标记才能区分“系统杀进程”和“用户点了停止”。
      */
-    private fun markGuardActive(active: Boolean) {
-        getSharedPreferences(PREFS_GUARD, MODE_PRIVATE).edit()
-            .putBoolean(KEY_GUARD_ACTIVE, active)
-            .apply()
-    }
+    private fun markGuardActive(active: Boolean) = GuardState.setActive(this, active)
 
-    private fun wasGuardActive(): Boolean =
-        getSharedPreferences(PREFS_GUARD, MODE_PRIVATE).getBoolean(KEY_GUARD_ACTIVE, false)
+    private fun wasGuardActive(): Boolean = GuardState.isActive(this)
 
     private fun hasAudioPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
@@ -468,6 +581,7 @@ class CaptureService : LifecycleService() {
 
     override fun onDestroy() {
         segmentTimer.removeCallbacks(stopCurrentSegment)
+        powerTimer.removeCallbacks(powerTick)
         stopNetworkMonitor()
         soundDetector?.stop()
         soundDetector = null
@@ -512,9 +626,11 @@ class CaptureService : LifecycleService() {
         /** “最近删除”保留期（PRD O6：7 天），超期后才允许物理清除索引与私有文件。 */
         private val DELETED_RETAIN_MS = 7L * 24 * 60 * 60 * 1000
 
-        /** 值守恢复标记；只在本服务读写，避免与其他偏好项混在同一个文件里。 */
-        private const val PREFS_GUARD = "guard_state"
-        private const val KEY_GUARD_ACTIVE = "guard_active"
+        /** 电源巡检间隔（PRD FR-13 要求每 30 秒一次心跳） */
+        private const val POWER_CHECK_INTERVAL_MS = 30_000L
+
+        /** 降载档隔一帧分析：帧率减半仍能捕捉运动起始，又实实在在省下一半推理电量 */
+        private const val THROTTLE_FRAME_SKIP = 2
 
         /** 供界面判断值守是否在运行；相机是独占资源，值守与黑屏模式不能同时绑定。仅由本服务写入。 */
         @Volatile

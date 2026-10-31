@@ -281,6 +281,9 @@ class DeviceListActivity : AppCompatActivity() {
             if (state.watching > 0) {
                 parts += getString(R.string.device_card_watching, state.watching, state.maxViewers)
             }
+            // 心跳断了说明采集已停但服务还在应答，这比“离线”更容易被忽略，必须显式提示
+            if (state.heartbeatStale) parts += getString(R.string.device_card_interrupted)
+            if (state.throttled) parts += getString(R.string.device_card_throttled)
         }
         parts += getString(R.string.device_card_last_event, relativeTime(state.lastEventAt, now))
         return parts.joinToString(" · ")

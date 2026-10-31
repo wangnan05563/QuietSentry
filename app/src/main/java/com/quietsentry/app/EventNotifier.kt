@@ -72,6 +72,30 @@ class EventNotifier(private val context: Context) {
         NotificationManagerCompat.from(context).notify(OFFLINE_SUMMARY_ID, builder.build())
     }
 
+    /**
+     * 值守被中断或降载的告知（PRD FR-13：「把每一次失败都变成一次可解释的提示」）。
+     * 走 info 通道而不是紧急通道：这不是入侵告警，用户不需要被强制唤醒，
+     * 但必须在通知栏留下证据，不能像静默失败那样消失。
+     */
+    fun showGuardNote(title: String, body: String) {
+        if (!canNotify()) return
+        val builder = NotificationCompat.Builder(context, CHANNEL_INFO)
+            .setSmallIcon(android.R.drawable.presence_video_online)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(openApp())
+        NotificationManagerCompat.from(context).notify(GUARD_NOTE_ID, builder.build())
+    }
+
+    /** 重启前正在值守：平台不允许开机自动恢复采集，只能提示用户回来确认 */
+    fun notifyRestart() = showGuardNote(
+        context.getString(R.string.power_restart_title),
+        context.getString(R.string.power_restart_body)
+    )
+
     private fun create(id: String, nameRes: Int, importance: Int) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(
@@ -130,5 +154,6 @@ class EventNotifier(private val context: Context) {
         // 事件通知与常驻值守通知（1001）分段使用 id 区间，避免互相覆盖
         private const val EVENT_ID_BASE = 2000
         private const val OFFLINE_SUMMARY_ID = 2100
+        private const val GUARD_NOTE_ID = 2200
     }
 }

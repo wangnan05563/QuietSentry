@@ -15,6 +15,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
@@ -110,14 +111,19 @@ class MainActivity : AppCompatActivity() {
                 statusText.text = getString(R.string.notification_required)
                 return@setOnClickListener
             }
-            // 未豁免时弹系统对话框：实测锁屏 7 分钟后 Samsung 会冻结 UID，前台服务挡不住
-            requestBatteryExemption()
-            ContextCompat.startForegroundService(
-                this,
-                Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_START)
-            )
-            // 服务启动会 unbindAll 抢走相机，界面预览先收起来，避免留下一个永远黑屏的取景框
-            suppressPreview()
+            // PRD O2/FR-13：仅充电时值守默认开启，未接电源必须先确认“限时 2 小时”。
+            // 不确认就直接跑，用户会以为能守一整晚，到点自动停止时人不在场也找不到原因
+            val snapshot = PowerGuard.snapshot(this)
+            if (PowerGuard.chargeOnly(this) && !snapshot.charging) {
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.power_unplugged_title)
+                    .setMessage(R.string.power_unplugged_message)
+                    .setPositiveButton(R.string.power_unplugged_confirm) { _, _ -> beginGuard() }
+                    .setNegativeButton(R.string.power_unplugged_cancel, null)
+                    .show()
+                return@setOnClickListener
+            }
+            beginGuard()
         }
         stopButton.setOnClickListener {
             // 导出要等最后一个分片 Finalize 后才开始，先给出“正在保存”提示并禁用以防重复点击
@@ -225,6 +231,21 @@ class MainActivity : AppCompatActivity() {
     private fun hasNotificationPermission(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+
+    /**
+     * 真正的启动动作：先申请电池豁免，再拉起前台服务并收起预览。
+     * 单独抽出是因为“未接电源确认”和“直接启动”两条路径都必须走同一套副作用。
+     */
+    private fun beginGuard() {
+        // 未豁免时弹系统对话框：实测锁屏 7 分钟后 Samsung 会冻结 UID，前台服务挡不住
+        requestBatteryExemption()
+        ContextCompat.startForegroundService(
+            this,
+            Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_START)
+        )
+        // 服务启动会 unbindAll 抢走相机，界面预览先收起来，避免留下一个永远黑屏的取景框
+        suppressPreview()
+    }
 
     /**
      * ROM 对未豁免应用有独立的“锁屏冻结”策略，camera 类型前台服务并不在豁免范围内。

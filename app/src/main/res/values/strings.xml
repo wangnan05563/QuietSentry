@@ -264,4 +264,26 @@
     <string name="diag_denied">未授予</string>
     <string name="diag_exempt">已豁免</string>
     <string name="diag_not_exempt">未豁免，锁屏后可能被系统冻结</string>
+
+    <!-- PRD FR-13 保活、电源与充电策略 -->
+    <string name="power_note_title">静哨 · 已进入省电降载</string>
+    <string name="power_throttle_low">电量 %1$d%% · 已暂停实时画面，事件检测继续</string>
+    <string name="power_throttle_heat">机身过热 · 已暂停实时画面，事件检测继续</string>
+    <string name="power_stop_title">静哨 · 值守已自动停止</string>
+    <string name="power_stop_low">电量 %1$d%% 过低，已停止值守以保护设备</string>
+    <string name="power_stop_heat">机身温度过高，已停止值守以保护设备</string>
+    <string name="power_stop_time">未接电源已满 2 小时，已按“仅充电时值守”停止</string>
+    <string name="power_restart_title">静哨 · 设备已重启</string>
+    <string name="power_restart_body">上次值守因设备重启而中断。打开应用可一键恢复值守。</string>
+    <string name="power_crash_title">静哨 · 值守反复被中断</string>
+    <string name="power_crash_body">本次值守已连续 %1$d 次异常启动。建议改用常电供电并降低画质，减少系统在后台回收。</string>
+    <string name="power_unplugged_title">未连接电源</string>
+    <string name="power_unplugged_message">当前开启了“仅充电时值守”，但设备没有接电源。继续将以限时 2 小时运行，到点自动停止。</string>
+    <string name="power_unplugged_confirm">仍然开始</string>
+    <string name="power_unplugged_cancel">先接电源</string>
+    <string name="device_card_interrupted">画面疑似中断</string>
+    <string name="device_card_throttled">已省电降载</string>
+    <string name="diag_autostart">开机自启动</string>
+    <string name="diag_autostart_ok">系统允许开机后自启动</string>
+    <string name="diag_autostart_manual">多数定制系统默认禁止，需在系统设置里手动允许自启动</string>
 </resources>

@@ -30,6 +30,12 @@ object DeviceHttp {
         val watching: Int,
         val maxViewers: Int,
         val lastEventAt: Long,
+        /** 相机端最近一次电源巡检时间；0 表示本次进程还没有值守心跳 */
+        val heartbeatAt: Long = 0L,
+        /** 相机端时间戳：心跳年龄用两端各自的时钟算会在时区/校时差异下失真，必须同源相减 */
+        val serverTime: Long = 0L,
+        /** 相机端是否处于省电降载（停推流、隔帧检测） */
+        val throttled: Boolean = false,
     )
 
     data class PairResult(val token: String, val role: String, val fingerprint: String)
@@ -59,6 +65,9 @@ object DeviceHttp {
             // 上限由服务端下发；旧版本服务端不返回时按 5 兜底，界面仍可显示 “2/5”
             maxViewers = json.optInt("maxViewers", DEFAULT_MAX_VIEWERS),
             lastEventAt = json.optLong("lastEventAt"),
+            heartbeatAt = json.optLong("heartbeatAt"),
+            serverTime = json.optLong("serverTime"),
+            throttled = json.optBoolean("throttled"),
         )
     }
 
