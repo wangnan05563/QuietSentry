@@ -12,7 +12,12 @@ import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
+import android.util.Size
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Recorder
@@ -50,6 +55,8 @@ class CaptureService : LifecycleService() {
 
     private var provider: ProcessCameraProvider? = null
     private var videoCapture: VideoCapture<Recorder>? = null
+    private var analysis: ImageAnalysis? = null
+    private var soundDetector: SoundDetector? = null
     private var recording: Recording? = null
     private var running = false
     private var stopping = false
@@ -96,9 +103,33 @@ class CaptureService : LifecycleService() {
             provider = cameraProvider
             val capture = VideoCapture.withOutput(Recorder.Builder().build())
             videoCapture = capture
+            // 运动检测复用同一路相机流；分析路用 320x240，逐块帧差不需要高分辨率
+            val detector = MotionDetector(DETECTION_SENSITIVITY, MotionDetector.ALL_GRID) {
+                onDetected(R.string.detection_motion, it)
+            }
+            analysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setResolutionSelector(
+                    ResolutionSelector.Builder()
+                        .setResolutionStrategy(
+                            ResolutionStrategy(
+                                Size(320, 240),
+                                ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                            )
+                        )
+                        .build()
+                )
+                .build()
+                .also { it.setAnalyzer(ContextCompat.getMainExecutor(this), detector) }
             try {
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(cameraOwner, CameraSelector.DEFAULT_BACK_CAMERA, capture)
+                cameraProvider.bindToLifecycle(
+                    cameraOwner,
+                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    capture,
+                    analysis
+                )
+                startSoundDetector()
                 startNextSegment()
             } catch (e: Exception) {
                 // 相机被其他应用占用或设备无后置镜头：让用户看到原因，而不是一直显示“采集中”
@@ -170,10 +201,28 @@ class CaptureService : LifecycleService() {
         }
     }
 
+    private fun startSoundDetector() {
+        soundDetector = SoundDetector(DETECTION_SENSITIVITY) {
+            onDetected(R.string.detection_sound, it)
+        }.also { it.start(this) }
+    }
+
+    /** 运动与声音两条检测线程各走各的，统一切回主线程再更新通知。 */
+    private fun onDetected(typeRes: Int, confidence: Int) {
+        segmentTimer.post {
+            val time = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+            updateNotification(getString(typeRes, time))
+            Log.i(TAG, "detected type=$typeRes time=$time confidence=$confidence")
+        }
+    }
+
     private fun stopCapture() {
         stopping = true
         running = false
         isRunning = false
+        // 停止即结束检测：导出期间继续分析画面没有意义，只多耗电
+        soundDetector?.stop()
+        soundDetector = null
         // 先摘掉计时器，避免它落在一个已经不存在的录制上
         segmentTimer.removeCallbacks(stopCurrentSegment)
         val active = recording
@@ -257,6 +306,9 @@ class CaptureService : LifecycleService() {
 
     override fun onDestroy() {
         segmentTimer.removeCallbacks(stopCurrentSegment)
+        soundDetector?.stop()
+        soundDetector = null
+        analysis = null
         provider?.unbindAll()
         provider = null
         videoCapture = null
@@ -274,6 +326,11 @@ class CaptureService : LifecycleService() {
         private const val REQUEST_STOP = 1
         private const val REQUEST_OPEN = 2
         private const val CHECK_EVERY_SEGMENTS = 10
+
+        /** 检测灵敏度 1-5（PRD FR-07），默认居中；调参入口在设置页（W20）落地后接入 */
+        private const val DETECTION_SENSITIVITY = 3
+
+        private const val TAG = "QuietSentry"
 
         /** 分片时长上限；PRD §10 约定 30 秒，兼顾“被杀损失最小”与“文件数量可接受”。 */
         private const val SEGMENT_DURATION_MS = 30_000L
