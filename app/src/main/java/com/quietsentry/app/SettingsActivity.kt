@@ -1,14 +1,18 @@
 package com.quietsentry.app
 
+import android.app.AlertDialog
 import android.app.TimePickerDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.text.InputType
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioGroup
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,9 +37,18 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var levelGroup: RadioGroup
     private lateinit var resultContainer: LinearLayout
     private lateinit var summary: TextView
+    private lateinit var pinSwitch: SwitchCompat
+    private lateinit var pinChange: Button
+    private lateinit var maskButton: Button
 
     private var quiet = AlertPolicy.Quiet(false, 0, 0)
     private var checks: List<Diagnostics.Check> = emptyList()
+
+    /** 程序化回填开关同样会触发监听器，用它区分"用户操作"与"渲染状态" */
+    private var renderingPin = false
+
+    /** 降低保护的动作已在本页确认过本人，会话内不重复弹 PIN */
+    private var pinVerified = false
 
     private val createDocument = registerForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
@@ -53,6 +66,23 @@ class SettingsActivity : AppCompatActivity() {
         ).show()
     }
 
+    private val createAuditDocument = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val ok = runCatching {
+            contentResolver.openOutputStream(uri)?.use {
+                it.write(AuditLog.exportText(this).toByteArray())
+            } ?: error("no stream")
+        }.isSuccess
+        if (ok) AuditLog.record(this, AuditLog.EXPORT, "导出审计日志")
+        Toast.makeText(
+            this,
+            if (ok) R.string.audit_export_saved else R.string.audit_export_failed,
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
@@ -64,6 +94,9 @@ class SettingsActivity : AppCompatActivity() {
         levelGroup = findViewById(R.id.settings_level_group)
         resultContainer = findViewById(R.id.settings_diag_result)
         summary = findViewById(R.id.settings_diag_summary)
+        pinSwitch = findViewById(R.id.settings_pin_switch)
+        pinChange = findViewById(R.id.settings_pin_change)
+        maskButton = findViewById(R.id.settings_mask)
 
         findViewById<Button>(R.id.settings_back).setOnClickListener { finish() }
         findViewById<Button>(R.id.settings_diag_run).setOnClickListener { runDiagnostics() }
@@ -97,6 +130,139 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         renderLastSummary()
+        bindPrivacy()
+    }
+
+    private fun bindPrivacy() {
+        renderPin()
+        renderMask()
+        pinSwitch.setOnCheckedChangeListener { _, checked ->
+            if (renderingPin) return@setOnCheckedChangeListener
+            if (checked) requestSetPin() else requestClearPin()
+        }
+        pinChange.setOnClickListener { ensureUnlocked { requestSetPin() } }
+        maskButton.setOnClickListener { showMaskChooser() }
+        findViewById<Button>(R.id.settings_audit_open).setOnClickListener { showAudit() }
+    }
+
+    private fun renderPin() {
+        val hasPin = PrivacyGuard.hasPin(this)
+        renderingPin = true
+        pinSwitch.isChecked = hasPin
+        renderingPin = false
+        // 没有 PIN 时“修改”没有对象，禁用比点了再报错更省一次操作
+        pinChange.isEnabled = hasPin
+    }
+
+    /**
+     * 关闭或修改应用锁都只会降低保护强度，必须确认是本人操作。
+     * 校验放在动作之前而不是页面创建时：只是看看设置不该被反复挡在门外。
+     */
+    private fun ensureUnlocked(onOk: () -> Unit) {
+        if (pinVerified || PrivacyGuard.allow(this)) {
+            pinVerified = true
+            onOk()
+            return
+        }
+        PrivacyGuard.prompt(this) { ok ->
+            if (ok) {
+                pinVerified = true
+                onOk()
+            } else {
+                // 取消或输错都要按真实存储状态回填，否则开关停在“开”而实际并未开启
+                renderPin()
+            }
+        }
+    }
+
+    private fun requestSetPin() {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = getString(R.string.pin_hint)
+            setSingleLine()
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.pin_set_title)
+            .setMessage(R.string.pin_set_hint)
+            .setView(input)
+            .setPositiveButton(R.string.pin_ok) { _, _ -> applyPin(input.text.toString()) }
+            .setNegativeButton(R.string.pin_cancel) { _, _ -> renderPin() }
+            // 返回键关闭也要回填，否则开关停在“开”，用户会以为 PIN 已经设成
+            .setOnCancelListener { renderPin() }
+            .show()
+    }
+
+    private fun applyPin(pin: String) {
+        val ok = PrivacyGuard.setPin(this, pin)
+        Toast.makeText(
+            this,
+            if (ok) R.string.pin_set_done else R.string.pin_format_invalid,
+            Toast.LENGTH_SHORT
+        ).show()
+        if (ok) pinVerified = true
+        renderPin()
+    }
+
+    private fun requestClearPin() = ensureUnlocked {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.pin_clear_title)
+            .setMessage(R.string.pin_clear_message)
+            .setPositiveButton(R.string.pin_ok) { _, _ ->
+                PrivacyGuard.clearPin(this)
+                Toast.makeText(this, R.string.pin_cleared, Toast.LENGTH_SHORT).show()
+                renderPin()
+            }
+            .setNegativeButton(R.string.pin_cancel) { _, _ -> renderPin() }
+            .setOnCancelListener { renderPin() }
+            .show()
+    }
+
+    private fun showMaskChooser() {
+        val modes = PrivacyGuard.MaskMode.entries
+        val labels = modes.map { getString(it.labelRes) }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_mask)
+            .setSingleChoiceItems(
+                labels.toTypedArray(),
+                modes.indexOf(PrivacyGuard.maskMode(this))
+            ) { dialog, which ->
+                PrivacyGuard.setMaskMode(this, modes[which])
+                renderMask()
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.pin_cancel, null)
+            .show()
+    }
+
+    private fun renderMask() {
+        val label = getString(PrivacyGuard.maskMode(this).labelRes)
+        maskButton.text = getString(R.string.settings_mask_value, label)
+    }
+
+    private fun showAudit() {
+        val entries = AuditLog.recent(this, AUDIT_LIMIT)
+        val body = if (entries.isEmpty()) {
+            getString(R.string.audit_empty)
+        } else {
+            val format = SimpleDateFormat("MM-dd HH:mm:ss", Locale.US)
+            entries.joinToString("\n") {
+                "${format.format(Date(it.at))} [${AuditLog.typeLabel(it.type)}] ${it.detail}"
+            }
+        }
+        // 上百条记录会超出对话框可视高度，套一层滚动容器，否则只能看到开头几条
+        val text = TextView(this).apply {
+            this.text = body
+            textSize = 13f
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.audit_title)
+            .setView(ScrollView(this).apply { addView(text) })
+            .setPositiveButton(R.string.pin_ok, null)
+            .setNeutralButton(R.string.settings_audit_export) { _, _ ->
+                createAuditDocument.launch("quietsentry-audit.txt")
+            }
+            .show()
     }
 
     private fun persistQuiet() {
@@ -241,5 +407,8 @@ class SettingsActivity : AppCompatActivity() {
         const val KEY_DIAG_PASS = "pass"
         const val KEY_DIAG_WARN = "warn"
         const val KEY_DIAG_BLOCK = "block"
+
+        /** 审计页一次最多拉 100 条：再多也没人逐条读完，徒增滚动与拼串成本 */
+        const val AUDIT_LIMIT = 100
     }
 }

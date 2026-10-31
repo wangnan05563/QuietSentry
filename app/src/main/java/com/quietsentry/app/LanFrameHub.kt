@@ -1,6 +1,10 @@
 package com.quietsentry.app
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import androidx.camera.core.ImageProxy
 import java.io.ByteArrayOutputStream
 
@@ -40,7 +44,22 @@ object LanFrameHub {
     private var sequence = 0L
     private var lastPublishMs = 0L
 
+    /**
+     * 隐私遮罩区域（归一化 0~1）。由 PrivacyGuard 注入，默认为空。
+     * 放在这里而不是每次编码前读磁盘 prefs：12fps 下每秒读 12 次共享偏好既浪费又拖慢编码线程。
+     */
+    @Volatile
+    private var maskRegions: Array<FloatArray>? = null
+
+    private val maskPaint = Paint().apply { color = Color.BLACK; style = Paint.Style.FILL }
+
     fun hasFrame(): Boolean = mainFrame != null
+
+    fun setMask(regions: List<FloatArray>?) {
+        maskRegions = regions?.takeIf { it.isNotEmpty() }?.toTypedArray()
+    }
+
+    fun maskEnabled(): Boolean = maskRegions != null
 
     /**
      * 从相机分析帧发布。调用方仍负责 image.close()，
@@ -50,11 +69,33 @@ object LanFrameHub {
         val now = System.currentTimeMillis()
         if (now - lastPublishMs < MIN_PUBLISH_INTERVAL_MS) return
         val bitmap = runCatching { image.toBitmap() }.getOrNull() ?: return
+        // 遮罩要画在不透明副本上：CameraX 交出的 Bitmap 是不可变的，直接 draw 会抛异常
+        val masked = runCatching { maskedCopy(bitmap) }.getOrNull()
         try {
-            publishBitmap(bitmap, now)
+            publishBitmap(masked ?: bitmap, now)
         } finally {
+            masked?.recycle()
             bitmap.recycle()
         }
+    }
+
+    /** 有遮罩才复制一份并涂黑；无遮罩时直接返回 null，避免每帧多做一次全图拷贝 */
+    private fun maskedCopy(source: Bitmap): Bitmap? {
+        val regions = maskRegions ?: return null
+        val copy = source.copy(Bitmap.Config.ARGB_8888, true) ?: return null
+        val canvas = Canvas(copy)
+        regions.forEach { region ->
+            canvas.drawRect(
+                RectF(
+                    region[0] * copy.width,
+                    region[1] * copy.height,
+                    region[2] * copy.width,
+                    region[3] * copy.height,
+                ),
+                maskPaint
+            )
+        }
+        return copy
     }
 
     /**

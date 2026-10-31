@@ -131,6 +131,8 @@ class DeviceServer(
             req.method == "GET" && req.path == "/api/live" -> handleLive(socket, req, out)
             req.method == "POST" && req.path == "/api/leave" -> handleLeave(req, out)
             req.method == "POST" && req.path == "/api/revoke" -> handleRevoke(req, out)
+            // 远程暂停（PRD FR-14）：Owner/Member 都可请求，Guest 不能
+            req.method == "POST" && req.path == "/api/pause" -> handlePause(req, out)
             else -> respond(out, 404, errorBody("not_found"))
         }
     }
@@ -165,6 +167,7 @@ class DeviceServer(
             // 邀请令牌自带有效期，兑换成功即失效（PairingStore 负责），这里只做角色降级
             val grant = pairing.redeemInvite(invite, publicKey)
                 ?: return respond(out, 403, errorBody("invalid_invite"))
+            AuditLog.record(context, AuditLog.PAIR, "配对成功 role=${grant.role.raw} invite")
             return respond(out, 200, grantJson(grant).toString())
         }
         val code = body.optString("code")
@@ -174,6 +177,8 @@ class DeviceServer(
         val role = if (hasOwner) PairingStore.Role.MEMBER else PairingStore.Role.OWNER
         val grant = pairing.pair(publicKey, role, 0L, code)
             ?: return respond(out, 403, errorBody("invalid_code"))
+        // 审计只记角色与来源方式，不记配对码与令牌：日志一旦泄露不能变成第二把钥匙
+        AuditLog.record(context, AuditLog.PAIR, "配对成功 role=${grant.role.raw} code")
         respond(out, 200, grantJson(grant).toString())
     }
 
@@ -203,6 +208,9 @@ class DeviceServer(
             // 心跳与降载标记由 CaptureService 写入：观看端据此区分“正常采集”“降载中”与“疑似中断”
             .put("heartbeatAt", GuardRuntime.heartbeatAt)
             .put("throttled", GuardRuntime.throttled)
+            // 暂停状态与遮罩状态必须由观看端可见：不然用户只会看到"设备离线"，无从判断是被人为暂停
+            .put("paused", GuardState.isPaused(context))
+            .put("masked", LanFrameHub.maskEnabled())
             .put("serverTime", System.currentTimeMillis())
         respond(out, 200, body.toString())
     }
@@ -369,6 +377,7 @@ class DeviceServer(
     private fun handleLeave(req: Request, out: OutputStream) {
         val grant = grantOf(req) ?: return respond(out, 401, errorBody("unauthorized"))
         pairing.revoke(grant.token)
+        AuditLog.record(context, AuditLog.LEAVE, "观看端主动离开 role=${grant.role.raw}")
         respond(out, 200, JSONObject().put("ok", true).toString())
     }
 
@@ -382,11 +391,13 @@ class DeviceServer(
             ?: return respond(out, 400, errorBody("bad_json"))
         if (body.optBoolean("all")) {
             pairing.revokeAll()
+            AuditLog.record(context, AuditLog.REVOKE, "撤销全部授权")
             return respond(out, 200, JSONObject().put("ok", true).toString())
         }
         val token = body.optString("token").takeIf { it.isNotEmpty() }
         if (token != null) {
             pairing.revoke(token)
+            AuditLog.record(context, AuditLog.REVOKE, "撤销单个令牌")
             return respond(out, 200, JSONObject().put("ok", true).toString())
         }
         val fingerprint = body.optString("fingerprint").takeIf { it.isNotEmpty() }
@@ -394,7 +405,21 @@ class DeviceServer(
         // PairingStore 的撤销以令牌为单位；指纹是用户可见的稳定标识，这里做一次映射
         val targets = pairing.activeGrants().filter { it.fingerprint == fingerprint }
         targets.forEach { pairing.revoke(it.token) }
+        AuditLog.record(context, AuditLog.REVOKE, "按指纹撤销 ${targets.size} 个授权")
         respond(out, 200, JSONObject().put("ok", true).put("revoked", targets.size).toString())
+    }
+
+    /** 观看端请求暂停采集：暂停动作由 CaptureService 在服务内完成，服务没在跑就没有可暂停的对象 */
+    private fun handlePause(req: Request, out: OutputStream) {
+        requireGrant(req, out) ?: return
+        // 盲目返回 200 会让观看端提示“已暂停成功”，而设备其实早就停了——必须如实告诉它没有在采集
+        if (!CaptureService.isRunning) return respond(out, 409, errorBody("not_running"))
+        val intent = Intent(context, CaptureService::class.java)
+            .setAction(CaptureService.ACTION_PAUSE)
+        // 服务已在运行，这里只是给它发一个指令，不会触发后台启动限制
+        runCatching { context.startService(intent) }
+            .onFailure { return respond(out, 503, errorBody("pause_failed")) }
+        respond(out, 200, JSONObject().put("ok", true).toString())
     }
 
     private fun grantOf(req: Request): PairingStore.Grant? {

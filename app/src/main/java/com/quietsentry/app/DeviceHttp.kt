@@ -36,6 +36,10 @@ object DeviceHttp {
         val serverTime: Long = 0L,
         /** 相机端是否处于省电降载（停推流、隔帧检测） */
         val throttled: Boolean = false,
+        /** 相机端是否已被观看端远程暂停（PRD FR-14），暂停后不会自动恢复 */
+        val paused: Boolean = false,
+        /** 相机端是否开启隐私遮罩：观看端要能解释"画面为什么是黑的" */
+        val masked: Boolean = false,
     )
 
     data class PairResult(val token: String, val role: String, val fingerprint: String)
@@ -68,6 +72,8 @@ object DeviceHttp {
             heartbeatAt = json.optLong("heartbeatAt"),
             serverTime = json.optLong("serverTime"),
             throttled = json.optBoolean("throttled"),
+            paused = json.optBoolean("paused"),
+            masked = json.optBoolean("masked"),
         )
     }
 
@@ -97,6 +103,13 @@ object DeviceHttp {
      */
     fun leave(host: String, port: Int, token: String): Boolean =
         call(host, port, "/api/leave", method = "POST", token = token) != null
+
+    /**
+     * 远程暂停（PRD FR-14）：只发暂停，不提供远程恢复。
+     * 恢复必须由摄像头端本机确认，否则任何拿到令牌的设备都能悄悄把采集重新打开。
+     */
+    fun pause(host: String, port: Int, token: String): Boolean =
+        call(host, port, "/api/pause", method = "POST", token = token) != null
 
     private fun call(
         host: String,

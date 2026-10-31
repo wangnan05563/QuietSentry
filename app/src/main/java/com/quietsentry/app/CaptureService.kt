@@ -143,6 +143,8 @@ class CaptureService : LifecycleService() {
         when (intent?.action) {
             ACTION_START -> startCapture()
             ACTION_STOP -> stopCapture()
+            // 观看端请求暂停：与用户本机停止走同一条停采流程，只是要额外留下"被远程暂停"的状态与记录
+            ACTION_PAUSE -> pauseByRemote()
             // 进程被系统回收后 START_STICKY 重建时 intent 为空：只有上次确实在值守才恢复采集，
             // 用户主动停止会先把标记清掉，因此不会出现“停了又自己活过来”（T03771）
             null -> if (!running && wasGuardActive()) startCapture()
@@ -173,6 +175,9 @@ class CaptureService : LifecycleService() {
         // 心跳与降载标记只活在内存里：新一轮值守必须从干净状态起步，否则重启后会沿用上一次的降载状态
         GuardRuntime.reset()
         GuardRuntime.beat()
+        // 本机重新开始值守即视为解除远程暂停，同时把设置页保存的遮罩重新注入推流
+        GuardState.setPaused(this, false)
+        PrivacyGuard.applyStreamMask(this)
         schedulePowerTick()
         // 上一次进程被杀会留下未收敛的分片，先修复再开新片，避免索引里出现打不开的文件
         repairInterruptedClips()
@@ -507,6 +512,19 @@ class CaptureService : LifecycleService() {
         LanServerHost.ensure(this)
     }
 
+    /**
+     * 远程暂停（PRD FR-14）：先停采集再落"已暂停"标记，顺序反过来会被 stopCapture 的清理动作覆盖。
+     * 暂停后不自动恢复：恢复必须由摄像头端本机确认，否则远程端可以无限期地反复开关采集。
+     */
+    private fun pauseByRemote() {
+        if (!running) return
+        AuditLog.record(this, AuditLog.REMOTE_PAUSE, "观看端请求暂停采集")
+        stopCapture()
+        GuardState.setPaused(this, true)
+        updateNotification(getString(R.string.pause_remote_notice))
+        notifier.showGuardNote(getString(R.string.pause_remote_title), getString(R.string.pause_remote_notice))
+    }
+
     private fun stopCapture() {
         stopping = true
         running = false
@@ -721,6 +739,7 @@ class CaptureService : LifecycleService() {
     companion object {
         const val ACTION_START = "com.quietsentry.app.action.START"
         const val ACTION_STOP = "com.quietsentry.app.action.STOP"
+        const val ACTION_PAUSE = "com.quietsentry.app.action.PAUSE_BY_REMOTE"
         private const val CHANNEL_ID = "capture"
         private const val NOTIFICATION_ID = 1001
         private const val REQUEST_STOP = 1

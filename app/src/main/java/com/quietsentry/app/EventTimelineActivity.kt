@@ -44,6 +44,11 @@ class EventTimelineActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 时间轴会直接暴露家里发生的事，先过应用锁；通过后 recreate 再加载列表
+        if (!PrivacyGuard.allow(this)) {
+            PrivacyGuard.prompt(this) { ok -> if (ok) recreate() else finish() }
+            return
+        }
         setContentView(R.layout.activity_event_timeline)
 
         listView = findViewById(R.id.event_list)

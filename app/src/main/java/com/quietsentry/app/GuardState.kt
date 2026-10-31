@@ -14,11 +14,22 @@ object GuardState {
     private const val PREFS = "guard_state"
     private const val KEY_ACTIVE = "guard_active"
     private const val KEY_CRASH_COUNT = "abnormal_start_count"
+    private const val KEY_PAUSED = "paused_by_remote"
 
     /** 连续 3 次异常启动（PRD FR-13 异常）就建议用户改用常电供电并降画质 */
     const val CRASH_ADVICE_THRESHOLD = 3
 
     fun isActive(context: Context): Boolean = prefs(context).getBoolean(KEY_ACTIVE, false)
+
+    /**
+     * 远程暂停（PRD FR-14）：必须落盘，因为暂停会同时停掉采集服务，
+     * 内存标记随服务销毁即丢，观看端就再也看不到"已暂停"这个状态。
+     */
+    fun isPaused(context: Context): Boolean = prefs(context).getBoolean(KEY_PAUSED, false)
+
+    fun setPaused(context: Context, paused: Boolean) {
+        prefs(context).edit().putBoolean(KEY_PAUSED, paused).apply()
+    }
 
     fun setActive(context: Context, active: Boolean) {
         prefs(context).edit().putBoolean(KEY_ACTIVE, active).apply()

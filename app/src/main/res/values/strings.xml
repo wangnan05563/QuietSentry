@@ -292,4 +292,45 @@
     <string name="diag_autostart">开机自启动</string>
     <string name="diag_autostart_ok">系统允许开机后自启动</string>
     <string name="diag_autostart_manual">多数定制系统默认禁止，需在系统设置里手动允许自启动</string>
+
+    <!-- PRD FR-14 隐私安全：应用锁、遮罩、远程暂停与审计 -->
+    <string name="privacy_mask_off">关闭</string>
+    <string name="privacy_mask_top">遮挡画面上部</string>
+    <string name="privacy_mask_bottom">遮挡画面下部</string>
+    <string name="privacy_mask_full">完全遮挡</string>
+    <string name="pin_title">输入应用锁 PIN</string>
+    <string name="pin_hint">4~6 位数字</string>
+    <string name="pin_ok">确定</string>
+    <string name="pin_cancel">取消</string>
+    <string name="pin_wrong">PIN 不正确</string>
+    <string name="pin_locked">尝试次数过多，请 %1$d 秒后再试</string>
+    <string name="pin_set_title">设置应用锁</string>
+    <string name="pin_set_hint">4~6 位数字。忘记后只能清除应用数据才能解除锁定。</string>
+    <string name="pin_set_done">应用锁已开启</string>
+    <string name="pin_format_invalid">请输入 4~6 位数字</string>
+    <string name="pin_clear_title">关闭应用锁？</string>
+    <string name="pin_clear_message">关闭后，黑屏记录、事件回看与设置页将不再校验 PIN。</string>
+    <string name="pin_cleared">应用锁已关闭</string>
+    <string name="settings_section_privacy">安全与隐私</string>
+    <string name="settings_pin_switch">应用锁（进入私密页需输入 PIN）</string>
+    <string name="settings_pin_change">修改 PIN</string>
+    <string name="settings_mask">隐私遮罩</string>
+    <string name="settings_mask_value">隐私遮罩：%1$s</string>
+    <string name="settings_mask_hint">遮罩只作用于推给观看端的实时画面与截图，本地录像不遮挡。</string>
+    <string name="settings_audit_open">查看审计日志</string>
+    <string name="settings_audit_export">导出审计日志</string>
+    <string name="settings_audit_hint">仅记录行为与角色，不含令牌与 PIN；保留 7 天。</string>
+    <string name="audit_title">审计日志</string>
+    <string name="audit_empty">还没有安全相关记录\n配对、撤销、暂停、遮罩与应用锁变更会出现在这里</string>
+    <string name="audit_export_saved">审计日志已保存</string>
+    <string name="audit_export_failed">导出失败</string>
+    <string name="live_pause">暂停</string>
+    <string name="live_pause_title">远程暂停相机？</string>
+    <string name="live_pause_message">相机端将停止采集并在本机通知栏提示。暂停后无法从观看端恢复，需要到相机端手动重新开始值守。</string>
+    <string name="live_pause_ok">暂停采集</string>
+    <string name="live_pause_cancel">取消</string>
+    <string name="live_pause_done">相机端已暂停采集</string>
+    <string name="live_pause_failed">暂停请求失败：设备可能离线或已停止值守</string>
+    <string name="pause_remote_title">静哨 · 已被观看端暂停</string>
+    <string name="pause_remote_notice">采集已由观看端远程暂停，需在本机重新开始值守</string>
 </resources>

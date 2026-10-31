@@ -41,6 +41,11 @@ class BlackScreenActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 黑屏页会直接落私人照片，必须先过应用锁；校验通过后 recreate 再正常加载
+        if (!PrivacyGuard.allow(this)) {
+            PrivacyGuard.prompt(this) { ok -> if (ok) recreate() else finish() }
+            return
+        }
         setContentView(R.layout.activity_black_screen)
 
         // 屏幕要亮但内容全黑，所以保持常亮而不是关闭屏幕

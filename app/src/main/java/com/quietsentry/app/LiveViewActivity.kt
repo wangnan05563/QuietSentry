@@ -1,5 +1,6 @@
 package com.quietsentry.app
 
+import android.app.AlertDialog
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.View
@@ -54,6 +55,7 @@ class LiveViewActivity : AppCompatActivity() {
         findViewById<Button>(R.id.live_back).setOnClickListener { finish() }
         qualityButton.setOnClickListener { toggleQuality() }
         findViewById<Button>(R.id.live_snapshot).setOnClickListener { snapshot() }
+        findViewById<Button>(R.id.live_pause).setOnClickListener { confirmPause() }
 
         // 看实时画面时不应因为锁屏而中断观察，也不该让系统栏占掉画面
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -138,6 +140,35 @@ class LiveViewActivity : AppCompatActivity() {
                 counterText.text = ""
             }
         }
+    }
+
+    /**
+     * 远程暂停（PRD FR-14）：暂停不可由本机恢复，因此必须二次确认。
+     * 请求在 IO 线程发出，成功后只是把服务端状态改掉，画面会在数秒内自然断开。
+     */
+    private fun confirmPause() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.live_pause_title)
+            .setMessage(R.string.live_pause_message)
+            .setPositiveButton(R.string.live_pause_ok) { _, _ -> requestPause() }
+            .setNegativeButton(R.string.live_pause_cancel, null)
+            .show()
+    }
+
+    private fun requestPause() {
+        val host = device.host
+        val port = device.port
+        val token = device.token
+        Thread {
+            val ok = DeviceHttp.pause(host, port, token)
+            onUi {
+                Toast.makeText(
+                    this,
+                    if (ok) R.string.live_pause_done else R.string.live_pause_failed,
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }.start()
     }
 
     private fun onUi(block: () -> Unit) {
