@@ -66,6 +66,12 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
+        <!-- 观看端设备列表：局域网发现与状态轮询 -->
+        <activity
+            android:name=".DeviceListActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <service
             android:name=".CaptureService"
             android:exported="false"

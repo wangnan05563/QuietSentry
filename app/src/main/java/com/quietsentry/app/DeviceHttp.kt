@@ -1,0 +1,117 @@
+package com.quietsentry.app
+
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+
+/**
+ * 观看端访问相机端 HTTP 服务的最小客户端（PRD §12：局域网 HTTP + 令牌）。
+ *
+ * 为什么手写而不引 OkHttp：这里只有 info / status / pair 三个调用，
+ * 全部是短连接的小 JSON；为了这点需求引入一个网络库，会让“零第三方依赖”的构建原则破例。
+ * 所有方法都是阻塞的，调用方必须在 IO 线程执行。
+ */
+object DeviceHttp {
+
+    data class Info(
+        val id: String,
+        val name: String,
+        val port: Int,
+        val mode: String,
+        val lastEventAt: Long,
+    )
+
+    data class Status(
+        val mode: String,
+        val battery: Int,
+        val charging: Boolean,
+        val thermal: Int,
+        val storageFreeMb: Long,
+        val watching: Int,
+        val lastEventAt: Long,
+    )
+
+    data class PairResult(val token: String, val role: String, val fingerprint: String)
+
+    fun info(host: String, port: Int): Info? {
+        val body = call(host, port, "/api/info") ?: return null
+        val json = runCatching { JSONObject(body) }.getOrNull() ?: return null
+        return Info(
+            id = json.optString("id"),
+            name = json.optString("name"),
+            port = json.optInt("port", port),
+            mode = json.optString("mode"),
+            lastEventAt = json.optLong("lastEventAt"),
+        )
+    }
+
+    fun status(host: String, port: Int, token: String): Status? {
+        val body = call(host, port, "/api/status", token = token) ?: return null
+        val json = runCatching { JSONObject(body) }.getOrNull() ?: return null
+        return Status(
+            mode = json.optString("mode"),
+            battery = json.optInt("battery", -1),
+            charging = json.optBoolean("charging"),
+            thermal = json.optInt("thermal", 0),
+            storageFreeMb = json.optLong("storageFreeMb", -1),
+            watching = json.optInt("watching"),
+            lastEventAt = json.optLong("lastEventAt"),
+        )
+    }
+
+    /**
+     * 用 6 位配对码换取令牌。角色由服务端判定（首个配对者为 Owner），
+     * 客户端不自行决定，避免两台观看端都以为自己是所有者。
+     */
+    fun pair(host: String, port: Int, publicKey: String, code: String): PairResult? {
+        val body = JSONObject()
+            .put("publicKey", publicKey)
+            .put("code", code)
+            .toString()
+        val response = call(host, port, "/api/pair", method = "POST", body = body) ?: return null
+        val json = runCatching { JSONObject(response) }.getOrNull() ?: return null
+        val token = json.optString("token")
+        if (token.isEmpty()) return null
+        return PairResult(
+            token = token,
+            role = json.optString("role"),
+            fingerprint = json.optString("fingerprint"),
+        )
+    }
+
+    /**
+     * 移除设备时主动交还令牌：否则相机端的授权列表里会一直躺着一条本机已经不再使用的记录，
+     * 用户也无法从相机端确认“谁还在看”。失败可以忽略——设备离线时下次也无法再连。
+     */
+    fun leave(host: String, port: Int, token: String): Boolean =
+        call(host, port, "/api/leave", method = "POST", token = token) != null
+
+    private fun call(
+        host: String,
+        port: Int,
+        path: String,
+        method: String = "GET",
+        token: String? = null,
+        body: String? = null,
+    ): String? = runCatching {
+        val connection = URL("http://$host:$port$path").openConnection() as HttpURLConnection
+        connection.requestMethod = method
+        // 局域网内设备响应通常 <50ms；3 秒足够区分“离线”与“慢”，也避免轮询线程被一台掉线设备拖住
+        connection.connectTimeout = TIMEOUT_MS
+        connection.readTimeout = TIMEOUT_MS
+        token?.let { connection.setRequestProperty("X-Auth-Token", it) }
+        if (body != null) {
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.outputStream.use { it.write(body.toByteArray()) }
+        }
+        try {
+            if (connection.responseCode !in 200..299) return@runCatching null
+            connection.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            connection.disconnect()
+        }
+    }.getOrNull()
+
+    private const val TIMEOUT_MS = 3_000
+}

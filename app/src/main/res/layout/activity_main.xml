@@ -66,6 +66,13 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/pairing_entry" />
+
+        <Button
+            android:id="@+id/device_list_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/device_list_entry" />
     </LinearLayout>
 
 </FrameLayout>
