@@ -168,4 +168,33 @@
     <string name="device_time_minutes">%1$d 分钟前</string>
     <string name="device_time_hours">%1$d 小时前</string>
     <string name="device_time_days">%1$d 天前</string>
+
+    <string name="remote_entry">远程访问与诊断</string>
+    <string name="remote_title">远程访问与诊断</string>
+    <string name="remote_back">返回</string>
+    <string name="remote_network_local">本机局域网 %1$s · 自组网 %2$s</string>
+    <string name="remote_none">未连接</string>
+    <string name="remote_target_label">要诊断的设备地址</string>
+    <string name="remote_target_hint">192.168.1.5:8080 或 100.x.x.x</string>
+    <string name="remote_probe">检测连通性</string>
+    <string name="remote_lan_idle">局域网直连：未检测</string>
+    <string name="remote_overlay_idle">自组网访问：未检测</string>
+    <string name="remote_result_idle">输入地址后点“检测连通性”</string>
+    <string name="remote_target_invalid">地址格式不正确，示例：192.168.1.5:8080</string>
+    <string name="remote_probing">正在检测…</string>
+    <string name="remote_lan_ok">局域网直连：可用（%1$s）</string>
+    <string name="remote_overlay_unused">自组网访问：不需要（已走局域网）</string>
+    <string name="remote_result_lan">已通过局域网直连找到 %1$s</string>
+    <string name="remote_lan_unavailable">局域网直连：不可用（目标不在同一局域网）</string>
+    <string name="remote_overlay_ok">自组网访问：可用（%1$s）</string>
+    <string name="remote_result_overlay">已通过自组网访问 %1$s，延迟可能高于局域网</string>
+    <string name="remote_lan_unreachable">局域网直连：不可达</string>
+    <string name="remote_overlay_unreachable">自组网访问：不可达或未配置</string>
+    <string name="remote_result_unreachable">未找到可访问的网络路径：请确认两台设备在同一 Wi-Fi，或两端已加入同一自组网</string>
+    <string name="remote_wifi_settings">打开 Wi-Fi 设置</string>
+    <string name="remote_guide_title">自组网访问（Tailscale / WireGuard）</string>
+    <string name="remote_guide_tailscale">Tailscale\n1. 摄像头端与观看端都安装 Tailscale 并用同一账号登录。\n2. 在 Tailscale 设备列表里确认两端都在线。\n3. 回到这里输入摄像头端的 100.x.x.x 地址（或 MagicDNS 名称）并检测。</string>
+    <string name="remote_guide_wireguard">WireGuard\n1. 在其中一端自建 WireGuard 服务端，另一端导入对端配置。\n2. 两端能互相访问后，用对端的隧道地址加端口检测。\n3. 隧道断开后隧道地址不会自动恢复，需要重新连接 VPN。</string>
+    <string name="remote_fallback">不使用自组网时，只要两台设备在同一个 Wi-Fi 下即可直连；本产品不提供公网中继，也不保存任何组网密钥。</string>
+    <string name="remote_device_action">自组网访问与诊断</string>
 </resources>

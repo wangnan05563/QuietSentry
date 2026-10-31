@@ -142,6 +142,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.device_list_button).setOnClickListener {
             startActivity(Intent(this, DeviceListActivity::class.java))
         }
+        findViewById<Button>(R.id.remote_access_button).setOnClickListener {
+            startActivity(Intent(this, RemoteAccessActivity::class.java))
+        }
 
         // 待机状态也要能在局域网里被发现：观看端的“在线·待机”完全依赖这个常驻监听，
         // 若等到开始值守才启动，用户第一次配对就找不到设备

@@ -1,6 +1,7 @@
 package com.quietsentry.app
 
 import android.app.AlertDialog
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -168,6 +169,7 @@ class DeviceListActivity : AppCompatActivity() {
             getString(R.string.device_action_move_up),
             getString(R.string.device_action_move_down),
             getString(R.string.device_action_remove),
+            getString(R.string.remote_device_action),
         )
         AlertDialog.Builder(this)
             .setTitle(device.name)
@@ -189,6 +191,12 @@ class DeviceListActivity : AppCompatActivity() {
                         registry.move(device.id, 1)
                         render()
                     }
+                    5 -> startActivity(
+                        // 把已知地址带过去，离线设备打开就能直接看到“到底卡在哪一段”
+                        Intent(this, RemoteAccessActivity::class.java)
+                            .putExtra(RemoteAccessActivity.EXTRA_HOST, device.host)
+                            .putExtra(RemoteAccessActivity.EXTRA_PORT, device.port)
+                    )
                     else -> confirmRemove(device)
                 }
             }

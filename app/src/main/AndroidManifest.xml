@@ -72,6 +72,12 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
+        <!-- 自组网引导与连通性诊断：只做证据收集，不建立任何隧道 -->
+        <activity
+            android:name=".RemoteAccessActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <service
             android:name=".CaptureService"
             android:exported="false"

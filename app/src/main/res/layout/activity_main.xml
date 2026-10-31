@@ -73,6 +73,13 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/device_list_entry" />
+
+        <Button
+            android:id="@+id/remote_access_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/remote_entry" />
     </LinearLayout>
 
 </FrameLayout>
