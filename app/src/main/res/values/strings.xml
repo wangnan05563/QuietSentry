@@ -137,6 +137,9 @@
     <string name="device_list_pair_failed">配对失败：配对码错误或已过期</string>
     <string name="device_list_pair_mismatch">设备指纹不一致，已拒绝连接</string>
     <string name="device_list_paired">已添加设备</string>
+    <string name="device_preview_hint">选择左侧设备查看实时画面</string>
+    <string name="device_preview_connecting">正在连接实时画面…</string>
+    <string name="device_preview_full">全屏</string>
     <string name="device_room_unset">未设置房间</string>
     <string name="device_card_meta">%1$s · %2$s</string>
     <string name="device_card_battery">电量 %1$d%%</string>

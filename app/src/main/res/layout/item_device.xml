@@ -10,12 +10,17 @@
     android:orientation="horizontal"
     android:padding="12dp">
 
+    <!-- 用 minWidth/minHeight 而不是固定 56dp：系统字号放大后固定尺寸会让首字母被裁掉 -->
     <TextView
         android:id="@+id/device_cover"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:background="@color/qs_accent_soft"
         android:gravity="center"
+        android:minWidth="56dp"
+        android:minHeight="56dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
         android:textColor="@color/qs_text"
         android:textSize="20sp" />
 

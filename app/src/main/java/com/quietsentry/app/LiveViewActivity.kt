@@ -1,18 +1,19 @@
 package com.quietsentry.app
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import java.util.concurrent.Executors
+import androidx.core.view.updatePadding
 
 /**
  * 观看端实时画面（PRD FR-08）。
@@ -29,16 +30,7 @@ class LiveViewActivity : AppCompatActivity() {
     private lateinit var qualityButton: Button
 
     private lateinit var device: DeviceRegistry.Device
-    private val io = Executors.newSingleThreadExecutor()
-
-    @Volatile
-    private var running = false
-
-    /** 每次切换画质或恢复前台都换一个代号，旧循环即使还在阻塞读也会自行退出 */
-    @Volatile
-    private var streamToken = 0
-    private var client: MjpegClient? = null
-    private var currentFrame: Bitmap? = null
+    private lateinit var streamer: LiveStreamer
     private var quality = QUALITY_AUTO
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,22 +62,42 @@ class LiveViewActivity : AppCompatActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
         }
         statusText.text = getString(R.string.live_state_connecting)
+
+        // 横屏时刘海在屏幕左/右短边：系统栏虽然已隐藏，但挖孔区仍会盖住顶部“关闭”与底部按钮。
+        // 只避让 displayCutout 一类，不用整屏 systemBars 内边距，否则画面会被重新压回安全区、失去全屏意义。
+        val topBar = findViewById<View>(R.id.live_top_bar)
+        val bottomBar = findViewById<View>(R.id.live_bottom_bar)
+        ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { _, insets ->
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            topBar.updatePadding(left = cutout.left, right = cutout.right)
+            bottomBar.updatePadding(left = cutout.left, right = cutout.right)
+            insets
+        }
+
+        streamer = LiveStreamer(
+            device.host, device.port, device.token,
+            object : LiveStreamer.Listener {
+                override fun onState(state: LiveStreamer.State) = onUi { renderState(state) }
+
+                override fun onFrame(frame: Bitmap) = onUi { image.setImageBitmap(frame) }
+            }
+        )
     }
 
     override fun onStart() {
         super.onStart()
-        startStream()
+        // 设备不存在时 onCreate 已经 finish，但 onStart 仍会被调用一次，这里必须避免碰未初始化的字段
+        if (::streamer.isInitialized) streamer.start(quality)
     }
 
     override fun onStop() {
         // 退到后台就停流：为“可能还要看”而一直解码耗电不值得，回前台会立即重新连上
-        stopStream()
+        if (::streamer.isInitialized) streamer.stop()
         super.onStop()
     }
 
     override fun onDestroy() {
-        stopStream()
-        io.shutdownNow()
+        if (::streamer.isInitialized) streamer.release()
         super.onDestroy()
     }
 
@@ -95,104 +107,46 @@ class LiveViewActivity : AppCompatActivity() {
             if (quality == QUALITY_AUTO) R.string.live_quality_auto else R.string.live_quality_main
         )
         // 换画质只能换一条流：服务端按连接决定码流，不断开就没法重新协商
-        stopStream()
-        startStream()
+        streamer.stop()
+        streamer.start(quality)
     }
 
-    private fun startStream() {
-        streamToken++
-        val token = streamToken
-        val target = device
-        running = true
-        setCounter(R.string.live_state_connecting)
-        io.execute { runStream(target, token) }
-    }
-
-    private fun stopStream() {
-        running = false
-        streamToken++
-        client?.close()
-        client = null
-    }
-
-    private fun runStream(target: DeviceRegistry.Device, token: Int) {
-        while (running && token == streamToken) {
-            val stream = MjpegClient(target.host, target.port, target.token, quality)
-            client = stream
-            if (!stream.open()) {
-                val failure = stream.failure
-                stream.close()
-                client = null
-                if (token != streamToken) return
-                showFailure(failure)
-                // 令牌被撤销后重连只会一直拿到 401，停下来让用户重新配对
-                if (failure == MjpegClient.Failure.UNAUTHORIZED) {
-                    running = false
-                    return
-                }
-                if (!sleepRetry(token)) return
-                continue
+    private fun renderState(state: LiveStreamer.State) {
+        when (state) {
+            LiveStreamer.State.CONNECTING -> {
+                statusText.text = ""
+                counterText.setText(R.string.live_state_connecting)
             }
-
-            clearStatus()
-            setCounter(R.string.live_state_connected)
-            while (running && token == streamToken) {
-                val bytes = stream.readFrame() ?: break
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: continue
-                currentFrame = bitmap
-                showFrame(bitmap)
+            LiveStreamer.State.CONNECTED -> {
+                statusText.text = ""
+                counterText.setText(R.string.live_state_connected)
             }
-            stream.close()
-            client = null
-            if (running && token == streamToken) {
-                showRetry()
-                if (!sleepRetry(token)) return
+            LiveStreamer.State.RETRY -> {
+                statusText.setText(R.string.live_status_retry)
+                counterText.text = ""
+            }
+            LiveStreamer.State.UNAUTHORIZED -> {
+                statusText.setText(R.string.live_status_unauthorized)
+                counterText.text = ""
+            }
+            LiveStreamer.State.BUSY -> {
+                statusText.text = getString(R.string.live_status_busy, MAX_VIEWERS)
+                counterText.text = ""
+            }
+            LiveStreamer.State.OFFLINE -> {
+                statusText.setText(R.string.live_status_offline)
+                counterText.text = ""
             }
         }
     }
-
-    private fun showFailure(failure: MjpegClient.Failure) {
-        val text = when (failure) {
-            MjpegClient.Failure.UNAUTHORIZED -> getString(R.string.live_status_unauthorized)
-            MjpegClient.Failure.BUSY -> getString(R.string.live_status_busy, MAX_VIEWERS)
-            else -> getString(R.string.live_status_offline)
-        }
-        onUi {
-            statusText.text = text
-            counterText.text = ""
-        }
-    }
-
-    private fun showRetry() = onUi {
-        statusText.text = getString(R.string.live_status_retry)
-        counterText.text = ""
-    }
-
-    private fun clearStatus() = onUi {
-        statusText.text = ""
-        counterText.text = getString(R.string.live_state_connected)
-    }
-
-    private fun setCounter(resId: Int) = onUi { counterText.setText(resId) }
-
-    private fun showFrame(bitmap: Bitmap) = onUi { image.setImageBitmap(bitmap) }
 
     private fun onUi(block: () -> Unit) {
         if (isFinishing || isDestroyed) return
         runOnUiThread { if (!isFinishing && !isDestroyed) block() }
     }
 
-    private fun sleepRetry(token: Int): Boolean {
-        var waited = 0L
-        while (running && token == streamToken && waited < RETRY_DELAY_MS) {
-            Thread.sleep(RETRY_STEP_MS)
-            waited += RETRY_STEP_MS
-        }
-        return running && token == streamToken
-    }
-
     private fun snapshot() {
-        val frame = currentFrame
+        val frame = streamer.currentFrame()
         if (frame == null) {
             Toast.makeText(this, R.string.live_snapshot_failed, Toast.LENGTH_SHORT).show()
             return
@@ -211,7 +165,5 @@ class LiveViewActivity : AppCompatActivity() {
         private const val QUALITY_MAIN = "main"
         // 服务端 MAX_VIEWERS 固定为 5，这里只用于把 429 翻译成人话
         private const val MAX_VIEWERS = 5
-        private const val RETRY_DELAY_MS = 3_000L
-        private const val RETRY_STEP_MS = 200L
     }
 }

@@ -2,6 +2,7 @@ package com.quietsentry.app
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Bitmap
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -11,6 +12,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -40,6 +42,19 @@ class DeviceListActivity : AppCompatActivity() {
     private var discovery: LanDiscovery? = null
     private var stopped = false
 
+    /**
+     * 宽屏双栏（PRD §12.3：左侧设备列表、右侧实时画面）下才存在的控件。
+     * 窄屏布局里没有这些 id，findViewById 会返回 null，所有使用点都必须判空。
+     */
+    private var previewImage: ImageView? = null
+    private var previewStatus: TextView? = null
+    private var previewTitle: TextView? = null
+    private var preview: LiveStreamer? = null
+    private var previewDeviceId: String? = null
+
+    /** 每次切换预览设备都递增：旧流的回调即使已经排队到主线程，也会因为代号过期被丢弃 */
+    private var previewGeneration = 0
+
     private val pollRunnable = object : Runnable {
         override fun run() {
             poll()
@@ -59,17 +74,29 @@ class DeviceListActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.device_list_back).setOnClickListener { finish() }
         findViewById<Button>(R.id.device_list_add).setOnClickListener { addDevice() }
+
+        // 只有 sw600dp 布局提供右侧画面面板；窄屏下这几个 id 不存在，取到的是 null
+        previewImage = findViewById(R.id.device_preview_image)
+        previewStatus = findViewById(R.id.device_preview_status)
+        previewTitle = findViewById(R.id.device_preview_title)
+        findViewById<Button>(R.id.device_preview_full)?.setOnClickListener {
+            val id = previewDeviceId ?: return@setOnClickListener
+            registry.all().firstOrNull { it.id == id }?.let { openFullScreen(it) }
+        }
     }
 
     override fun onResume() {
         super.onResume()
         stopped = false
         handler.post(pollRunnable)
+        // 与全屏页同一策略：退后台停流，回前台自动重连，不在看不见的时候继续解码耗电
+        if (previewDeviceId != null) preview?.start(QUALITY_AUTO)
     }
 
     override fun onPause() {
         super.onPause()
         handler.removeCallbacks(pollRunnable)
+        preview?.stop()
     }
 
     override fun onDestroy() {
@@ -77,6 +104,8 @@ class DeviceListActivity : AppCompatActivity() {
         handler.removeCallbacksAndMessages(null)
         discovery?.stop()
         discovery = null
+        preview?.release()
+        preview = null
         io.shutdownNow()
         super.onDestroy()
     }
@@ -110,6 +139,8 @@ class DeviceListActivity : AppCompatActivity() {
         container.removeAllViews()
         emptyText.visibility = if (ordered.isEmpty()) View.VISIBLE else View.GONE
         hintText.visibility = if (ordered.isEmpty()) View.GONE else View.VISIBLE
+        // 预览设备被移除（或被别的页面删掉）后右侧面板不能继续显示上一次的画面
+        if (previewDeviceId != null && ordered.none { it.first.id == previewDeviceId }) clearPreview()
         ordered.forEach { (device, state) -> container.addView(row(device, state, now)) }
     }
 
@@ -136,6 +167,8 @@ class DeviceListActivity : AppCompatActivity() {
             setTextColor(stateColor(state.level))
         }
         view.findViewById<TextView>(R.id.device_detail).text = detailText(state, now)
+        // 双栏里列表和右侧画面是同一件事的两半，选中卡片必须能一眼看出来
+        if (device.id == previewDeviceId) view.setBackgroundColor(getColor(R.color.qs_accent_soft))
         view.setOnClickListener { openLive(device) }
         // 管理动作放进长按：卡片的主用途是看画面，点一下就弹菜单会挡住最常见的操作
         view.setOnLongClickListener {
@@ -145,11 +178,90 @@ class DeviceListActivity : AppCompatActivity() {
         return view
     }
 
+    /**
+     * 宽屏双栏（PRD §12.3）里点卡片不跳页，直接在右侧换流：用户比对两台设备时不用反复进出全屏页。
+     * 窄屏没有双栏空间，仍然按原路径打开全屏观看页。
+     */
     private fun openLive(device: DeviceRegistry.Device) {
+        if (previewImage == null) {
+            openFullScreen(device)
+        } else {
+            showPreview(device)
+        }
+    }
+
+    private fun openFullScreen(device: DeviceRegistry.Device) {
         startActivity(
             Intent(this, LiveViewActivity::class.java)
                 .putExtra(LiveViewActivity.EXTRA_DEVICE_ID, device.id)
         )
+    }
+
+    private fun showPreview(device: DeviceRegistry.Device) {
+        previewGeneration++
+        val gen = previewGeneration
+        previewTitle?.text = device.name
+        previewStatus?.visibility = View.VISIBLE
+        previewStatus?.setText(R.string.device_preview_connecting)
+        preview?.release()
+        preview = LiveStreamer(
+            device.host, device.port, device.token,
+            object : LiveStreamer.Listener {
+                override fun onState(state: LiveStreamer.State) {
+                    // 换设备后旧流的回调可能已经在主线程队列里，代号比对是最后一道保险
+                    if (gen != previewGeneration) return
+                    runOnUiThread { if (!stopped) renderPreviewState(state) }
+                }
+
+                override fun onFrame(frame: Bitmap) {
+                    if (gen != previewGeneration) return
+                    runOnUiThread { if (!stopped) previewImage?.setImageBitmap(frame) }
+                }
+            }
+        )
+        previewDeviceId = device.id
+        if (!stopped) preview?.start(QUALITY_AUTO)
+        // 立即重绘一次，选中高亮不用等下一轮 5 秒轮询
+        render()
+    }
+
+    private fun renderPreviewState(state: LiveStreamer.State) {
+        val status = previewStatus ?: return
+        when (state) {
+            LiveStreamer.State.CONNECTED -> status.visibility = View.GONE
+            LiveStreamer.State.CONNECTING -> {
+                status.visibility = View.VISIBLE
+                status.setText(R.string.device_preview_connecting)
+            }
+            LiveStreamer.State.RETRY -> {
+                status.visibility = View.VISIBLE
+                status.setText(R.string.live_status_retry)
+            }
+            LiveStreamer.State.UNAUTHORIZED -> {
+                status.visibility = View.VISIBLE
+                status.setText(R.string.live_status_unauthorized)
+            }
+            LiveStreamer.State.BUSY -> {
+                status.visibility = View.VISIBLE
+                status.text = getString(R.string.live_status_busy, MAX_VIEWERS)
+            }
+            LiveStreamer.State.OFFLINE -> {
+                status.visibility = View.VISIBLE
+                status.setText(R.string.live_status_offline)
+            }
+        }
+    }
+
+    /** 预览设备被移除后必须连同流一起清掉，否则右侧会一直对着空面板解码耗电 */
+    private fun clearPreview() {
+        previewGeneration++
+        preview?.release()
+        preview = null
+        previewDeviceId = null
+        previewImage?.setImageDrawable(null)
+        previewTitle?.text = ""
+        previewStatus?.visibility = View.VISIBLE
+        previewStatus?.setText(R.string.device_preview_hint)
     }
 
     private fun detailText(state: DeviceState.View, now: Long): String {
@@ -388,5 +500,11 @@ class DeviceListActivity : AppCompatActivity() {
         const val HOUR_MS = 3_600_000L
         const val DAY_MS = 86_400_000L
         const val LONG_OFFLINE_MS = DAY_MS
+
+        /** 双栏预览默认走子码流：右侧面板小，原画只会让更多设备撞上并发达上限 */
+        const val QUALITY_AUTO = "auto"
+
+        // 服务端 MAX_VIEWERS 固定为 5，这里只用于把 429 翻译成人话
+        const val MAX_VIEWERS = 5
     }
 }

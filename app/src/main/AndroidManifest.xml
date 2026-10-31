@@ -26,14 +26,15 @@
     <application
         android:allowBackup="false"
         android:label="@string/app_name"
+        android:resizeableActivity="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.QuietSentry"
         android:usesCleartextTraffic="true">
 
+        <!-- 值守主界面不再锁竖屏：横屏用 layout-land 把控件移到画面右侧，平板与折叠屏才能真正被支持 -->
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:screenOrientation="portrait">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -66,11 +67,10 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
-        <!-- 观看端设备列表：局域网发现与状态轮询 -->
+        <!-- 观看端设备列表：局域网发现与状态轮询；宽屏双栏需要横竖屏都能切换 -->
         <activity
             android:name=".DeviceListActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
+            android:exported="false" />
 
         <!-- 自组网引导与连通性诊断：只做证据收集，不建立任何隧道 -->
         <activity
