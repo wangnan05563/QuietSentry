@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 暗色设计令牌（PRD FR-16 设计系统）：
+         全黑底 + 半透明白卡片 + 单一青色强调色。深色是为了值守场景下不刺眼，
+         半透明白分层让黑底上的卡片有边界但不发灰，青色只用于“可操作/正常”状态。 -->
+    <color name="qs_bg">#FF000000</color>
+    <color name="qs_surface">#1AFFFFFF</color>
+    <color name="qs_accent_soft">#3300BFA6</color>
+    <color name="qs_accent">#FF00BFA6</color>
+    <color name="qs_overlay">#99000000</color>
+    <color name="qs_text">#FFFFFFFF</color>
+    <color name="qs_text_muted">#99FFFFFF</color>
+    <color name="qs_text_hint">#66FFFFFF</color>
+
+    <!-- 设备状态色与 DeviceState 的优先级一一对应，避免各页面各写一套 -->
+    <color name="qs_ok">#FF4CD964</color>
+    <color name="qs_warn">#FFFFB74D</color>
+    <color name="qs_danger">#FFFF5252</color>
+    <color name="qs_idle">#FF9E9E9E</color>
+</resources>

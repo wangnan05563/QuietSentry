@@ -2,12 +2,17 @@ package com.quietsentry.app
 
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.Bitmap
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * 值守产物写在应用私有目录，系统相册看不到，用户会误判“没录上”。
@@ -34,6 +39,41 @@ object GalleryExporter {
                 ?.let { Exported(file, it.toString()) }
         }
     }
+
+    /**
+     * 实时画面截图。与视频导出共用同一个相簿，用户在一个位置就能找到所有 QuietSentry 产物；
+     * 截图失败返回 false 而不是抛出，调用方只需要给一句提示。
+     */
+    fun saveImage(context: Context, bitmap: Bitmap): Boolean = runCatching {
+        val name = "quiet_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+            .format(Date()) + ".jpg"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, name)
+                put(MediaStore.Images.Media.MIME_TYPE, IMAGE_MIME)
+                put(
+                    MediaStore.Images.Media.RELATIVE_PATH,
+                    "${Environment.DIRECTORY_PICTURES}/$ALBUM"
+                )
+            }
+            val uri = context.contentResolver
+                .insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return false
+            context.contentResolver.openOutputStream(uri)?.use { output ->
+                return bitmap.compress(Bitmap.CompressFormat.JPEG, IMAGE_QUALITY, output)
+            }
+            return false
+        }
+
+        // API 28 只能写公共目录，写完再扫描，否则相册里看不到
+        val dir = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+            ALBUM
+        ).apply { mkdirs() }
+        val target = File(dir, name)
+        FileOutputStream(target).use { bitmap.compress(Bitmap.CompressFormat.JPEG, IMAGE_QUALITY, it) }
+        MediaScannerConnection.scanFile(context, arrayOf(target.absolutePath), arrayOf(IMAGE_MIME), null)
+        true
+    }.getOrDefault(false)
 
     private fun copy(context: Context, file: File): Uri {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -68,5 +108,7 @@ object GalleryExporter {
     }
 
     private const val MIME = "video/mp4"
+    private const val IMAGE_MIME = "image/jpeg"
+    private const val IMAGE_QUALITY = 90
     private const val ALBUM = "QuietSentry"
 }

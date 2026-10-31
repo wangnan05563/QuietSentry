@@ -78,6 +78,12 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
+        <!-- 实时画面允许随设备旋转，横屏时才能填满整块屏幕 -->
+        <activity
+            android:name=".LiveViewActivity"
+            android:exported="false"
+            android:screenOrientation="sensor" />
+
         <service
             android:name=".CaptureService"
             android:exported="false"

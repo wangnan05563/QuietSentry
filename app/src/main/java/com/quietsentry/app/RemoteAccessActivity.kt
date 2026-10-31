@@ -100,18 +100,18 @@ class RemoteAccessActivity : AppCompatActivity() {
         val device = probe.deviceName.ifEmpty { probe.host }
         when (probe.kind) {
             NetworkPath.Kind.LAN -> {
-                setLine(lanText, getString(R.string.remote_lan_ok, device), COLOR_OK)
-                setLine(overlayText, getString(R.string.remote_overlay_unused), COLOR_MUTED)
+                setLine(lanText, getString(R.string.remote_lan_ok, device), getColor(R.color.qs_ok))
+                setLine(overlayText, getString(R.string.remote_overlay_unused), getColor(R.color.qs_idle))
                 resultText.text = getString(R.string.remote_result_lan, device)
             }
             NetworkPath.Kind.OVERLAY -> {
-                setLine(lanText, getString(R.string.remote_lan_unavailable), COLOR_MUTED)
-                setLine(overlayText, getString(R.string.remote_overlay_ok, device), COLOR_OK)
+                setLine(lanText, getString(R.string.remote_lan_unavailable), getColor(R.color.qs_idle))
+                setLine(overlayText, getString(R.string.remote_overlay_ok, device), getColor(R.color.qs_ok))
                 resultText.text = getString(R.string.remote_result_overlay, device)
             }
             NetworkPath.Kind.UNREACHABLE -> {
-                setLine(lanText, getString(R.string.remote_lan_unreachable), COLOR_BAD)
-                setLine(overlayText, getString(R.string.remote_overlay_unreachable), COLOR_BAD)
+                setLine(lanText, getString(R.string.remote_lan_unreachable), getColor(R.color.qs_danger))
+                setLine(overlayText, getString(R.string.remote_overlay_unreachable), getColor(R.color.qs_danger))
                 resultText.text = getString(R.string.remote_result_unreachable)
             }
         }
@@ -126,9 +126,5 @@ class RemoteAccessActivity : AppCompatActivity() {
         const val EXTRA_HOST = "extra_host"
         const val EXTRA_PORT = "extra_port"
         const val DEFAULT_PORT = 8080
-
-        private const val COLOR_OK = 0xFF4CD964.toInt()
-        private const val COLOR_MUTED = 0xFF9E9E9E.toInt()
-        private const val COLOR_BAD = 0xFFFF5252.toInt()
     }
 }

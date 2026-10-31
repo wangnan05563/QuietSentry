@@ -125,7 +125,7 @@
     <string name="device_list_entry">我的设备（观看端）</string>
     <string name="device_list_title">我的设备</string>
     <string name="device_list_add">添加摄像头</string>
-    <string name="device_list_hint">状态每 5 秒自动刷新；点卡片可重命名、换房间或移除</string>
+    <string name="device_list_hint">点卡片看实时画面，长按可重命名、换房间或移除；状态每 5 秒自动刷新</string>
     <string name="device_list_empty">还没有设备\n先在摄像头端打开“配对与设备”，再回到这里添加</string>
     <string name="device_list_limit">最多管理 %1$d 台设备</string>
     <string name="device_list_discovering">正在搜索局域网内的设备…</string>
@@ -197,4 +197,19 @@
     <string name="remote_guide_wireguard">WireGuard\n1. 在其中一端自建 WireGuard 服务端，另一端导入对端配置。\n2. 两端能互相访问后，用对端的隧道地址加端口检测。\n3. 隧道断开后隧道地址不会自动恢复，需要重新连接 VPN。</string>
     <string name="remote_fallback">不使用自组网时，只要两台设备在同一个 Wi-Fi 下即可直连；本产品不提供公网中继，也不保存任何组网密钥。</string>
     <string name="remote_device_action">自组网访问与诊断</string>
+
+    <string name="live_close">关闭</string>
+    <string name="live_frame_desc">实时画面</string>
+    <string name="live_quality_auto">画质：自动</string>
+    <string name="live_quality_main">画质：主码流</string>
+    <string name="live_snapshot">截图</string>
+    <string name="live_state_connecting">连接中…</string>
+    <string name="live_state_connected">已连接</string>
+    <string name="live_status_offline">设备离线，正在重试…</string>
+    <string name="live_status_unauthorized">授权已失效，请重新配对</string>
+    <string name="live_status_busy">观看人数已满（最多 %1$d 人）</string>
+    <string name="live_status_retry">画面中断，正在重连…</string>
+    <string name="live_snapshot_saved">截图已保存到相册</string>
+    <string name="live_snapshot_failed">截图失败</string>
+    <string name="live_no_device">设备不存在或已被移除</string>
 </resources>

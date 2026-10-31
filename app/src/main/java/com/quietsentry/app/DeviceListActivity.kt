@@ -136,8 +136,20 @@ class DeviceListActivity : AppCompatActivity() {
             setTextColor(stateColor(state.level))
         }
         view.findViewById<TextView>(R.id.device_detail).text = detailText(state, now)
-        view.setOnClickListener { showActions(device) }
+        view.setOnClickListener { openLive(device) }
+        // 管理动作放进长按：卡片的主用途是看画面，点一下就弹菜单会挡住最常见的操作
+        view.setOnLongClickListener {
+            showActions(device)
+            true
+        }
         return view
+    }
+
+    private fun openLive(device: DeviceRegistry.Device) {
+        startActivity(
+            Intent(this, LiveViewActivity::class.java)
+                .putExtra(LiveViewActivity.EXTRA_DEVICE_ID, device.id)
+        )
     }
 
     private fun detailText(state: DeviceState.View, now: Long): String {
@@ -352,10 +364,10 @@ class DeviceListActivity : AppCompatActivity() {
     }
 
     private fun stateColor(level: DeviceState.Level): Int = when (level) {
-        DeviceState.Level.ALERT, DeviceState.Level.OVERHEAT -> 0xFFFF5252.toInt()
-        DeviceState.Level.LOW_BATTERY, DeviceState.Level.STORAGE -> 0xFFFFB74D.toInt()
-        DeviceState.Level.GUARDING -> 0xFF4CD964.toInt()
-        DeviceState.Level.OFFLINE, DeviceState.Level.IDLE -> 0xFF9E9E9E.toInt()
+        DeviceState.Level.ALERT, DeviceState.Level.OVERHEAT -> getColor(R.color.qs_danger)
+        DeviceState.Level.LOW_BATTERY, DeviceState.Level.STORAGE -> getColor(R.color.qs_warn)
+        DeviceState.Level.GUARDING -> getColor(R.color.qs_ok)
+        DeviceState.Level.OFFLINE, DeviceState.Level.IDLE -> getColor(R.color.qs_idle)
     }
 
     private fun relativeTime(at: Long, now: Long): String {
