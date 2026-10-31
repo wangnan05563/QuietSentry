@@ -99,6 +99,9 @@ class CaptureService : LifecycleService() {
         when (intent?.action) {
             ACTION_START -> startCapture()
             ACTION_STOP -> stopCapture()
+            // 进程被系统回收后 START_STICKY 重建时 intent 为空：只有上次确实在值守才恢复采集，
+            // 用户主动停止会先把标记清掉，因此不会出现“停了又自己活过来”（T03771）
+            null -> if (!running && wasGuardActive()) startCapture()
         }
         return START_STICKY
     }
@@ -108,6 +111,7 @@ class CaptureService : LifecycleService() {
         stopping = false
         running = true
         isRunning = true
+        markGuardActive(true)
         sessionStartMs = System.currentTimeMillis()
         // 上一次进程被杀会留下未收敛的分片，先修复再开新片，避免索引里出现打不开的文件
         repairInterruptedClips()
@@ -159,6 +163,8 @@ class CaptureService : LifecycleService() {
                 updateNotification(getString(R.string.camera_open_failed, e.message ?: ""))
                 running = false
                 isRunning = false
+                // 相机打不开就不能算“值守中”，否则系统重建服务时会反复重试失败
+                markGuardActive(false)
             }
         }, ContextCompat.getMainExecutor(this))
     }
@@ -317,6 +323,8 @@ class CaptureService : LifecycleService() {
         stopping = true
         running = false
         isRunning = false
+        // 用户主动停止必须清除恢复标记：进程再被重建也不能把值守自己拉起来
+        markGuardActive(false)
         // 停止即结束检测：导出期间继续分析画面没有意义，只多耗电
         soundDetector?.stop()
         soundDetector = null
@@ -350,6 +358,19 @@ class CaptureService : LifecycleService() {
             stopSelf()
         }.start()
     }
+
+    /**
+     * 为什么要落盘而不是只靠 running 字段：START_STICKY 重建发生在全新服务实例里，
+     * 内存状态早已清零，只有持久化标记才能区分“系统杀进程”和“用户点了停止”。
+     */
+    private fun markGuardActive(active: Boolean) {
+        getSharedPreferences(PREFS_GUARD, MODE_PRIVATE).edit()
+            .putBoolean(KEY_GUARD_ACTIVE, active)
+            .apply()
+    }
+
+    private fun wasGuardActive(): Boolean =
+        getSharedPreferences(PREFS_GUARD, MODE_PRIVATE).getBoolean(KEY_GUARD_ACTIVE, false)
 
     private fun hasAudioPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
@@ -448,6 +469,10 @@ class CaptureService : LifecycleService() {
 
         /** “最近删除”保留期（PRD O6：7 天），超期后才允许物理清除索引与私有文件。 */
         private val DELETED_RETAIN_MS = 7L * 24 * 60 * 60 * 1000
+
+        /** 值守恢复标记；只在本服务读写，避免与其他偏好项混在同一个文件里。 */
+        private const val PREFS_GUARD = "guard_state"
+        private const val KEY_GUARD_ACTIVE = "guard_active"
 
         /** 供界面判断值守是否在运行；相机是独占资源，值守与黑屏模式不能同时绑定。仅由本服务写入。 */
         @Volatile
