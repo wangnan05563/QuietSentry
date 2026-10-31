@@ -3,8 +3,11 @@ package com.quietsentry.app
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -68,6 +71,8 @@ class MainActivity : AppCompatActivity() {
                 statusText.text = getString(R.string.notification_required)
                 return@setOnClickListener
             }
+            // 未豁免时弹系统对话框：实测锁屏 7 分钟后 Samsung 会冻结 UID，前台服务挡不住
+            requestBatteryExemption()
             ContextCompat.startForegroundService(
                 this,
                 Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_START)
@@ -100,6 +105,24 @@ class MainActivity : AppCompatActivity() {
     private fun hasNotificationPermission(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+
+    /**
+     * ROM 对未豁免应用有独立的“锁屏冻结”策略，camera 类型前台服务并不在豁免范围内。
+     * 用系统标准对话框申请电池豁免；用户拒绝也照常启动，避免把可用性堵在这一步。
+     */
+    private fun requestBatteryExemption() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        val power = getSystemService(PowerManager::class.java) ?: return
+        if (power.isIgnoringBatteryOptimizations(packageName)) return
+        runCatching {
+            startActivity(
+                Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:$packageName")
+                )
+            )
+        }
+    }
 
     private fun startCamera() {
         val future = ProcessCameraProvider.getInstance(this)

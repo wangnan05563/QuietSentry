@@ -10,6 +10,8 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.MediaMetadataRetriever
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FileOutputOptions
@@ -52,6 +54,11 @@ class CaptureService : LifecycleService() {
     private var running = false
     private var stopping = false
     private var segmentIndex = 0
+
+    // CameraX 没有“分片时长上限”API，只能计时到点主动 stop()，由 Finalize 回调再开下一片。
+    // 没有这个计时器时单片会一直写下去，实测 5 分钟就积累到 719MB，进程被杀时损失整段
+    private val segmentTimer = Handler(Looper.getMainLooper())
+    private val stopCurrentSegment = Runnable { recording?.stop() }
 
     override fun onCreate() {
         super.onCreate()
@@ -120,12 +127,16 @@ class CaptureService : LifecycleService() {
 
         recording = pendingRecording.start(ContextCompat.getMainExecutor(this)) { event ->
             if (event !is VideoRecordEvent.Finalize) return@start
+            // 分片可能因为相机异常提前结束，必须清掉残留计时，否则它会误停刚开起的下一片
+            segmentTimer.removeCallbacks(stopCurrentSegment)
             pending.delete()
             if (event.hasError()) {
                 updateNotification(getString(R.string.segment_error, event.error))
             }
             startNextSegment()
         }
+        // 到点主动收片：片长可控，被杀或断电时最多损失一个分片
+        segmentTimer.postDelayed(stopCurrentSegment, SEGMENT_DURATION_MS)
     }
 
     private fun repairInterruptedClips() {
@@ -158,6 +169,8 @@ class CaptureService : LifecycleService() {
         stopping = true
         running = false
         isRunning = false
+        // 先摘掉计时器，避免它落在一个已经不存在的录制上
+        segmentTimer.removeCallbacks(stopCurrentSegment)
         recording?.stop()
         recording = null
         stopSelf()
@@ -219,6 +232,7 @@ class CaptureService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        segmentTimer.removeCallbacks(stopCurrentSegment)
         provider?.unbindAll()
         provider = null
         videoCapture = null
@@ -236,6 +250,9 @@ class CaptureService : LifecycleService() {
         private const val REQUEST_STOP = 1
         private const val REQUEST_OPEN = 2
         private const val CHECK_EVERY_SEGMENTS = 10
+
+        /** 分片时长上限；PRD §10 约定 30 秒，兼顾“被杀损失最小”与“文件数量可接受”。 */
+        private const val SEGMENT_DURATION_MS = 30_000L
 
         /** 供界面判断值守是否在运行；相机是独占资源，值守与黑屏模式不能同时绑定。仅由本服务写入。 */
         @Volatile
