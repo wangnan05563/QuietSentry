@@ -16,6 +16,7 @@ object DeviceState {
         val battery: Int,
         val charging: Boolean,
         val watching: Int,
+        val maxViewers: Int,
         val lastEventAt: Long,
         val seenAt: Long,
     )
@@ -37,12 +38,14 @@ object DeviceState {
             battery = status?.battery ?: -1,
             charging = status?.charging ?: false,
             watching = status?.watching ?: 0,
+            maxViewers = status?.maxViewers ?: DEFAULT_MAX_VIEWERS,
             lastEventAt = maxOf(lastEventAt, status?.lastEventAt ?: 0L),
             seenAt = seenAt,
         )
     }
 
     private const val MODE_GUARD = "guard"
+    private const val DEFAULT_MAX_VIEWERS = 5
     private const val ALERT_WINDOW_MS = 5 * 60 * 1000L
     private const val LOW_BATTERY_PERCENT = 20
     private const val THERMAL_SEVERE = 3

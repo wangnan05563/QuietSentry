@@ -28,6 +28,7 @@ object DeviceHttp {
         val thermal: Int,
         val storageFreeMb: Long,
         val watching: Int,
+        val maxViewers: Int,
         val lastEventAt: Long,
     )
 
@@ -55,6 +56,8 @@ object DeviceHttp {
             thermal = json.optInt("thermal", 0),
             storageFreeMb = json.optLong("storageFreeMb", -1),
             watching = json.optInt("watching"),
+            // 上限由服务端下发；旧版本服务端不返回时按 5 兜底，界面仍可显示 “2/5”
+            maxViewers = json.optInt("maxViewers", DEFAULT_MAX_VIEWERS),
             lastEventAt = json.optLong("lastEventAt"),
         )
     }
@@ -114,4 +117,5 @@ object DeviceHttp {
     }.getOrNull()
 
     private const val TIMEOUT_MS = 3_000
+    private const val DEFAULT_MAX_VIEWERS = 5
 }

@@ -142,7 +142,7 @@
     <string name="device_card_battery">电量 %1$d%%</string>
     <string name="device_card_charging">电量 %1$d%%（充电中）</string>
     <string name="device_card_unknown_battery">电量 —</string>
-    <string name="device_card_watching">%1$d 人在看</string>
+    <string name="device_card_watching">%1$d/%2$d 人在看</string>
     <string name="device_card_offline_for">离线 %1$s</string>
     <string name="device_card_long_offline">长期离线</string>
     <string name="device_card_last_event">最近事件 %1$s</string>

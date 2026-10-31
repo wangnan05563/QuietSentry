@@ -196,6 +196,7 @@ class DeviceServer(
             .put("storageFreeMb", storageFreeMb())
             .put("version", appVersion())
             .put("watching", viewers.get())
+            .put("maxViewers", MAX_VIEWERS)
             .put("grants", pairing.activeGrants().size)
             .put("live", LanFrameHub.hasFrame())
             .put("lastEventAt", lastEventAt())
@@ -287,13 +288,20 @@ class DeviceServer(
         val grant = requireGrant(req, out, allowGuest = true) ?: return
         if (viewers.incrementAndGet() > MAX_VIEWERS) {
             viewers.decrementAndGet()
-            // 第 6 人明确收到提示，而不是无声地转圈（PRD FR-08 异常：并发已满）
-            return respond(out, 429, errorBody("too_many_viewers"))
+            // 第 6 人明确收到提示与上限值，而不是无声地转圈（PRD FR-08 异常：并发已满）
+            return respond(
+                out,
+                429,
+                JSONObject().put("error", "too_many_viewers").put("maxViewers", MAX_VIEWERS).toString()
+            )
         }
         try {
             // 直播是长连接：请求读取超时在这里没有意义，写超时才由 Socket 层拦截
             socket.soTimeout = 0
-            val main = req.query["quality"] == "main"
+            // quality=auto 先在主码流上试跑，写不动再降子码流：
+            // 客户端无法预知链路余量，只有服务端写到卡住时才知道该降级
+            val auto = req.query["quality"] == "auto"
+            var main = auto || req.query["quality"] == "main"
             out.write(
                 (
                     "HTTP/1.1 200 OK\r\n" +
@@ -327,9 +335,15 @@ class DeviceServer(
                     continue
                 }
                 idleTicks = 0
+                val writeStart = System.nanoTime()
                 writeFrame(out, next.second)
                 lastSequence = next.first
                 out.flush()
+                // 一帧 JPEG 在局域网通常 <10ms；超过 300ms 说明链路已经跟不上主码流。
+                // 只降不升：回升会与降级反复抖动，画面反而更卡
+                if (auto && main && (System.nanoTime() - writeStart) / 1_000_000 >= DEGRADE_WRITE_MS) {
+                    main = false
+                }
             }
         } catch (e: IOException) {
             // 观看端主动断开是最常见的结束方式，不当作错误
@@ -676,6 +690,9 @@ class DeviceServer(
 
         /** 直播中的令牌复查间隔；撤销后最多 2 秒断开（含取帧等待） */
         private const val AUTH_CHECK_MS = 2_000L
+
+        /** 自动画质降级阈值：单帧写入超过该耗时即认为链路跟不上主码流 */
+        private const val DEGRADE_WRITE_MS = 300L
 
         private const val DEFAULT_EVENT_LIMIT = 50
         private const val MAX_EVENT_LIMIT = 200

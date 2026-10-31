@@ -153,7 +153,9 @@ class DeviceListActivity : AppCompatActivity() {
                 state.charging -> getString(R.string.device_card_charging, state.battery)
                 else -> getString(R.string.device_card_battery, state.battery)
             }
-            if (state.watching > 0) parts += getString(R.string.device_card_watching, state.watching)
+            if (state.watching > 0) {
+                parts += getString(R.string.device_card_watching, state.watching, state.maxViewers)
+            }
         }
         parts += getString(R.string.device_card_last_event, relativeTime(state.lastEventAt, now))
         return parts.joinToString(" · ")
