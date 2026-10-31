@@ -21,7 +21,9 @@ object StorageKeeper {
     fun enforce(context: Context) {
         val roots = listOf(
             File(context.filesDir, "clips"),
-            File(context.filesDir, "private_gallery")
+            File(context.filesDir, "private_gallery"),
+            // 缩略图在 events/thumbs 下，配额与过期清理只扫一层，必须直接指向叶子目录
+            File(context.filesDir, "events/thumbs")
         )
         val now = System.currentTimeMillis()
         val expireBefore = now - TimeUnit.DAYS.toMillis(KEEP_DAYS)

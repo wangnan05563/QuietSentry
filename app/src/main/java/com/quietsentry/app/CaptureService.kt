@@ -34,6 +34,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * 值守模式的前台服务：相机与录制都在服务内绑定，屏幕熄灭、Activity 退到后台后仍持续采集。
@@ -52,6 +53,11 @@ class CaptureService : LifecycleService() {
     }
 
     private val clipDir by lazy { File(filesDir, "clips").apply { mkdirs() } }
+    private val thumbnailDir by lazy { File(filesDir, "events/thumbs").apply { mkdirs() } }
+    private val eventStore by lazy { EventStore(this) }
+
+    /** 已入库但还没挂上片段的“检测中”事件；检测器在分析/录音线程触发，用并发队列避免跨线程改列表 */
+    private val pendingEvents = ConcurrentLinkedQueue<Long>()
 
     private var provider: ProcessCameraProvider? = null
     private var videoCapture: VideoCapture<Recorder>? = null
@@ -104,8 +110,12 @@ class CaptureService : LifecycleService() {
             val capture = VideoCapture.withOutput(Recorder.Builder().build())
             videoCapture = capture
             // 运动检测复用同一路相机流；分析路用 320x240，逐块帧差不需要高分辨率
-            val detector = MotionDetector(DETECTION_SENSITIVITY, MotionDetector.ALL_GRID) {
-                onDetected(R.string.detection_motion, it)
+            val detector = MotionDetector(
+                DETECTION_SENSITIVITY,
+                MotionDetector.ALL_GRID,
+                thumbnailDir
+            ) { confidence, thumbnail ->
+                onDetected(EventType.MOTION, R.string.detection_motion, confidence, thumbnail)
             }
             analysis = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -167,6 +177,10 @@ class CaptureService : LifecycleService() {
             pending.delete()
             if (event.hasError()) {
                 updateNotification(getString(R.string.segment_error, event.error))
+                // 写坏的分片不能挂给事件：保持“检测中”，回看页会如实提示文件不可用
+                pendingEvents.clear()
+            } else {
+                attachPendingEvents(output)
             }
             // 停止守值时最后一个分片要靠这次 Finalize 收敛，收敛后才能安全导出
             if (stopping) finishSession() else startNextSegment()
@@ -203,17 +217,28 @@ class CaptureService : LifecycleService() {
 
     private fun startSoundDetector() {
         soundDetector = SoundDetector(DETECTION_SENSITIVITY) {
-            onDetected(R.string.detection_sound, it)
+            onDetected(EventType.SOUND, R.string.detection_sound, it, null)
         }.also { it.start(this) }
     }
 
-    /** 运动与声音两条检测线程各走各的，统一切回主线程再更新通知。 */
-    private fun onDetected(typeRes: Int, confidence: Int) {
+    /**
+     * 事件入库与通知：检测回调来自分析线程与录音线程，先写索引（SQLite 自身线程安全），
+     * 再把界面侧动作切回主线程。声音事件没有对应画面，缩略图为 null。
+     */
+    private fun onDetected(type: EventType, typeRes: Int, confidence: Int, thumbnail: File?) {
+        val eventId = eventStore.record(type, confidence, thumbnail)
+        pendingEvents.add(eventId)
         segmentTimer.post {
             val time = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
             updateNotification(getString(typeRes, time))
-            Log.i(TAG, "detected type=$typeRes time=$time confidence=$confidence")
+            Log.i(TAG, "detected type=${type.raw} time=$time confidence=$confidence eventId=$eventId")
         }
+    }
+
+    /** 分片收敛后把本片期间产生的“检测中”事件挂到片段上；只有文件可读才流转为“已录制” */
+    private fun attachPendingEvents(clip: File) {
+        val ids = generateSequence { pendingEvents.poll() }.toList()
+        if (ids.isNotEmpty()) eventStore.markRecorded(ids, clip)
     }
 
     private fun stopCapture() {
@@ -315,6 +340,8 @@ class CaptureService : LifecycleService() {
         recording = null
         running = false
         isRunning = false
+        // 服务实例销毁后进程可能还活着，不关连接会随每次启停累积未释放的 SQLite 句柄
+        eventStore.close()
         super.onDestroy()
     }
 

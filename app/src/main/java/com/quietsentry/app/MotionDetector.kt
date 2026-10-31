@@ -1,7 +1,10 @@
 package com.quietsentry.app
 
+import android.graphics.Bitmap
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
+import java.io.File
+import java.io.FileOutputStream
 import kotlin.math.abs
 
 /**
@@ -16,7 +19,8 @@ import kotlin.math.abs
 class MotionDetector(
     sensitivity: Int,
     private val gridMask: BooleanArray,
-    private val onMotion: (confidence: Int) -> Unit,
+    private val thumbnailDir: File?,
+    private val onMotion: (confidence: Int, thumbnail: File?) -> Unit,
 ) : ImageAnalysis.Analyzer {
 
     // 灵敏度 1（迟钝）到 5（灵敏）映射为“需要多少比例的检测块发生变化”
@@ -49,12 +53,35 @@ class MotionDetector(
                 hotFrames = 0
                 // 置信度用“超出阈值多少”表达：阈值附近只是轻微移动
                 val confidence = ((maskedChangedRatio / minChangedRatio) * 50).toInt().coerceIn(1, 100)
-                onMotion(confidence)
+                // 缩略图必须在 image.close() 之前取：关闭后 ImageProxy 的画面缓冲会失效
+                onMotion(confidence, saveThumbnail(image))
             }
         } catch (e: Exception) {
             // 分析器异常不能影响录制：吞掉异常只会丢掉这一次判定，不会中断采集
         } finally {
             image.close()
+        }
+    }
+
+    /**
+     * 保存触发帧作为事件缩略图（PRD FR-07：事件条目包含缩略图）。
+     * 直接压分析流原尺寸（320x240）而不再缩放：画面缓冲已经拿到手，额外缩放只是多一次拷贝；
+     * 十几 KB 的 JPEG 足够让回看列表认出“当时发生了什么”。
+     * 写盘失败不能影响事件判定，返回 null，由索引层记录一条无缩略图事件。
+     */
+    private fun saveThumbnail(image: ImageProxy): File? {
+        val dir = thumbnailDir ?: return null
+        return try {
+            dir.mkdirs()
+            val bitmap = image.toBitmap()
+            val file = File(dir, "evt_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(file).use {
+                bitmap.compress(Bitmap.CompressFormat.JPEG, THUMB_QUALITY, it)
+            }
+            bitmap.recycle()
+            file
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -133,6 +160,9 @@ class MotionDetector(
 
         /** 超过该比例的块同时变化视为光照突变 */
         private const val LIGHT_CHANGE_RATIO = 0.7f
+
+        /** 缩略图 JPEG 质量：回看列表只看轮廓，70 已足够且体积约为无损的 1/10 */
+        private const val THUMB_QUALITY = 70
 
         /** 默认全画面参与检测；网格勾选（PRD FR-07）由设置层传入 */
         val ALL_GRID = BooleanArray(BLOCK_COUNT) { true }
