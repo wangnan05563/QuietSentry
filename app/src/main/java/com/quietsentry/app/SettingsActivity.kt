@@ -40,12 +40,16 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var pinSwitch: SwitchCompat
     private lateinit var pinChange: Button
     private lateinit var maskButton: Button
+    private lateinit var integrationSwitch: SwitchCompat
+    private lateinit var integrationAddress: TextView
 
     private var quiet = AlertPolicy.Quiet(false, 0, 0)
     private var checks: List<Diagnostics.Check> = emptyList()
 
     /** 程序化回填开关同样会触发监听器，用它区分"用户操作"与"渲染状态" */
     private var renderingPin = false
+
+    private var renderingIntegration = false
 
     /** 降低保护的动作已在本页确认过本人，会话内不重复弹 PIN */
     private var pinVerified = false
@@ -131,6 +135,94 @@ class SettingsActivity : AppCompatActivity() {
 
         renderLastSummary()
         bindPrivacy()
+        bindIntegration()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 监听端口可能在本页创建之后才就绪（服务随 App 启动），回到前台时重算一次地址
+        if (::integrationAddress.isInitialized) renderIntegration()
+    }
+
+    /**
+     * 第三方集成（PRD FR-15）：默认关闭，开启必须先经过一次明确的隐私确认。
+     * 确认放在这里而不是服务端：暴露面是否扩大是用户的决定，不能由某个 HTTP 请求替他做主。
+     */
+    private fun bindIntegration() {
+        integrationSwitch = findViewById(R.id.settings_integration_switch)
+        integrationAddress = findViewById(R.id.settings_integration_address)
+        renderIntegration()
+        integrationSwitch.setOnCheckedChangeListener { _, checked ->
+            if (renderingIntegration) return@setOnCheckedChangeListener
+            // 开启与关闭都不直接落库：开启要先弹提示，关闭要先踢连接，逻辑都在下面的方法里
+            if (checked) confirmEnableIntegration() else disableIntegration()
+        }
+        findViewById<Button>(R.id.settings_integration_token).setOnClickListener {
+            if (!LanIntegration.isEnabled(this)) return@setOnClickListener
+            LanIntegration.resetToken(this)
+            renderIntegration()
+            Toast.makeText(this, R.string.settings_integration_token_done, Toast.LENGTH_SHORT).show()
+        }
+        findViewById<Button>(R.id.settings_integration_disable).setOnClickListener {
+            if (!LanIntegration.isEnabled(this)) return@setOnClickListener
+            disableIntegration()
+            Toast.makeText(this, R.string.settings_integration_disabled, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun confirmEnableIntegration() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_integration_enable_title)
+            .setMessage(R.string.settings_integration_enable_message)
+            .setPositiveButton(R.string.settings_integration_enable_ok) { _, _ -> setIntegrationEnabled() }
+            // 取消必须回填，否则开关停在“开”而服务其实没开
+            .setNegativeButton(R.string.settings_integration_cancel) { _, _ -> renderIntegration() }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun setIntegrationEnabled() {
+        LanIntegration.setEnabled(this, true)
+        // 集成端点复用的就是这台监听服务；服务没起来时地址无从展示，必须先确保端口就绪
+        if (LanServerHost.ensure(applicationContext) == null) {
+            LanIntegration.setEnabled(this, false)
+            Toast.makeText(this, R.string.settings_integration_not_running, Toast.LENGTH_SHORT).show()
+            renderIntegration()
+            return
+        }
+        AuditLog.record(this, AuditLog.INTEGRATION, "开启第三方集成")
+        renderIntegration()
+    }
+
+    private fun disableIntegration() {
+        LanIntegration.setEnabled(this, false)
+        // 已接入的外部客户端必须当场断开：只关开关会让它们的连接继续推流到关闭为止
+        LanServerHost.kickThirdParty()
+        AuditLog.record(this, AuditLog.INTEGRATION, "关闭第三方集成")
+        renderIntegration()
+    }
+
+    private fun renderIntegration() {
+        val enabled = LanIntegration.isEnabled(this)
+        renderingIntegration = true
+        integrationSwitch.isChecked = enabled
+        renderingIntegration = false
+        if (!enabled) {
+            integrationAddress.text = ""
+            return
+        }
+        val port = LanServerHost.port()
+        val ip = PairingQr.localIpv4(this)
+        integrationAddress.text = if (port <= 0 || ip == null) {
+            getString(R.string.settings_integration_address_off)
+        } else {
+            getString(
+                R.string.settings_integration_address,
+                "http://$ip:$port/web",
+                LanIntegration.USERNAME,
+                LanIntegration.token(this)
+            )
+        }
     }
 
     private fun bindPrivacy() {

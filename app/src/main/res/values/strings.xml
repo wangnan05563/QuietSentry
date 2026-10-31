@@ -340,4 +340,20 @@
     <string name="detection_tier_high">高</string>
     <string name="diag_detection">端侧检测</string>
     <string name="diag_detection_detail">算力档位 %1$s · 人形检测未启用（当前构建无推理运行时）</string>
+
+    <!-- W27 第三方集成（PRD FR-15） -->
+    <string name="settings_section_integration">第三方集成</string>
+    <string name="settings_integration_switch">开启局域网 Web 控制台与外部拉流</string>
+    <string name="settings_integration_hint">开启后，局域网内任何拿到地址与凭据的设备都能访问该画面；认证失败 5 次将锁定 10 分钟。RTSP / ONVIF 尚未提供，当前仅 Web 控制台与 MJPEG / 快照。</string>
+    <string name="settings_integration_enable_title">开启第三方集成？</string>
+    <string name="settings_integration_enable_message">开启后，同一局域网内的其他设备可能访问该画面。仅在你了解这一风险并愿意承担时开启。</string>
+    <string name="settings_integration_enable_ok">我已了解，开启</string>
+    <string name="settings_integration_cancel">取消</string>
+    <string name="settings_integration_address">控制台：%1$s\n用户名：%2$s\n访问令牌：%3$s</string>
+    <string name="settings_integration_address_off">服务未启动：请先确保本机已联网并处于值守或待机状态。</string>
+    <string name="settings_integration_token">重置访问令牌</string>
+    <string name="settings_integration_token_done">访问令牌已重置，外部客户端需重新输入</string>
+    <string name="settings_integration_disable">关闭并踢出所有客户端</string>
+    <string name="settings_integration_disabled">已关闭第三方集成</string>
+    <string name="settings_integration_not_running">局域网服务未启动，无法显示地址</string>
 </resources>

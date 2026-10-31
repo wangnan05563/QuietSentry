@@ -26,6 +26,7 @@ object AuditLog {
     const val PIN_FAIL = "pin_fail"
     const val MASK_CHANGE = "mask_change"
     const val EXPORT = "export"
+    const val INTEGRATION = "integration"
 
     data class Entry(val at: Long, val type: String, val detail: String)
 
@@ -109,6 +110,7 @@ object AuditLog {
         PIN_FAIL -> "应用锁校验失败"
         MASK_CHANGE -> "隐私遮罩变更"
         EXPORT -> "导出"
+        INTEGRATION -> "第三方集成"
         else -> type
     }
 }

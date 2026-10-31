@@ -180,6 +180,55 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
+            android:text="@string/settings_section_integration"
+            android:textColor="@color/qs_text"
+            android:textSize="16sp" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/settings_integration_switch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/settings_integration_switch"
+            android:textColor="@color/qs_text"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/settings_integration_hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/settings_integration_hint"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/settings_integration_address"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/qs_text_muted"
+            android:textIsSelectable="true"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/settings_integration_token"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_integration_token" />
+
+        <Button
+            android:id="@+id/settings_integration_disable"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_integration_disable" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
             android:text="@string/settings_section_health"
             android:textColor="@color/qs_text"
             android:textSize="16sp" />

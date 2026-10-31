@@ -45,6 +45,17 @@ object LanFrameHub {
     private var lastPublishMs = 0L
 
     /**
+     * 主码流实时码率（kbps），供控制台与状态接口展示（PRD FR-15 结果与状态）。
+     * 用窗口累计而不是逐帧瞬时值：单帧 JPEG 大小随画面复杂度波动很大，瞬时值会来回跳动。
+     */
+    @Volatile
+    var bitrateKbps = 0
+        private set
+
+    private var rateWindowStartMs = 0L
+    private var rateWindowBytes = 0L
+
+    /**
      * 隐私遮罩区域（归一化 0~1）。由 PrivacyGuard 注入，默认为空。
      * 放在这里而不是每次编码前读磁盘 prefs：12fps 下每秒读 12 次共享偏好既浪费又拖慢编码线程。
      */
@@ -146,8 +157,21 @@ object LanFrameHub {
             subFrame = Frame(subBytes, subW, subH, atMs)
             sequence++
             lastPublishMs = atMs
+            recordRate(mainBytes.size, atMs)
             lock.notifyAll()
         }
+    }
+
+    /** 只在持锁状态下调用，窗口字段无需额外同步 */
+    private fun recordRate(bytes: Int, atMs: Long) {
+        if (rateWindowStartMs == 0L) rateWindowStartMs = atMs
+        rateWindowBytes += bytes
+        val elapsed = atMs - rateWindowStartMs
+        if (elapsed < 1000L) return
+        // bytes*8/ms 正好是 kbit/s：1 byte/ms = 8 kbit/s，省掉一次多余换算
+        bitrateKbps = ((rateWindowBytes * 8) / elapsed).toInt()
+        rateWindowStartMs = atMs
+        rateWindowBytes = 0
     }
 
     private fun compress(bitmap: Bitmap, quality: Int): ByteArray {

@@ -8,6 +8,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
 import android.os.StatFs
+import android.util.Base64
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
@@ -41,6 +42,11 @@ class DeviceServer(
 
     private val pool = Executors.newFixedThreadPool(MAX_THREADS)
     private val clients = ConcurrentHashMap.newKeySet<Socket>()
+    /**
+     * 走 Basic 认证接入的第三方连接（Web 控制台、外部拉流）。
+     * 一键关闭集成时只踢这些：自有观看端靠配对令牌，误踢会让正常值守的画面无故中断。
+     */
+    private val thirdParty = ConcurrentHashMap.newKeySet<Socket>()
     private val viewers = AtomicInteger()
 
     @Volatile
@@ -83,10 +89,23 @@ class DeviceServer(
         // 直播是长连接，不主动断开会让 stop() 之后 accept 线程之外的工作线程继续跑
         clients.forEach { runCatching { it.close() } }
         clients.clear()
+        thirdParty.clear()
         pool.shutdownNow()
     }
 
     fun watchingCount(): Int = viewers.get()
+
+    /**
+     * 断开所有走 Basic 认证的第三方连接，返回断开数。
+     * 设置页与 HTTP 端点共用这一份实现：两处各自写一遍，必然有一条漏掉某个集合的清理。
+     * [except] 用于“由某个第三方连接发起关闭”的场景，否则会先把请求方自己踢掉再写响应。
+     */
+    fun kickThirdParty(except: Socket? = null): Int {
+        val targets = thirdParty.filter { it !== except }
+        thirdParty.removeAll(targets.toSet())
+        targets.forEach { runCatching { it.close() } }
+        return targets.size
+    }
 
     private fun acceptLoop(socket: ServerSocket) {
         while (running) {
@@ -104,6 +123,7 @@ class DeviceServer(
                     Log.w(TAG, "request failed", e)
                 } finally {
                     clients -= client
+                    thirdParty -= client
                     runCatching { client.close() }
                 }
             }
@@ -133,6 +153,10 @@ class DeviceServer(
             req.method == "POST" && req.path == "/api/revoke" -> handleRevoke(req, out)
             // 远程暂停（PRD FR-14）：Owner/Member 都可请求，Guest 不能
             req.method == "POST" && req.path == "/api/pause" -> handlePause(req, out)
+            // 第三方集成（PRD FR-15）：仅集成开启时可访问，鉴权走 Basic 或配对令牌
+            req.method == "GET" && req.path == "/web" -> handleConsole(socket, req, out)
+            req.method == "GET" && req.path == "/api/integration" -> handleIntegrationState(socket, req, out)
+            req.method == "POST" && req.path == "/api/integration/disable" -> handleIntegrationDisable(socket, req, out)
             else -> respond(out, 404, errorBody("not_found"))
         }
     }
@@ -211,6 +235,9 @@ class DeviceServer(
             // 暂停状态与遮罩状态必须由观看端可见：不然用户只会看到"设备离线"，无从判断是被人为暂停
             .put("paused", GuardState.isPaused(context))
             .put("masked", LanFrameHub.maskEnabled())
+            // 码率与集成开关都要能被自有观看端看到：用户需要判断“画面卡”是链路问题还是集成拉走了带宽
+            .put("bitrateKbps", LanFrameHub.bitrateKbps)
+            .put("integration", LanIntegration.isEnabled(context))
             .put("serverTime", System.currentTimeMillis())
         respond(out, 200, body.toString())
     }
@@ -296,7 +323,10 @@ class DeviceServer(
      * 等下一帧会让观看端白屏到 2 秒以上，直接违反“打开实时画面到首帧 ≤2 秒”。
      */
     private fun handleLive(socket: Socket, req: Request, out: OutputStream) {
-        val grant = requireGrant(req, out, allowGuest = true) ?: return
+        // 自有观看端用配对令牌（Guest 也可看实时）；集成开启后外部工具可用 Basic 接入，
+        // 这条路径不受“集成未开启”的 404 限制，否则关闭第三方集成会连带打断自有观看端
+        val grant = grantOf(req)
+        if (grant == null && !requireIntegration(socket, req, out, requireEnabled = false)) return
         if (viewers.incrementAndGet() > MAX_VIEWERS) {
             viewers.decrementAndGet()
             // 第 6 人明确收到提示与上限值，而不是无声地转圈（PRD FR-08 异常：并发已满）
@@ -332,11 +362,14 @@ class DeviceServer(
             var lastAuthMs = System.currentTimeMillis()
             while (running) {
                 // 撤销必须在下一次心跳内生效：Owner 踢人后若画面还在继续推送，
-                // “撤销”就只是删了一条记录，PRD FR-14 的 5 秒内生效无从保证
-                val now = System.currentTimeMillis()
-                if (now - lastAuthMs >= AUTH_CHECK_MS) {
-                    lastAuthMs = now
-                    if (pairing.authenticate(grant.token) == null) break
+                // “撤销”就只是删了一条记录，PRD FR-14 的 5 秒内生效无从保证。
+                // 第三方 Basic 连接没有配对令牌，只能靠关闭集成来收回（那条路径由 disable 踢出）
+                if (grant != null) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastAuthMs >= AUTH_CHECK_MS) {
+                        lastAuthMs = now
+                        if (pairing.authenticate(grant.token) == null) break
+                    }
                 }
                 val next = LanFrameHub.await(lastSequence, main, LIVE_WAIT_MS)
                 if (next == null) {
@@ -420,6 +453,113 @@ class DeviceServer(
         runCatching { context.startService(intent) }
             .onFailure { return respond(out, 503, errorBody("pause_failed")) }
         respond(out, 200, JSONObject().put("ok", true).toString())
+    }
+
+    /**
+     * 局域网 Web 控制台（PRD FR-15）。页面内的相对请求会复用浏览器缓存的 Basic 凭据，
+     * 因此模板里不需要写入令牌——令牌一旦出现在 HTML 里，截图分享就会变成新的泄露路径。
+     */
+    private fun handleConsole(socket: Socket, req: Request, out: OutputStream) {
+        if (!requireIntegration(socket, req, out)) return
+        val html = runCatching {
+            context.resources.openRawResource(R.raw.console).use { it.readBytes().toString(Charsets.UTF_8) }
+        }.getOrNull() ?: return respond(out, 500, errorBody("console_unavailable"))
+        respond(out, 200, html, HTML_TYPE)
+    }
+
+    /** 控制台的状态轮询入口：只暴露运行态与计数，不含配对列表、事件内容与令牌 */
+    private fun handleIntegrationState(socket: Socket, req: Request, out: OutputStream) {
+        if (!requireIntegration(socket, req, out)) return
+        val body = JSONObject()
+            .put("enabled", LanIntegration.isEnabled(context))
+            .put("username", LanIntegration.USERNAME)
+            .put("mode", currentMode())
+            .put("live", LanFrameHub.hasFrame())
+            .put("paused", GuardState.isPaused(context))
+            .put("masked", LanFrameHub.maskEnabled())
+            .put("viewers", viewers.get())
+            .put("maxViewers", MAX_VIEWERS)
+            .put("bitrateKbps", LanFrameHub.bitrateKbps)
+            .put("thirdPartyClients", thirdParty.size)
+            .put("lockRemainingSec", LanIntegration.lockRemainingMs(context) / 1000L)
+            .put("battery", batteryPercent())
+            .put("charging", isCharging())
+            .put("thermal", thermalStatus())
+            .put("serverTime", System.currentTimeMillis())
+        respond(out, 200, body.toString())
+    }
+
+    /**
+     * 一键关闭并踢出所有第三方客户端（PRD FR-15 结果与状态）。
+     * 只关集成开关、只断 Basic 连接：自有观看端继续可用，值守不会被误中断。
+     */
+    private fun handleIntegrationDisable(socket: Socket, req: Request, out: OutputStream) {
+        if (!requireIntegration(socket, req, out)) return
+        LanIntegration.setEnabled(context, false)
+        // 请求方自己不能被提前关掉，否则后面的 200 响应没有接收方
+        val kicked = kickThirdParty(except = socket)
+        AuditLog.record(context, AuditLog.INTEGRATION, "关闭第三方集成并踢出 $kicked 个连接")
+        respond(out, 200, JSONObject().put("ok", true).put("kicked", kicked).toString())
+    }
+
+    /**
+     * 第三方鉴权（PRD FR-15）。配对令牌与 Basic 凭据任一通过即可，两条路径都失败才拒绝：
+     * 自有观看端用户不该为了看控制台再记一份密码，外部工具也不该被迫走配对流程。
+     *
+     * 缺凭据只回 401 + WWW-Authenticate（浏览器据此弹登录框），不计数：
+     * 否则用户刷新一次页面就消耗掉一半失败额度，5 次锁定会变成“打开两次就锁”。
+     */
+    private fun requireIntegration(
+        socket: Socket,
+        req: Request,
+        out: OutputStream,
+        requireEnabled: Boolean = true,
+    ): Boolean {
+        if (requireEnabled && !LanIntegration.isEnabled(context)) {
+            // 未开启时连“这里有什么”都不透露，避免成为局域网扫描的固定指路灯
+            respond(out, 404, errorBody("not_found"))
+            return false
+        }
+        if (grantOf(req) != null) return true
+        val credentials = basicCredentials(req)
+        if (credentials == null) {
+            writeHead(
+                out, 401, JSON_TYPE, null,
+                mapOf("WWW-Authenticate" to "Basic realm=\"QuietSentry\", charset=\"UTF-8\"")
+            )
+            return false
+        }
+        when (LanIntegration.verify(context, credentials.first, credentials.second)) {
+            LanIntegration.Result.OK -> {
+                thirdParty += socket
+                return true
+            }
+
+            LanIntegration.Result.LOCKED -> {
+                val remain = (LanIntegration.lockRemainingMs(context) / 1000L).coerceAtLeast(1L)
+                respond(
+                    out, 429,
+                    JSONObject().put("error", "auth_locked").put("retryAfterSec", remain).toString()
+                )
+                return false
+            }
+
+            LanIntegration.Result.INVALID -> {
+                respond(out, 401, errorBody("unauthorized"))
+                return false
+            }
+        }
+    }
+
+    private fun basicCredentials(req: Request): Pair<String, String>? {
+        val header = req.header("authorization") ?: return null
+        if (!header.startsWith("Basic ", ignoreCase = true)) return null
+        val decoded = runCatching {
+            Base64.decode(header.substring(6).trim(), Base64.NO_WRAP).toString(Charsets.UTF_8)
+        }.getOrNull() ?: return null
+        val colon = decoded.indexOf(':')
+        if (colon < 0) return null
+        return decoded.substring(0, colon) to decoded.substring(colon + 1)
     }
 
     private fun grantOf(req: Request): PairingStore.Grant? {
@@ -720,6 +860,7 @@ class DeviceServer(
         private const val MAX_BODY_BYTES = 64 * 1024
         private const val MAX_LINE_BYTES = 8 * 1024
         private const val JSON_TYPE = "application/json; charset=utf-8"
+        private const val HTML_TYPE = "text/html; charset=utf-8"
         private const val BOUNDARY = "quietsentry-frame"
     }
 }

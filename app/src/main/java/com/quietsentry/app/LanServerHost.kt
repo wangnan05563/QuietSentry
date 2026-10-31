@@ -47,6 +47,9 @@ object LanServerHost {
     @Synchronized
     fun port(): Int = server?.port ?: 0
 
+    /** 断开第三方（Basic 认证）连接；自有观看端不受影响，见 DeviceServer.kickThirdParty */
+    fun kickThirdParty(): Int = server?.kickThirdParty() ?: 0
+
     /** 目前只有测试或进程级重置需要用；正常使用中服务不随值守停止 */
     @Synchronized
     fun stop() {

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuietSentry 控制台</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #0f1115; color: #e6e8ec; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 16px 20px; border-bottom: 1px solid #232733; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  .pill { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: #1c2230; color: #8d96a8; }
+  .pill.on { background: #123524; color: #4ade80; }
+  main { padding: 20px; display: grid; gap: 20px; max-width: 960px; }
+  .card { background: #161a22; border: 1px solid #232733; border-radius: 12px; padding: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; }
+  .metric .k { font-size: 12px; color: #8d96a8; }
+  .metric .v { font-size: 20px; font-weight: 600; margin-top: 2px; }
+  #shot { width: 100%; border-radius: 10px; background: #000; display: block; min-height: 120px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button { background: #222838; color: #e6e8ec; border: 1px solid #313849; border-radius: 9px; padding: 9px 14px; font-size: 14px; cursor: pointer; }
+  button:hover { background: #2a3143; }
+  button.danger { border-color: #7f2b2b; background: #2a1416; color: #ff9c9c; }
+  .muted { color: #8d96a8; font-size: 13px; }
+  footer { padding: 0 20px 28px; color: #6b7488; font-size: 12px; max-width: 960px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>QuietSentry 控制台</h1>
+  <span class="pill" id="mode">加载中</span>
+  <span class="pill" id="paused">—</span>
+</header>
+<main>
+  <section class="card">
+    <div class="grid">
+      <div class="metric"><div class="k">观看人数</div><div class="v" id="viewers">—</div></div>
+      <div class="metric"><div class="k">码率</div><div class="v" id="bitrate">—</div></div>
+      <div class="metric"><div class="k">第三方连接</div><div class="v" id="third">—</div></div>
+      <div class="metric"><div class="k">电量</div><div class="v" id="battery">—</div></div>
+      <div class="metric"><div class="k">散热档位</div><div class="v" id="thermal">—</div></div>
+      <div class="metric"><div class="k">隐私遮罩</div><div class="v" id="mask">—</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="muted" style="margin-bottom:10px">实时画面（子码流）</div>
+    <img id="shot" alt="实时画面">
+    <div class="row" style="margin-top:12px">
+      <button id="refresh">刷新快照</button>
+      <span class="muted" id="updated">—</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <button class="danger" id="disable">关闭第三方集成并踢出所有客户端</button>
+      <span class="muted">关闭后本控制台与外部拉流立即失效，自有观看端不受影响。</span>
+    </div>
+  </section>
+</main>
+<footer>
+  该页面只通过网络凭据访问。RTSP / ONVIF 尚未在此构建中提供，当前仅 Web 控制台与 MJPEG / 快照。
+</footer>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  function apply(state) {
+    $('mode').textContent = state.mode === 'guard' ? '值守中' : '待机';
+    $('mode').className = 'pill' + (state.mode === 'guard' ? ' on' : '');
+    $('paused').textContent = state.paused ? '已暂停' : '未暂停';
+    $('viewers').textContent = state.viewers + '/' + state.maxViewers;
+    $('bitrate').textContent = state.bitrateKbps > 0 ? state.bitrateKbps + ' kbps' : '—';
+    $('third').textContent = state.thirdPartyClients;
+    $('battery').textContent = state.battery >= 0 ? state.battery + '%' + (state.charging ? ' · 充电中' : '') : '—';
+    $('thermal').textContent = state.thermal;
+    $('mask').textContent = state.masked ? '已开启' : '关闭';
+    if (state.lockRemainingSec > 0) {
+      $('updated').textContent = '认证已锁定，剩余 ' + state.lockRemainingSec + ' 秒';
+    }
+    $('disable').disabled = !state.enabled;
+  }
+
+  function poll() {
+    fetch('/api/integration', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(apply)
+      .catch(function () { $('mode').textContent = '连接中断'; });
+  }
+
+  function shot() {
+    // 加时间戳避免浏览器复用上一张快照；Basic 凭据由浏览器自动携带
+    $('shot').src = '/api/snapshot?quality=sub&t=' + Date.now();
+    $('updated').textContent = '更新于 ' + new Date().toLocaleTimeString();
+  }
+
+  $('refresh').addEventListener('click', shot);
+  $('disable').addEventListener('click', function () {
+    if (!confirm('确认关闭第三方集成？所有外部客户端将被断开。')) return;
+    fetch('/api/integration/disable', { method: 'POST' })
+      .then(function () { poll(); })
+      .catch(function () {});
+  });
+
+  poll();
+  shot();
+  setInterval(poll, 3000);
+  // 快照每 5 秒刷新一次：MJPEG 在部分浏览器里会一直占用并行连接，轮询快照更稳
+  setInterval(shot, 5000);
+})();
+</script>
+</body>
+</html>
