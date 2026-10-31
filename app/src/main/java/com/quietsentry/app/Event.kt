@@ -55,4 +55,15 @@ data class Event(
     val clipUri: String? = null,
     /** 软删除时间（毫秒）。非空表示在“最近删除”里，保留期内可恢复，超期才物理清除 */
     val deletedAt: Long? = null,
+    /**
+     * 事件时刻相对所在片段起点的偏移。播放器据此回退到“事件前 5 秒”（PRD FR-07），
+     * 直接把整段从头播会让用户先看十几秒无关画面。
+     */
+    val clipOffsetMs: Long = 0L,
+    /**
+     * 事件位于片段开头 5 秒内时，所在片段自身无法提供完整前置画面，
+     * 需要引用上一片尾部补足。该文件是多个事件共享的素材，不随单个事件删除。
+     */
+    val prevClip: File? = null,
+    val prevClipUri: String? = null,
 )

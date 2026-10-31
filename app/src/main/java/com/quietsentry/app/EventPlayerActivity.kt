@@ -51,6 +51,12 @@ class EventPlayerActivity : AppCompatActivity() {
     private var dragging = false
     private var muted = false
 
+    /** 事件所在片段；前置画面播完要切回它 */
+    private var mainUri: Uri? = null
+    /** 当前是否在播“事件前画面”。前置片段的进度条对用户没有意义，播放期间隐藏 */
+    private var inPreRoll = false
+    private var playerTitle = ""
+
     private val progressTicker = object : Runnable {
         override fun run() {
             if (prepared && !dragging) {
@@ -80,10 +86,11 @@ class EventPlayerActivity : AppCompatActivity() {
         }
 
         val timeFormat = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault())
-        titleText.text = getString(
+        playerTitle = getString(
             if (event.type == EventType.MOTION) R.string.timeline_type_motion
             else R.string.timeline_type_sound
         ) + " · " + timeFormat.format(Date(event.occurredAt))
+        titleText.text = playerTitle
 
         findViewById<Button>(R.id.back_button).setOnClickListener { finish() }
 
@@ -92,8 +99,40 @@ class EventPlayerActivity : AppCompatActivity() {
             showMissing()
             return
         }
-        videoUri = uri
-        setupPlayer(uri)
+        setupPlayer(event, uri)
+    }
+
+    /**
+     * 前置画面（PRD FR-07：事件从事件前 5 秒开始）：
+     * 事件不在片头 5 秒内时，所在片段自身就覆盖了前置时长；
+     * 否则先播上一片尾部不足的秒数，播完无缝切回事件片段。
+     * 两种情况都不从分片开头播起，用户不必先看十几秒无关画面。
+     */
+    private fun setupPlayer(event: Event, uri: Uri) {
+        mainUri = uri
+        bindControls()
+        val prev = resolvePrevUri(event)
+        val shortOfPreRoll = event.clipOffsetMs < PRE_ROLL_MS
+        if (shortOfPreRoll && prev != null) {
+            inPreRoll = true
+            loadVideo(prev, tailMs = PRE_ROLL_MS - event.clipOffsetMs, autoPlay = true)
+        } else {
+            if (shortOfPreRoll) {
+                // 本场第一个分片就命中事件时没有上一片可借，只能如实告知前置画面不足
+                titleText.text = getString(R.string.player_pre_roll_short, playerTitle)
+            }
+            // 事件前不足则从分片开头播；否则回退到事件前 5 秒，避免让用户先看无关画面
+            loadVideo(
+                uri,
+                startMs = (event.clipOffsetMs - PRE_ROLL_MS).coerceAtLeast(0L),
+                autoPlay = false
+            )
+        }
+    }
+
+    private fun resolvePrevUri(event: Event): Uri? {
+        event.prevClipUri?.let { return Uri.parse(it) }
+        return event.prevClip?.takeIf { it.isFile && it.length() > 0L }?.let { Uri.fromFile(it) }
     }
 
     /**
@@ -117,13 +156,34 @@ class EventPlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupPlayer(uri: Uri) {
+    /**
+     * 每次换片（前置→主片）都要重新 prepare，但控件监听只需绑一次，否则重复设置会叠加。
+     */
+    private fun loadVideo(uri: Uri, startMs: Long = 0L, tailMs: Long = 0L, autoPlay: Boolean) {
+        videoUri = uri
+        prepared = false
+        // 前置片段的进度条没有用户意义，播放期间隐藏；主片就绪后恢复
+        seekBar.visibility = if (tailMs > 0L) View.INVISIBLE else View.VISIBLE
         videoView.setVideoURI(uri)
         videoView.setOnPreparedListener { mp ->
             mediaPlayer = mp
             prepared = true
             seekBar.max = mp.duration
-            mp.setOnCompletionListener {
+            val target = when {
+                // 只取上一片尾部：前置覆盖分片边界时正是尾部这段画面
+                tailMs > 0L -> (mp.duration - tailMs).coerceAtLeast(0L).toInt()
+                // 事件不在片头时，本片自身也要从“事件前 5 秒”起播，而不是从分片开头
+                else -> startMs.coerceIn(0L, mp.duration.toLong()).toInt()
+            }
+            if (target > 0) {
+                videoView.seekTo(target)
+                seekBar.progress = target
+            }
+            mp.setOnCompletionListener { onSegmentFinished() }
+            if (autoPlay) {
+                mp.start()
+                playButton.setText(R.string.player_pause)
+            } else {
                 playButton.setText(R.string.player_play)
             }
             mainHandler.post(progressTicker)
@@ -133,7 +193,20 @@ class EventPlayerActivity : AppCompatActivity() {
             showMissing()
             true
         }
+    }
 
+    private fun onSegmentFinished() {
+        val main = mainUri
+        // 前置画面播完直接切回事件片段并续播，避免用户以为播放结束
+        if (inPreRoll && main != null) {
+            inPreRoll = false
+            loadVideo(main, tailMs = 0L, autoPlay = true)
+            return
+        }
+        playButton.setText(R.string.player_play)
+    }
+
+    private fun bindControls() {
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (fromUser) videoView.seekTo(progress)
@@ -271,5 +344,8 @@ class EventPlayerActivity : AppCompatActivity() {
 
         /** 30fps 下的一帧时长；seekTo 只能落到附近关键帧，这里把它当作“逐帧”的实际精度上限。 */
         private const val FRAME_MS = 33L
+
+        /** 事件前覆盖时长（PRD FR-07），与 EventStore 的清理口径保持一致 */
+        private const val PRE_ROLL_MS = 5_000L
     }
 }

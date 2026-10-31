@@ -78,6 +78,10 @@ class CaptureService : LifecycleService() {
     private var stopping = false
     private var segmentIndex = 0
 
+    // 事件前覆盖（PRD FR-07）需要两样东西：本片起点用于算事件偏移，上一片用于补齐片头 5 秒
+    private var segmentStartMs = 0L
+    private var previousClip: File? = null
+
     // 本场值守的起点，用来区分“本次要导出到相册的分片”和目录里的历史文件
     private var sessionStartMs = 0L
 
@@ -182,6 +186,9 @@ class CaptureService : LifecycleService() {
         val capture = videoCapture ?: return
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val output = File(clipDir, "clip_${stamp}_${segmentIndex++}.mp4")
+        // 起点要在这里而不是 Finalize 里取：Finalize 时刻比真实开录晚若干百毫秒，
+        // 用它算偏移会让“事件前 5 秒”整体向后漂
+        segmentStartMs = System.currentTimeMillis()
         val pending = File(output.path + ".pending")
 
         val options = FileOutputOptions.Builder(output).build()
@@ -199,7 +206,9 @@ class CaptureService : LifecycleService() {
                 // 写坏的分片不能挂给事件：保持“检测中”，回看页会如实提示文件不可用
                 pendingEvents.clear()
             } else {
-                attachPendingEvents(output)
+                attachPendingEvents(output, segmentStartMs, previousClip)
+                // 保住刚收敛的片子，下一片的事件若发生在片头 5 秒内要靠它补前置画面
+                previousClip = output
             }
             // 停止守值时最后一个分片要靠这次 Finalize 收敛，收敛后才能安全导出
             if (stopping) finishSession() else startNextSegment()
@@ -313,10 +322,14 @@ class CaptureService : LifecycleService() {
         }
     }
 
-    /** 分片收敛后把本片期间产生的“检测中”事件挂到片段上；只有文件可读才流转为“已录制” */
-    private fun attachPendingEvents(clip: File) {
+    /**
+     * 分片收敛后把本片期间产生的“检测中”事件挂到片段上；只有文件可读才流转为“已录制”。
+     * 同时记录事件相对本片起点的偏移，回看页据此定位到“事件前 5 秒”而不是从分片开头播。
+     */
+    private fun attachPendingEvents(clip: File, clipStartMs: Long, prev: File?) {
         val ids = generateSequence { pendingEvents.poll() }.toList()
-        if (ids.isNotEmpty()) eventStore.markRecorded(ids, clip)
+        if (ids.isEmpty()) return
+        eventStore.markRecorded(ids, clip, clipStartMs, prev)
     }
 
     private fun stopCapture() {

@@ -91,4 +91,6 @@
     <string name="player_snapshot">快照</string>
     <string name="player_snapshot_saved">快照已保存到相册</string>
     <string name="player_snapshot_failed">快照保存失败</string>
+    <string name="player_pre_roll">正在播放事件前画面…</string>
+    <string name="player_pre_roll_short">%1$s（可用前置画面不足 5 秒）</string>
 </resources>

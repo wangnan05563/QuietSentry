@@ -87,22 +87,56 @@ class EventStore(context: Context) : SQLiteOpenHelper(
      * 只有文件真实可读才流转：分片录制失败时保持 DETECTING，回看页据此提示“文件不可用”（FR-11 异常）。
      */
     @Synchronized
-    fun markRecorded(ids: Collection<Long>, clip: File) {
+    fun markRecorded(
+        ids: Collection<Long>,
+        clip: File,
+        clipStartMs: Long,
+        previousClip: File?,
+    ) {
         if (ids.isEmpty() || !clip.isFile || clip.length() == 0L) return
-        val values = ContentValues().apply {
-            put(COL_CLIP, clip.absolutePath)
-            put(COL_STATUS, EventStatus.RECORDED.raw)
-            put(COL_UPDATED_AT, System.currentTimeMillis())
-        }
         val clause = ids.joinToString(",")
-        // 只流转仍处于“检测中”的行：同一事件可能因 60 秒合并被多次入队，
-        // 后来的分片不该把事件起点已经挂好的片段改成更晚的片段
-        writableDatabase.update(
+        val db = writableDatabase
+        // 偏移必须按每个事件自己的发生时刻算：一片里可能落进多个事件，
+        // 用分片结束时刻统一算会把片头事件当成片尾事件，前置画面整体错位
+        db.query(
             TABLE,
-            values,
+            arrayOf(COL_ID, COL_OCCURRED_AT),
             "$COL_ID IN ($clause) AND $COL_STATUS=?",
-            arrayOf(EventStatus.DETECTING.raw)
-        )
+            arrayOf(EventStatus.DETECTING.raw),
+            null,
+            null,
+            "$COL_OCCURRED_AT ASC"
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(0)
+                val offset = (cursor.getLong(1) - clipStartMs).coerceAtLeast(0L)
+                // 事件在片头 5 秒内时，本片起点晚于“事件前 5 秒”，必须借上一片尾部补足；
+                // 有上一片且可读才记引用，否则宁可少一段前置画面，也不留一个打不开的路径
+                val prev = previousClip?.takeIf {
+                    offset < PRE_ROLL_MS && it.isFile && it.length() > 0L
+                }
+                val values = ContentValues().apply {
+                    put(COL_CLIP, clip.absolutePath)
+                    put(COL_CLIP_OFFSET, offset)
+                    put(COL_STATUS, EventStatus.RECORDED.raw)
+                    put(COL_UPDATED_AT, System.currentTimeMillis())
+                    if (prev == null) {
+                        putNull(COL_PREV_CLIP)
+                        putNull(COL_PREV_CLIP_URI)
+                    } else {
+                        put(COL_PREV_CLIP, prev.absolutePath)
+                        putNull(COL_PREV_CLIP_URI)
+                    }
+                }
+                // 带上 status 条件再判一次：查询与更新之间事件可能已被别的分片挂走
+                db.update(
+                    TABLE,
+                    values,
+                    "$COL_ID=? AND $COL_STATUS=?",
+                    arrayOf(id.toString(), EventStatus.DETECTING.raw)
+                )
+            }
+        }
     }
 
     /** 待补传事件（FR-13：断网时本地排队，恢复后补传索引）；真实上传链路属 M4。 */
@@ -218,6 +252,9 @@ class EventStore(context: Context) : SQLiteOpenHelper(
             put(COL_UPDATED_AT, System.currentTimeMillis())
         }
         writableDatabase.update(TABLE, values, "$COL_CLIP=?", arrayOf(clipPath))
+        // 同一片可能既是 A 事件的主片段，也是 B 事件的“前一片”，两处定位都要回写，
+        // 否则前者能看、后者只能落到已删除的私有路径
+        writableDatabase.update(TABLE, values, "$COL_PREV_CLIP=?", arrayOf(clipPath))
     }
 
     /** 通知点击直达时把该条事件标记已读；时间轴上点击同样调用。 */
@@ -251,6 +288,12 @@ class EventStore(context: Context) : SQLiteOpenHelper(
         if (oldVersion < 2) {
             db.execSQL("ALTER TABLE $TABLE ADD COLUMN $COL_CLIP_URI TEXT")
             db.execSQL("ALTER TABLE $TABLE ADD COLUMN $COL_DELETED_AT INTEGER")
+        }
+        // v2→v3：前置画面覆盖（FR-07），同样只加列，保留用户已有事件
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE $TABLE ADD COLUMN $COL_CLIP_OFFSET INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE $TABLE ADD COLUMN $COL_PREV_CLIP TEXT")
+            db.execSQL("ALTER TABLE $TABLE ADD COLUMN $COL_PREV_CLIP_URI TEXT")
         }
     }
 
@@ -322,11 +365,14 @@ class EventStore(context: Context) : SQLiteOpenHelper(
         triggers = getInt(getColumnIndexOrThrow(COL_TRIGGERS)),
         clipUri = getString(getColumnIndexOrThrow(COL_CLIP_URI)),
         deletedAt = getLong(getColumnIndexOrThrow(COL_DELETED_AT)).takeIf { it > 0L },
+        clipOffsetMs = getLong(getColumnIndexOrThrow(COL_CLIP_OFFSET)),
+        prevClip = getString(getColumnIndexOrThrow(COL_PREV_CLIP))?.let(::File),
+        prevClipUri = getString(getColumnIndexOrThrow(COL_PREV_CLIP_URI)),
     )
 
     companion object {
         private const val DB_NAME = "events.db"
-        private const val DB_VERSION = 2
+        private const val DB_VERSION = 3
         private const val TABLE = "events"
 
         private const val COL_ID = "_id"
@@ -344,15 +390,21 @@ class EventStore(context: Context) : SQLiteOpenHelper(
         private const val COL_UPDATED_AT = "updated_at"
         private const val COL_CLIP_URI = "clip_uri"
         private const val COL_DELETED_AT = "deleted_at"
+        private const val COL_CLIP_OFFSET = "clip_offset_ms"
+        private const val COL_PREV_CLIP = "prev_clip"
+        private const val COL_PREV_CLIP_URI = "prev_clip_uri"
 
         private val COLUMNS = arrayOf(
             COL_ID, COL_TYPE, COL_OCCURRED_AT, COL_CONFIDENCE, COL_THUMBNAIL,
             COL_CLIP, COL_STATUS, COL_READ, COL_LOCKED, COL_SYNCED, COL_TRIGGERS,
-            COL_CLIP_URI, COL_DELETED_AT
+            COL_CLIP_URI, COL_DELETED_AT, COL_CLIP_OFFSET, COL_PREV_CLIP, COL_PREV_CLIP_URI
         )
 
         /** 同源合并窗口（PRD FR-07：60 秒） */
         private val MERGE_WINDOW_MS = TimeUnit.SECONDS.toMillis(60)
+
+        /** 事件前覆盖时长（PRD FR-07：事件从事件前 5 秒开始写入） */
+        private val PRE_ROLL_MS = TimeUnit.SECONDS.toMillis(5)
 
         private const val CREATE_TABLE = """
             CREATE TABLE $TABLE (
@@ -370,7 +422,10 @@ class EventStore(context: Context) : SQLiteOpenHelper(
                 $COL_CREATED_AT INTEGER NOT NULL,
                 $COL_UPDATED_AT INTEGER NOT NULL,
                 $COL_CLIP_URI TEXT,
-                $COL_DELETED_AT INTEGER
+                $COL_DELETED_AT INTEGER,
+                $COL_CLIP_OFFSET INTEGER NOT NULL DEFAULT 0,
+                $COL_PREV_CLIP TEXT,
+                $COL_PREV_CLIP_URI TEXT
             )
         """
 
