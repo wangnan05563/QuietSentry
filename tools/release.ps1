@@ -22,7 +22,9 @@ storePassword、keyAlias、keyPassword。仅本地使用，切勿提交。
 '@
     }
     $props = @{}
-    foreach ($line in Get-Content $file) {
+    # PowerShell 5.1 对无 BOM 的 UTF-8 文件按 ANSI 解码，中文注释会把换行吞掉，
+    # 导致注释与下一行配置粘连；这里显式指定 UTF8，避免注释语言影响解析
+    foreach ($line in Get-Content $file -Encoding UTF8) {
         if ($line -match '^\s*#' -or $line -notmatch '=') { continue }
         $key, $value = $line -split '=', 2
         $props[$key.Trim()] = $value.Trim()
