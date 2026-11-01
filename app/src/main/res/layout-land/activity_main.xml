@@ -49,6 +49,15 @@
                 android:layout_marginTop="8dp"
                 android:text="@string/stop_guard" />
 
+            <!-- 横屏曾是唯一漏掉连续记录的布局：MainActivity 对它无条件 setOnClickListener，
+                 少了这个按钮会在 onCreate 直接 NPE 崩溃 -->
+            <Button
+                android:id="@+id/record_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/record_mode_entry" />
+
             <Button
                 android:id="@+id/black_mode_button"
                 android:layout_width="match_parent"
