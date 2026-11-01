@@ -45,6 +45,13 @@ android {
         }
     }
 
+    // BouncyCastle 的多版本 jar 里带三份 OSGI 清单，Android 打包不接受重复路径
+    packaging {
+        resources {
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -66,4 +73,7 @@ dependencies {
     implementation("androidx.camera:camera-video:${property("depCameraXVersion")}")
     implementation("androidx.camera:camera-view:${property("depCameraXVersion")}")
     implementation("com.google.zxing:core:${property("depZxingVersion")}")
+    // 局域网 TLS：Android 没有内置自签证书签发 API，用 BouncyCastle 生成每设备唯一证书
+    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
 }
