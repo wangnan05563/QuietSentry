@@ -10,3 +10,5 @@ keystore.properties
 .screenshots/
 # Kotlin 编译会话缓存（Gradle 8.x 在项目根生成）
 .kotlin/
+# 验证采样输出（CSV/日志/摘要），属于运行产物而非源码
+verify-output/
