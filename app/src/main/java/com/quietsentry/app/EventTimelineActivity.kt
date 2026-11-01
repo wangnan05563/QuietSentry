@@ -127,8 +127,12 @@ class EventTimelineActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 播放器里可能标记了锁定/已读，回来必须重新拉一次
-        reload()
+        // PIN 未通过时 onCreate 已经提前返回，列表与 adapter 都没建好；
+        // 这里无条件 reload 会抛 UninitializedPropertyAccessException，应用锁一开回看页就闪退
+        if (::adapter.isInitialized) {
+            // 播放器里可能标记了锁定/已读，回来必须重新拉一次
+            reload()
+        }
     }
 
     private fun reload() {
