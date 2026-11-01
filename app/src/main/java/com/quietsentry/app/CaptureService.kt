@@ -117,6 +117,13 @@ class CaptureService : LifecycleService() {
     private var stopping = false
     private var segmentIndex = 0
 
+    /**
+     * 人形模型只在服务生命周期内加载一次：模型 4.5MB，相机重绑会重建分析器，
+     * 每绑一次都重新映射资产会把一次偶发重试放大成明显的内存抖动。
+     */
+    private var humanDetector: HumanDetector? = null
+    private var humanDetectorLoaded = false
+
     /** 连续记录模式：只录制不检测，避免长时间挂机时检测器持续占用算力与电量（PRD §5.1） */
     private var recordOnly = false
 
@@ -257,13 +264,20 @@ class CaptureService : LifecycleService() {
         videoCapture = capture
         // 检测前的算力探测（W26）：低端机降分辨率并隔帧送检，避免检测本身成为耗电主因
         val detection = DetectionProfile.of(this)
+        val human = if (detection.humanDetection) ensureHumanDetector() else null
         // 运动检测复用同一路相机流；分辨率为档位决定，低端机降到 VGA 不影响成片
         val detector = MotionDetector(
             DETECTION_SENSITIVITY,
             MotionDetector.ALL_GRID,
-            thumbnailDir
-        ) { confidence, thumbnail ->
-            onDetected(EventType.MOTION, R.string.detection_motion, confidence, thumbnail)
+            thumbnailDir,
+            human
+        ) { confidence, thumbnail, person ->
+            // 人形确认命中才升级事件类型：模型不可用时 person 恒为 false，口径自动退回普通运动
+            if (person) {
+                onDetected(EventType.PERSON, R.string.detection_person, confidence, thumbnail)
+            } else {
+                onDetected(EventType.MOTION, R.string.detection_motion, confidence, thumbnail)
+            }
         }
         // 帧计数只服务降载与算力档位的隔帧判定；分析器是单线程回调，无需加锁。
         // 每次重绑重建分析器，计数器随之归零，避免沿用上一场会话的节拍
@@ -505,6 +519,18 @@ class CaptureService : LifecycleService() {
         } finally {
             retriever.release()
         }
+    }
+
+    /**
+     * 首次需要时加载模型；加载失败后不再反复尝试。
+     * 低端机档位本就关闭人形检测，只有 MID/HIGH 才会走到这里。
+     */
+    private fun ensureHumanDetector(): HumanDetector? {
+        if (!humanDetectorLoaded) {
+            humanDetectorLoaded = true
+            humanDetector = HumanDetector.create(this)
+        }
+        return humanDetector
     }
 
     private fun startSoundDetector() {
@@ -829,6 +855,10 @@ class CaptureService : LifecycleService() {
         if (instance === this) instance = null
         unwatchCamera()
         stopNetworkMonitor()
+        // 模型解释器持有原生内存，服务结束必须释放，否则下一次值守会叠加一份
+        humanDetector?.close()
+        humanDetector = null
+        humanDetectorLoaded = false
         // 威慑状态绑定在采集上：服务一停，手电必须关掉、警笛音调与对讲播放器都要释放，
         // 否则下一次启动会拿到一个还占着音频设备或闪光灯的残留实例
         Deterrent.release()

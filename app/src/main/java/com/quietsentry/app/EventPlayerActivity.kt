@@ -86,10 +86,7 @@ class EventPlayerActivity : AppCompatActivity() {
         }
 
         val timeFormat = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault())
-        playerTitle = getString(
-            if (event.type == EventType.MOTION) R.string.timeline_type_motion
-            else R.string.timeline_type_sound
-        ) + " · " + timeFormat.format(Date(event.occurredAt))
+        playerTitle = getString(event.type.labelRes) + " · " + timeFormat.format(Date(event.occurredAt))
         titleText.text = playerTitle
 
         findViewById<Button>(R.id.back_button).setOnClickListener { finish() }

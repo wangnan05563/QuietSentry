@@ -36,6 +36,7 @@
 | 连续记录 | 只录不检，适合想留下完整时段的场景；与值守共用分片与断录修复管线 |
 | 黑屏记录 | 屏幕全黑，单击拍照、双击切镜头、长按退出 |
 | 运动 / 声音检测 | 端侧帧差与响度检测，事件进入本地时间轴，支持置信度与触发次数 |
+| 端侧人形确认 | 运动触发后追加一次 EfficientDet-Lite0 推理，确认画面中有人才升级为“人形”事件；模型全程本地，不联网 |
 | 事件回看 | 时间轴、筛选、重要标记、最近删除、片段导出到相册 |
 | 局域网观看端 | mDNS 自动发现 + 手动 IP/端口配对；设备卡片按状态排序 |
 | 安全配对 | 6 位配对码、设备指纹、一次性恢复码、授权成员上限，令牌可撤销 |
@@ -143,6 +144,7 @@ python tools\gen-icons.py
 ```text
 .
 ├─ app/src/main/java/com/quietsentry/app/   # 采集、检测、局域网服务、观看端、设置
+├─ app/src/main/assets/models/              # EfficientDet-Lite0 人形检测模型（4.5 MB）
 ├─ app/src/main/res/                        # 暗色设计令牌、布局、图标
 ├─ assets/brand/                            # Logo、Play Store 图标、社交预览
 ├─ docs/                                    # 交互、技术方案、合规、兼容矩阵、发布清单
@@ -162,7 +164,6 @@ python tools\gen-icons.py
 
 ## Roadmap
 
-- [ ] 端侧人形检测模型（P1，需引入 TFLite 与模型资产）
 - [ ] 8 品牌真机兼容矩阵与 7 天连续稳定性门禁
 - [ ] 折叠屏 / 多窗口专项与 PIN 失败锁定策略复核
 - [ ] Frigate / Home Assistant 实机联调

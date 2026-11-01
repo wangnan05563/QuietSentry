@@ -164,18 +164,25 @@ object Diagnostics {
     }
 
     /**
-     * 端侧检测档位（W26）：这里不做“支持/不支持”的猜测，只展示真实探测到的档位。
-     * 人形检测当前恒为未启用，直接写进 detail，避免用户以为“没看到人形事件”是漏检。
+     * 端侧检测档位（W26）：不做“支持/不支持”的猜测，只展示真实探测到的档位与模型状态。
+     * 模型资产存在且档位允许时才说“已启用”，避免用户以为“没看到人形事件”是漏检。
      */
     private fun detection(context: Context): Check {
         val profile = DetectionProfile.of(context)
+        // 只检查资产存在不足以说明“能用”：这里真跑一次前向，把张量与运行时问题暴露在诊断里
+        val modelReady = runCatching {
+            HumanDetector.create(context)?.use { it.probe() } ?: false
+        }.getOrDefault(false)
+        val enabled = profile.humanDetection && modelReady
+        val detailRes = if (enabled) {
+            R.string.diag_detection_detail_on
+        } else {
+            R.string.diag_detection_detail_off
+        }
         return Check(
             label = context.getString(R.string.diag_detection),
-            status = Status.PASS,
-            detail = context.getString(
-                R.string.diag_detection_detail,
-                context.getString(profile.tier.labelRes)
-            ),
+            status = if (enabled) Status.PASS else Status.WARN,
+            detail = context.getString(detailRes, context.getString(profile.tier.labelRes)),
             target = Target.NONE,
         )
     }

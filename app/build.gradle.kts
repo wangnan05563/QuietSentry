@@ -80,6 +80,11 @@ android {
         }
     }
 
+    // 人形检测模型按原始文件打包：压缩后的 assets 无法直接按字节加载给 TFLite
+    androidResources {
+        noCompress += "tflite"
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -104,4 +109,6 @@ dependencies {
     // 局域网 TLS：Android 没有内置自签证书签发 API，用 BouncyCastle 生成每设备唯一证书
     implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
+    // 端侧人形检测：TFLite 运行时 + 内置 EfficientDet-Lite0 模型（assets/models）
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
 }

@@ -218,11 +218,7 @@ class EventTimelineActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun eventTitle(event: Event): String =
-        getString(
-            if (event.type == EventType.MOTION) R.string.timeline_type_motion
-            else R.string.timeline_type_sound
-        )
+    private fun eventTitle(event: Event): String = getString(event.type.labelRes)
 
     /**
      * 时间轴行模型。分组放在适配器里而不是查询里：
@@ -335,10 +331,7 @@ class EventTimelineActivity : AppCompatActivity() {
                     BitmapFactory.decodeFile(it.absolutePath)
                 }
                 thumb.setImageBitmap(bitmap)
-                title.text = context.getString(
-                    if (event.type == EventType.MOTION) R.string.timeline_type_motion
-                    else R.string.timeline_type_sound
-                )
+                title.text = context.getString(event.type.labelRes)
                 meta.text = context.getString(
                     R.string.timeline_meta,
                     timeText,

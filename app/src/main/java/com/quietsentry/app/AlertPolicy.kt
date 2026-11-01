@@ -32,7 +32,8 @@ object AlertPolicy {
     private const val URGENT_TRIGGERS = 3
 
     fun levelOf(type: EventType, triggers: Int): AlertLevel = when {
-        type == EventType.MOTION && triggers >= URGENT_TRIGGERS -> AlertLevel.URGENT
+        // 人形与运动都属画面类事件；声音不升级紧急，避免把持续噪声当成入侵
+        type != EventType.SOUND && triggers >= URGENT_TRIGGERS -> AlertLevel.URGENT
         else -> AlertLevel.NORMAL
     }
 

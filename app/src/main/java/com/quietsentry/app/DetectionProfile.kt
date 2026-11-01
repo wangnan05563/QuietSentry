@@ -13,9 +13,8 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
  * 这两个加速能力没有稳定的公共探测 API，同一颗 SoC 在不同 ROM 上的可用性也差异极大，
  * 与其猜一个“支持/不支持”，不如用一定能读到的资源量做保守分级，失败风险最低。
  *
- * 人形检测在当前构建里恒为不可用：本地 Gradle 缓存只有 tensorflow-lite-metadata，
- * 没有推理运行时，也没有 .tflite 模型资产。PRD 要求算力不足时“仅运动检测、人形置灰”，
- * 这里按同一口径落为 false，等模型接入后由 [Profile.humanDetection] 按档位放开。
+ * 人形检测按档位放开：低端机只跑运动检测，中高端机在运动触发后追加一次人形确认。
+ * 模型资产缺失时 CaptureService 会回退为纯运动，这里的开关只表达“是否有算力”。
  */
 object DetectionProfile {
 
@@ -46,8 +45,8 @@ object DetectionProfile {
             // 低端机把分析路降到 VGA：分块均值算法在 320x240 上已经足够判断“有没有动”，
             // 继续跑 640x480 只会让每帧采样点数翻倍，换不来更高的判定质量
             Tier.LOW -> Profile(tier, 320, 240, detectEveryNFrames = 2, humanDetection = false)
-            Tier.MID -> Profile(tier, 640, 480, detectEveryNFrames = 1, humanDetection = false)
-            Tier.HIGH -> Profile(tier, 640, 480, detectEveryNFrames = 1, humanDetection = false)
+            Tier.MID -> Profile(tier, 640, 480, detectEveryNFrames = 1, humanDetection = true)
+            Tier.HIGH -> Profile(tier, 640, 480, detectEveryNFrames = 1, humanDetection = true)
         }
     }
 

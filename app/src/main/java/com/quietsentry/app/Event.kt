@@ -4,16 +4,26 @@ import java.io.File
 
 /**
  * 事件类型（PRD §7 Event）：类型、时间、置信度、缩略图、关联片段、推送状态、处理状态。
- * 当前只落地 P0 的运动与声音；人形/遮挡/系统类型在人形检测（P1）与健康模块接入时再扩展。
+ * PERSON 是 MOTION 的增强结果：只有端侧模型确认画面里有人时才会落成该类型，
+ * 模型不可用时事件仍然以 MOTION 入库，回看与告警链路不受影响。
  */
 enum class EventType(val raw: String) {
     MOTION("motion"),
-    SOUND("sound");
+    SOUND("sound"),
+    PERSON("person");
 
     companion object {
         fun fromRaw(raw: String): EventType = entries.firstOrNull { it.raw == raw } ?: MOTION
     }
 }
+
+/** 时间轴与播放器共用的类型标签：两处各写一套 when 迟早会漏掉新增类型 */
+val EventType.labelRes: Int
+    get() = when (this) {
+        EventType.MOTION -> R.string.timeline_type_motion
+        EventType.SOUND -> R.string.timeline_type_sound
+        EventType.PERSON -> R.string.timeline_type_person
+    }
 
 /**
  * 事件状态（PRD FR-07 结果与状态：事件从“检测中”进入“已录制”）。

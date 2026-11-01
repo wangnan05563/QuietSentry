@@ -118,6 +118,7 @@ class EventNotifier(private val context: Context) {
     private fun titleOf(type: EventType): Int = when (type) {
         EventType.MOTION -> R.string.event_title_motion
         EventType.SOUND -> R.string.event_title_sound
+        EventType.PERSON -> R.string.event_title_person
     }
 
     private fun timeText(at: Long): String =

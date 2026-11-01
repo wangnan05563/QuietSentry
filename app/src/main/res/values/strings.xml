@@ -37,8 +37,10 @@
     <string name="saved_to_gallery">已保存 %1$d 段视频到相册（Movies/QuietSentry）</string>
     <string name="save_failed">未能写入相册，可稍后重试或检查存储空间</string>
     <string name="detection_motion">检测到运动 · %1$s</string>
+    <string name="detection_person">检测到人形 · %1$s</string>
     <string name="detection_sound">检测到声音 · %1$s</string>
     <string name="event_title_motion">静哨 · 检测到运动</string>
+    <string name="event_title_person">静哨 · 检测到人形</string>
     <string name="event_title_sound">静哨 · 检测到声音</string>
     <string name="event_body">%1$s · 置信度 %2$d%% · 触发 %3$d 次</string>
     <string name="event_channel_urgent">紧急告警</string>
@@ -71,6 +73,7 @@
     <string name="timeline_deleted_empty">最近删除里没有内容</string>
     <string name="timeline_type_motion">运动</string>
     <string name="timeline_type_sound">声音</string>
+    <string name="timeline_type_person">人形</string>
     <string name="timeline_unread">未读</string>
     <string name="timeline_locked">已锁定</string>
     <string name="timeline_meta">%1$s · 置信度 %2$d%% · 触发 %3$d 次</string>
@@ -396,7 +399,8 @@
     <string name="detection_tier_mid">中</string>
     <string name="detection_tier_high">高</string>
     <string name="diag_detection">端侧检测</string>
-    <string name="diag_detection_detail">算力档位 %1$s · 人形检测未启用（当前构建无推理运行时）</string>
+    <string name="diag_detection_detail_on">算力档位 %1$s · 人形检测已启用</string>
+    <string name="diag_detection_detail_off">算力档位 %1$s · 仅运动检测（算力不足或模型不可用）</string>
 
     <!-- W27 第三方集成（PRD FR-15） -->
     <string name="settings_section_integration">第三方集成</string>

@@ -309,7 +309,7 @@ object OnvifService {
                     return fault("NotAuthorized", "订阅不存在或已过期")
                 }
                 val fresh = recentEvents
-                    .filter { it.type == EventType.MOTION && it.occurredAt > lastPullAt }
+                    .filter { (it.type == EventType.MOTION || it.type == EventType.PERSON) && it.occurredAt > lastPullAt }
                     .takeLast(5)
                 lastPullAt = System.currentTimeMillis()
                 val messages = fresh.joinToString("") {
