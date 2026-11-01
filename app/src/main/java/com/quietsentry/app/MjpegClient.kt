@@ -58,6 +58,12 @@ class MjpegClient(
             if (lower.startsWith(HEADER_LENGTH)) {
                 length = lower.substring(HEADER_LENGTH.length).trim().toIntOrNull() ?: return null
                 if (length <= 0) return null
+                // 服务端每帧头部还有 X-Timestamp 与结尾空行；不把它们读完就直接读 JPEG，
+                // 会把剩余头部当成像素数据，每帧都解码失败（表现为"已连接"但画面全黑）
+                while (true) {
+                    val rest = readLine(source) ?: return null
+                    if (rest.isEmpty()) break
+                }
             }
         }
         val bytes = ByteArray(length)
