@@ -53,8 +53,13 @@ class DeviceServer(
     @Volatile
     private var running = false
     private var serverSocket: ServerSocket? = null
+    private var tlsServerSocket: ServerSocket? = null
 
     var port: Int = 0
+        private set
+
+    /** HTTPS 端口；0 表示证书不可用、退回 HTTP-only（ONVIF/第三方向来只走 HTTP） */
+    var tlsPort: Int = 0
         private set
 
     /** 返回实际绑定端口。端口固定段而不是随机段，方便用户手输 IP 时不用每次找端口。 */
@@ -80,13 +85,39 @@ class DeviceServer(
             start()
         }
         Log.i(TAG, "lan server listening on $chosen")
+        // HTTPS 独立端口：HTTP 继续服务 ONVIF 与第三方（它们不便信任自签证书），
+        // 自有观看端切到 HTTPS。证书生成失败只降级 TLS，不影响局域网可用性。
+        runCatching {
+            val factory = TlsIdentity.material(context).context.serverSocketFactory
+            var boundTls: ServerSocket? = null
+            var chosenTls = 0
+            for (candidate in TLS_PORT_RANGE) {
+                try {
+                    boundTls = factory.createServerSocket(candidate, BACKLOG)
+                    chosenTls = candidate
+                    break
+                } catch (_: IOException) {
+                }
+            }
+            val tlsSocket = boundTls ?: throw IOException("no free tls port in $TLS_PORT_RANGE")
+            tlsServerSocket = tlsSocket
+            tlsPort = chosenTls
+            Thread({ acceptLoop(tlsSocket) }, "device-server-tls").apply {
+                isDaemon = true
+                start()
+            }
+            Log.i(TAG, "tls listening on $chosenTls")
+        }.onFailure { Log.w(TAG, "tls unavailable, http only", it) }
         return chosen
     }
 
     fun stop() {
         running = false
         runCatching { serverSocket?.close() }
+        runCatching { tlsServerSocket?.close() }
         serverSocket = null
+        tlsServerSocket = null
+        tlsPort = 0
         // 直播是长连接，不主动断开会让 stop() 之后 accept 线程之外的工作线程继续跑
         clients.forEach { runCatching { it.close() } }
         clients.clear()
@@ -180,6 +211,8 @@ class DeviceServer(
             .put("model", Build.MODEL)
             .put("appVersion", appVersion())
             .put("port", port)
+            .put("tlsPort", tlsPort)
+            .put("tlsFingerprint", if (tlsPort > 0) TlsIdentity.material(context).fingerprint else "")
             .put("mode", currentMode())
             .put("live", LanFrameHub.hasFrame())
             .put("hasOwner", grants.any { it.role == PairingStore.Role.OWNER })
@@ -968,6 +1001,7 @@ class DeviceServer(
 
         /** 8081 起避开常见的 8080 冲突；段内全占用才失败，观看端通过 mDNS 拿到真实端口 */
         private val PORT_RANGE = 8080..8099
+        private val TLS_PORT_RANGE = 8443..8462
         private const val BACKLOG = 16
         private const val MAX_THREADS = 8
 

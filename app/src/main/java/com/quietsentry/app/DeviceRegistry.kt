@@ -20,6 +20,8 @@ class DeviceRegistry(context: Context) {
         var room: String,
         var host: String,
         var port: Int,
+        /** 相机端自签证书指纹；为空表示旧设备（仍走 HTTP），兼容升级前的记录 */
+        var tlsFingerprint: String = "",
         var token: String,
         var order: Int,
         var lastSeenAt: Long,
@@ -29,7 +31,12 @@ class DeviceRegistry(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     @Synchronized
-    fun all(): List<Device> = read().sortedBy { it.order }
+    fun all(): List<Device> = read().sortedBy { it.order }.onEach { device ->
+        // 进程重启后信任锚需要重新注册：TlsTrust 只活在内存里，不落盘
+        if (device.tlsFingerprint.isNotEmpty()) {
+            TlsTrust.register(device.host, device.port, device.tlsFingerprint)
+        }
+    }
 
     @Synchronized
     fun count(): Int = read().size
@@ -122,6 +129,7 @@ class DeviceRegistry(context: Context) {
                 room = obj.optString("room"),
                 host = obj.optString("host"),
                 port = obj.optInt("port"),
+                tlsFingerprint = obj.optString("tlsFingerprint"),
                 token = obj.optString("token"),
                 order = obj.optInt("order", i),
                 lastSeenAt = obj.optLong("lastSeenAt"),
@@ -140,6 +148,7 @@ class DeviceRegistry(context: Context) {
                 put("room", device.room)
                 put("host", device.host)
                 put("port", device.port)
+                put("tlsFingerprint", device.tlsFingerprint)
                 put("token", device.token)
                 put("order", device.order)
                 put("lastSeenAt", device.lastSeenAt)

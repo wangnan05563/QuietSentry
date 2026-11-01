@@ -2,6 +2,8 @@ package com.quietsentry.app
 
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.HostnameVerifier
 import java.net.URL
 
 /**
@@ -17,6 +19,9 @@ object DeviceHttp {
         val id: String,
         val name: String,
         val port: Int,
+        /** 相机端 HTTPS 端口与证书指纹；0/空表示旧版本或证书不可用，继续走 HTTP */
+        val tlsPort: Int = 0,
+        val tlsFingerprint: String = "",
         val mode: String,
         val lastEventAt: Long,
     )
@@ -51,6 +56,8 @@ object DeviceHttp {
             id = json.optString("id"),
             name = json.optString("name"),
             port = json.optInt("port", port),
+            tlsPort = json.optInt("tlsPort", 0),
+            tlsFingerprint = json.optString("tlsFingerprint"),
             mode = json.optString("mode"),
             lastEventAt = json.optLong("lastEventAt"),
         )
@@ -174,7 +181,14 @@ object DeviceHttp {
         bytes: ByteArray? = null,
         contentType: String = JSON_TYPE,
     ): Reply? = runCatching {
-        val connection = URL("http://$host:$port$path").openConnection() as HttpURLConnection
+        val factory = TlsTrust.factoryFor(host, port)
+        val scheme = if (factory != null) "https" else "http"
+        val connection = URL("$scheme://$host:$port$path").openConnection() as HttpURLConnection
+        if (factory != null && connection is HttpsURLConnection) {
+            connection.sslSocketFactory = factory
+            // 自签证书 CN 写的是设备名而不是 IP，hostname 校验只能交给指纹 pin
+            connection.hostnameVerifier = HostnameVerifier { _, _ -> true }
+        }
         connection.requestMethod = method
         // 局域网内设备响应通常 <50ms；3 秒足够区分“离线”与“慢”，也避免轮询线程被一台掉线设备拖住
         connection.connectTimeout = TIMEOUT_MS

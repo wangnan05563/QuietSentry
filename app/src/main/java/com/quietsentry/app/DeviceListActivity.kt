@@ -428,11 +428,19 @@ class DeviceListActivity : AppCompatActivity() {
     private fun pairWith(peer: LanDiscovery.Peer, code: String) {
         io.execute {
             val info = DeviceHttp.info(peer.host, peer.port)
-            val direct = DeviceHttp.pair(peer.host, peer.port, pairing.publicKeyBase64(), code)
+            // 先用 HTTP 的 /api/info 取得 HTTPS 端口与证书指纹（公开信息），
+            // 注册信任锚后配对与控制全部走 HTTPS；旧版本设备没有 tls 字段则继续 HTTP
+            val securePort = if (info != null && info.tlsPort > 0 && info.tlsFingerprint.isNotEmpty()) {
+                TlsTrust.register(peer.host, info.tlsPort, info.tlsFingerprint)
+                info.tlsPort
+            } else {
+                peer.port
+            }
+            val direct = DeviceHttp.pair(peer.host, securePort, pairing.publicKeyBase64(), code)
             // 普通配对失败时把同一输入当作一次性恢复码再试一次：用户不必理解两套码的差别，
             // 恢复码正确会清空旧配对并以 Owner 身份接管
             val result = direct ?: DeviceHttp.pair(
-                peer.host, peer.port, pairing.publicKeyBase64(), code, recoveryCode = code
+                peer.host, securePort, pairing.publicKeyBase64(), code, recoveryCode = code
             )
             val usedRecovery = direct == null && result != null
             runOnUiThread {
@@ -453,7 +461,8 @@ class DeviceListActivity : AppCompatActivity() {
                         name = if (peer.name.isBlank()) info.name else peer.name,
                         room = "",
                         host = peer.host,
-                        port = peer.port,
+                        port = securePort,
+                        tlsFingerprint = if (securePort != peer.port) info?.tlsFingerprint.orEmpty() else "",
                         token = result.token,
                         order = 0,
                         lastSeenAt = System.currentTimeMillis(),

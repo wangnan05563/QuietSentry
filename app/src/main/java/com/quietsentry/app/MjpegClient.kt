@@ -4,6 +4,8 @@ import java.io.BufferedInputStream
 import java.io.Closeable
 import java.io.InputStream
 import java.net.HttpURLConnection
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.HostnameVerifier
 import java.net.URL
 
 /**
@@ -29,8 +31,14 @@ class MjpegClient(
         private set
 
     fun open(): Boolean = runCatching {
-        val conn = URL("http://$host:$port/api/live?quality=$quality").openConnection()
+        val factory = TlsTrust.factoryFor(host, port)
+        val scheme = if (factory != null) "https" else "http"
+        val conn = URL("$scheme://$host:$port/api/live?quality=$quality").openConnection()
             as HttpURLConnection
+        if (factory != null && conn is HttpsURLConnection) {
+            conn.sslSocketFactory = factory
+            conn.hostnameVerifier = HostnameVerifier { _, _ -> true }
+        }
         conn.connectTimeout = CONNECT_TIMEOUT_MS
         // 服务端超过 15 秒无新帧会主动断开；留出余量后仍未收到数据就当作断流，触发重连
         conn.readTimeout = READ_TIMEOUT_MS
