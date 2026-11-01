@@ -37,6 +37,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 值守模式的前台服务：相机与录制都在服务内绑定，屏幕熄灭、Activity 退到后台后仍持续采集。
@@ -62,7 +63,12 @@ class CaptureService : LifecycleService() {
     /** 网络状态供离线排队摘要使用；回调来自系统线程，因此用 @Volatile 暴露 */
     @Volatile
     private var networkAvailable = true
-    private var offlineEvents = 0
+    /**
+     * 离线待补发的事件条数。写方是运动（分析线程）与声音（录音线程）两个检测线程，
+     * 读改写方是系统网络回调线程，普通 Int 既非原子也无可见性保证——
+     * 实测恢复网络时可能读到 0，整段离线事件就丢了摘要。
+     */
+    private val offlineEvents = AtomicInteger()
     private var connectivity: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
@@ -499,8 +505,11 @@ class CaptureService : LifecycleService() {
      */
     private fun notifyEvent(event: Event) {
         if (!networkAvailable) {
-            // 离线只累计，恢复后补一条摘要；不在这里逐条重发，避免恢复瞬间刷屏
-            offlineEvents++
+            // 离线只累计，恢复后补一条摘要；不在这里逐条重发，避免恢复瞬间刷屏。
+            // 必须在这里 return：缺少返回会继续走到 showEvent，断网时照样逐条弹出事件通知，
+            // 恢复后再补一条摘要，用户会看到同一条事件被提醒两次
+            offlineEvents.incrementAndGet()
+            return
         }
         if (AlertPolicy.isQuietNow(this)) return
         val level = AlertPolicy.levelOf(event.type, event.triggers)
@@ -521,8 +530,7 @@ class CaptureService : LifecycleService() {
             override fun onAvailable(network: Network) {
                 val wasOffline = !networkAvailable
                 networkAvailable = true
-                val queued = offlineEvents
-                offlineEvents = 0
+                val queued = offlineEvents.getAndSet(0)
                 if (wasOffline && queued > 0) notifier.showOfflineSummary(queued)
             }
 
