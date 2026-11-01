@@ -20,6 +20,7 @@ import java.io.OutputStream
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -609,6 +610,12 @@ class DeviceServer(
         if (grantOf(req) != null) return true
         val credentials = basicCredentials(req)
         if (credentials == null) {
+            // ONVIF 客户端默认发 SOAP WS-UsernameToken 而不是 HTTP Basic；
+            // 只对 /onvif/ 放行这条通道，其他端点仍强制 Basic，避免扩大绕过面
+            if (req.path.startsWith("/onvif/") && onvifTokenOk(req.body)) {
+                thirdParty += socket
+                return true
+            }
             writeHead(
                 out, 401, JSON_TYPE, null,
                 mapOf("WWW-Authenticate" to "Basic realm=\"QuietSentry\", charset=\"UTF-8\"")
@@ -646,6 +653,37 @@ class DeviceServer(
         val colon = decoded.indexOf(':')
         if (colon < 0) return null
         return decoded.substring(0, colon) to decoded.substring(colon + 1)
+    }
+
+    /**
+     * WS-Security UsernameToken 校验（ONVIF Profile S）。
+     * 支持 PasswordText 与 PasswordDigest：HA 默认 Digest，部分 NVR 用 Text。
+     * 密码来源与 Web 控制台一致，仍是集成令牌，不新增第二套凭据。
+     */
+    private fun onvifTokenOk(body: String): Boolean {
+        val user = Regex("<(?:[A-Za-z0-9]+:)?Username>([^<]+)<").find(body)
+            ?.groupValues?.get(1)?.trim() ?: return false
+        if (!MessageDigest.isEqual(user.toByteArray(), LanIntegration.USERNAME.toByteArray())) return false
+        val passwordText = Regex("<(?:[A-Za-z0-9]+:)?PasswordText>([^<]+)<").find(body)
+            ?.groupValues?.get(1)?.trim()
+        if (passwordText != null) {
+            return LanIntegration.verify(context, user, passwordText) == LanIntegration.Result.OK
+        }
+        val digest = Regex("<(?:[A-Za-z0-9]+:)?Password>([^<]+)<").find(body)
+            ?.groupValues?.get(1)?.trim() ?: return false
+        val nonceRaw = Regex("<(?:[A-Za-z0-9]+:)?Nonce>([^<]+)<").find(body)
+            ?.groupValues?.get(1)?.trim() ?: return false
+        val created = Regex("<(?:[A-Za-z0-9]+:)?Created>([^<]+)<").find(body)
+            ?.groupValues?.get(1)?.trim() ?: return false
+        val nonce = runCatching { Base64.decode(nonceRaw, Base64.NO_WRAP) }.getOrNull() ?: return false
+        val raw = nonce +
+            created.toByteArray(Charsets.UTF_8) +
+            LanIntegration.token(context).toByteArray(Charsets.UTF_8)
+        val expected = Base64.encodeToString(
+            MessageDigest.getInstance("SHA-1").digest(raw),
+            Base64.NO_WRAP
+        )
+        return MessageDigest.isEqual(expected.toByteArray(), digest.toByteArray())
     }
 
     private fun grantOf(req: Request): PairingStore.Grant? {
