@@ -55,6 +55,15 @@ class MainActivity : AppCompatActivity() {
             } else {
                 getString(R.string.save_failed)
             }
+            // 导出完成说明服务已释放相机；用户仍停在本界面，此时必须立刻恢复预览，
+            // 否则会一直停在“画面由后台采集”，直到切走再回来（T03770）
+            if (!CaptureService.isRunning && previewSuppressed) {
+                previewSuppressed = false
+                previewView.visibility = View.VISIBLE
+                if (requiredPermissions.all(::hasPermission)) {
+                    startCamera()
+                }
+            }
         }
     }
 

@@ -95,6 +95,16 @@ class CaptureService : LifecycleService() {
      * 若还按“正常收片”流程续写，新片会落在即将解绑的旧 capture 上并随即失败。
      */
     private var rebinding = false
+
+    /**
+     * 每次绑定相机递增。旧 capture 的 Finalize 回调可能在新录制已经启动后才到达，
+     * 若还按“正常收片”续写，同一个 Recorder 会被二次 start 抛 IllegalStateException（实测崩溃）。
+     */
+    private var bindGeneration = 0
+
+    /** 最近一次绑定成功时刻：自身 unbindAll→bind 也会收到可用性回调，用它过滤自己造成的噪音 */
+    private var lastBindAtMs = 0L
+
     private var soundDetector: SoundDetector? = null
     private var recording: Recording? = null
     private var running = false
@@ -208,6 +218,8 @@ class CaptureService : LifecycleService() {
         val cameraProvider = provider ?: return
         // 先收敛旧会话：相机重新绑定后旧录制无法继续，留着会让下一片 prepareRecording 直接抛异常
         rebinding = true
+        bindGeneration++
+        val generation = bindGeneration
         segmentTimer.removeCallbacks(stopCurrentSegment)
         segmentTimer.removeCallbacks(retryBind)
         val active = recording
@@ -281,6 +293,8 @@ class CaptureService : LifecycleService() {
             }
             bindRetries = 0
             rebinding = false
+            // 绑定成功前的解绑/重试都会产生可用性回调，记下时刻让回调按“自身噪音”忽略
+            lastBindAtMs = System.currentTimeMillis()
             // 只有前置镜头的设备要把降级结果说出来，否则用户会以为“后置坏了”
             updateNotification(
                 getString(
@@ -292,7 +306,7 @@ class CaptureService : LifecycleService() {
                 )
             )
             if (soundDetector == null) startSoundDetector()
-            startNextSegment()
+            startNextSegment(generation)
             // 相机绑定成功后才值得对外提供服务：否则观看端只能拿到一个“在线但永远无画面”的设备
             startLanServer()
         } catch (e: Exception) {
@@ -329,14 +343,23 @@ class CaptureService : LifecycleService() {
         val callback = object : CameraManager.AvailabilityCallback() {
             override fun onCameraUnavailable(id: String) {
                 if (id != watchedCameraId) return
+                // 我们自己 unbindAll 和刚绑定成功的瞬态也会收到“不可用”，那不是被别人抢占；
+                // 误判会把通知停成“被占用”，并且触发一次多余重绑
+                if (rebinding || System.currentTimeMillis() - lastBindAtMs < CAMERA_SETTLE_MS) return
+                if (cameraBusy) return
                 cameraBusy = true
                 updateNotification(getString(R.string.camera_busy))
             }
 
             override fun onCameraAvailable(id: String) {
-                if (id != watchedCameraId || !cameraBusy) return
-                // 对方释放后 CameraX 不会自己恢复已断开的会话，不重绑就会静默无画面
+                if (id != watchedCameraId) return
+                // 与上面同源的自噪：刚完成绑定就回调“可用”，此时重绑只会多停一次录制
+                if (System.currentTimeMillis() - lastBindAtMs < CAMERA_SETTLE_MS) return
+                if (!cameraBusy) return
                 cameraBusy = false
+                // 抢用方释放后必须把通知改回常规文案，否则设备在正常采集却一直显示“被占用”
+                updateNotification(getString(R.string.capture_running))
+                // 对方释放后 CameraX 不会自己恢复已断开的会话，不重绑就会静默无画面
                 if (running && !stopping && provider != null) bindCamera()
             }
         }
@@ -360,8 +383,10 @@ class CaptureService : LifecycleService() {
      * 30 秒一段：分片越短，进程被杀时损失越少；分片之间先落 .pending 标记，
      * Finalize 成功才删除，这样启动时能准确识别“上次没录完”的文件。
      */
-    private fun startNextSegment() {
+    private fun startNextSegment(generation: Int = bindGeneration) {
         if (!running || stopping) return
+        // 换绑后到达的旧片收尾不能续写：同一个 Recorder 上二次 start 会抛“已有录制进行中”
+        if (generation != bindGeneration) return
         // 每 10 片检查一次保留策略：每片都扫目录不划算，间隔太久又可能在一轮长时间录制里把存储写满
         if (segmentIndex > 0 && segmentIndex % CHECK_EVERY_SEGMENTS == 0) {
             StorageKeeper.enforce(this)
@@ -379,24 +404,37 @@ class CaptureService : LifecycleService() {
         if (hasAudioPermission()) pendingRecording = pendingRecording.withAudioEnabled()
         pending.writeText(output.name)
 
-        recording = pendingRecording.start(ContextCompat.getMainExecutor(this)) { event ->
-            if (event !is VideoRecordEvent.Finalize) return@start
-            // 分片可能因为相机异常提前结束，必须清掉残留计时，否则它会误停刚开起的下一片
-            segmentTimer.removeCallbacks(stopCurrentSegment)
-            pending.delete()
-            if (event.hasError()) {
-                updateNotification(getString(R.string.segment_error, event.error))
-                // 写坏的分片不能挂给事件：保持“检测中”，回看页会如实提示文件不可用
-                pendingEvents.clear()
-            } else {
-                attachPendingEvents(output, segmentStartMs, previousClip)
-                // 保住刚收敛的片子，下一片的事件若发生在片头 5 秒内要靠它补前置画面
-                previousClip = output
+        recording = runCatching {
+            pendingRecording.start(ContextCompat.getMainExecutor(this)) { event ->
+                if (event !is VideoRecordEvent.Finalize) return@start
+                // 分片可能因为相机异常提前结束，必须清掉残留计时，否则它会误停刚开起的下一片
+                segmentTimer.removeCallbacks(stopCurrentSegment)
+                pending.delete()
+                // 换绑后迟到的旧片 Finalize 只做文件收尾，既不能挂事件也不能再开下一片
+                if (generation != bindGeneration) return@start
+                recording = null
+                if (event.hasError()) {
+                    updateNotification(getString(R.string.segment_error, event.error))
+                    // 写坏的分片不能挂给事件：保持“检测中”，回看页会如实提示文件不可用
+                    pendingEvents.clear()
+                } else {
+                    attachPendingEvents(output, segmentStartMs, previousClip)
+                    // 保住刚收敛的片子，下一片的事件若发生在片头 5 秒内要靠它补前置画面
+                    previousClip = output
+                }
+                // 停止守值时最后一个分片要靠这次 Finalize 收敛，收敛后才能安全导出；
+                // 重绑流程里的分片既不续写也不触发收尾，交给新的 bindCamera 重新起片
+                if (stopping) finishSession() else if (!rebinding) startNextSegment(generation)
             }
-            // 停止守值时最后一个分片要靠这次 Finalize 收敛，收敛后才能安全导出；
-            // 重绑流程里的分片既不续写也不触发收尾，交给新的 bindCamera 重新起片
-            if (stopping) finishSession() else if (!rebinding) startNextSegment()
+        }.getOrElse { e ->
+            // 相机刚被抢走时 start 会被拒；放任异常会让前台服务拖死整个进程，本场值守直接丢失
+            Log.w(TAG, "startNextSegment rejected: ${e.message}")
+            pending.delete()
+            segmentTimer.postDelayed({ startNextSegment(generation) }, SEGMENT_RETRY_DELAY_MS)
+            null
         }
+        // 已安排重试时不能把收片计时挂在不存在的录制上
+        if (recording == null) return
         // 到点主动收片：片长可控，被杀或断电时最多损失一个分片
         segmentTimer.postDelayed(stopCurrentSegment, SEGMENT_DURATION_MS)
     }
@@ -804,6 +842,12 @@ class CaptureService : LifecycleService() {
         /** 相机被抢占后的重试次数与间隔：3 次 × 3 秒覆盖解锁、扫码等短暂占用 */
         private const val BIND_RETRY_LIMIT = 3
         private const val BIND_RETRY_DELAY_MS = 3_000L
+
+        /** 自身 unbindAll→bind 引发的可用性回调在此窗口内视为噪音，不提示“被占用”也不重绑 */
+        private const val CAMERA_SETTLE_MS = 2_000L
+
+        /** 录制被 CameraX 拒绝后的重试间隔：多为一瞬间的相机切换竞态 */
+        private const val SEGMENT_RETRY_DELAY_MS = 3_000L
 
         /** 供界面判断值守是否在运行；相机是独占资源，值守与黑屏模式不能同时绑定。仅由本服务写入。 */
         @Volatile
