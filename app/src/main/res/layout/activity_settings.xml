@@ -266,6 +266,37 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
+            android:text="@string/settings_section_update"
+            android:textColor="@color/qs_text"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/settings_update_version"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/settings_update_check"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_update_check" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/settings_update_hint"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
             android:text="@string/settings_section_start"
             android:textColor="@color/qs_text"
             android:textSize="16sp" />

@@ -257,6 +257,14 @@
     <string name="settings_diag_export_failed">导出失败</string>
     <string name="settings_diag_go">去设置</string>
     <string name="settings_diag_line">%1$s：%2$s</string>
+    <string name="settings_section_update">版本与更新</string>
+    <string name="settings_update_version">当前版本 %1$s</string>
+    <string name="settings_update_check">检查更新</string>
+    <string name="settings_update_hint">升级会暂停值守约 1 分钟；升级后设置与配对关系保留。</string>
+    <string name="settings_update_confirm_title">升级前请确认</string>
+    <string name="settings_update_confirm_message">当前正在值守。升级会暂停采集约 1 分钟，是否继续？</string>
+    <string name="settings_update_confirm_ok">前往更新</string>
+    <string name="settings_update_no_store">未找到应用商店，请通过已安装渠道更新</string>
     <string name="settings_section_start">快速开始</string>
     <string name="settings_quick_steps">三步把旧手机变成摄像头：\n1. 摄像头端打开“配对与设备”，生成二维码或 6 位配对码。\n2. 观看端在“我的设备”里添加摄像头，扫码或输入配对码。\n3. 摄像头端点“开始值守”，观看端点设备卡片看实时画面。</string>
     <string name="settings_quick_pairing">打开配对与设备</string>

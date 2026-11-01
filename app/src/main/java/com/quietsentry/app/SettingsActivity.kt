@@ -115,6 +115,10 @@ class SettingsActivity : AppCompatActivity() {
             startActivity(Intent(this, DeviceListActivity::class.java))
         }
 
+        findViewById<TextView>(R.id.settings_update_version).text =
+            getString(R.string.settings_update_version, UpdateChecker.current(this).versionName)
+        findViewById<Button>(R.id.settings_update_check).setOnClickListener { confirmUpdate() }
+
         quiet = AlertPolicy.quiet(this)
         quietSwitch.setOnCheckedChangeListener { _, checked ->
             quiet = quiet.copy(enabled = checked)
@@ -402,6 +406,28 @@ class SettingsActivity : AppCompatActivity() {
         R.id.settings_level_all -> AlertLevel.INFO
         R.id.settings_level_urgent -> AlertLevel.URGENT
         else -> AlertLevel.NORMAL
+    }
+
+    /**
+     * 值守中升级会中断采集，因此先给出明确后果再跳转；待机时直接打开商店，少一次无意义的确认。
+     */
+    private fun confirmUpdate() {
+        if (!GuardState.isActive(this)) {
+            openStore()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_update_confirm_title)
+            .setMessage(R.string.settings_update_confirm_message)
+            .setPositiveButton(R.string.settings_update_confirm_ok) { _, _ -> openStore() }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun openStore() {
+        if (!UpdateChecker.openStore(this)) {
+            Toast.makeText(this, R.string.settings_update_no_store, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun runDiagnostics() {
