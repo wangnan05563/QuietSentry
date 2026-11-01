@@ -262,7 +262,11 @@ class CaptureService : LifecycleService() {
             // 不能变成停止检测——否则用户会以为值守还在，实际整段时间都录不到事件
             frameCount++
             val throttled = GuardRuntime.throttled
-            if (!throttled) LanFrameHub.publish(image)
+            if (!throttled) {
+                LanFrameHub.publish(image)
+                // RTSP/NVR 拉流复用同一帧：降载档一起停推，省电的代价落在推流而不是检测上
+                H264Streamer.publish(image)
+            }
             val skipForThrottle = throttled && frameCount % THROTTLE_FRAME_SKIP != 0
             val skipForCapability = frameCount % detection.detectEveryNFrames != 0
             if (skipForThrottle || skipForCapability) {
@@ -597,6 +601,8 @@ class CaptureService : LifecycleService() {
         GuardRuntime.reset()
         // 不关闭局域网监听：设备要在“在线·待机”下继续可发现、可配对，
         // 直播则因没有新帧自然断开（LanFrameHub 长时间无帧）
+        // 停止即释放硬件编码器：不释放会一直占着编解码资源，下次值守重新建实例还可能失败
+        H264Streamer.stop()
         // 停止即结束检测：导出期间继续分析画面没有意义，只多耗电
         soundDetector?.stop()
         soundDetector = null

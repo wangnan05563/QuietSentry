@@ -40,6 +40,11 @@ object LanServerHost {
                 advertiser = it
             }
         }.onFailure { Log.w(TAG, "mdns advertise failed", it) }
+        // RTSP 与 ONVIF 与 HTTP 服务同生命周期：设备发现阶段就要能连上，不能等到开始值守
+        runCatching { RtspServer.ensure(app) }.onFailure { Log.w(TAG, "rtsp unavailable", it) }
+        runCatching {
+            OnvifService.ensureDiscovery(app) { instance.port }
+        }.onFailure { Log.w(TAG, "onvif discovery unavailable", it) }
         server = instance
         return port
     }
@@ -57,5 +62,7 @@ object LanServerHost {
         advertiser = null
         server?.stop()
         server = null
+        RtspServer.stop()
+        OnvifService.stopDiscovery()
     }
 }

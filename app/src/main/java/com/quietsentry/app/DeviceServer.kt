@@ -161,6 +161,8 @@ class DeviceServer(
             req.method == "GET" && req.path == "/web" -> handleConsole(socket, req, out)
             req.method == "GET" && req.path == "/api/integration" -> handleIntegrationState(socket, req, out)
             req.method == "POST" && req.path == "/api/integration/disable" -> handleIntegrationDisable(socket, req, out)
+            // ONVIF Profile S（PRD FR-15）：NVR 先连 device_service 取能力，再按 Media 服务取流地址
+            req.method == "POST" && req.path.startsWith("/onvif/") -> handleOnvif(socket, req, out)
             else -> respond(out, 404, errorBody("not_found"))
         }
     }
@@ -562,6 +564,18 @@ class DeviceServer(
     }
 
     /**
+     * ONVIF SOAP 入口（PRD FR-15）。认证与 Web 控制台完全一致，
+     * 且设备发现（WS-Discovery）也只在集成开启时才应答，避免未授权探测拿到设备存在的信息。
+     */
+    private fun handleOnvif(socket: Socket, req: Request, out: OutputStream) {
+        if (!requireIntegration(socket, req, out)) return
+        // Host 头里的地址才是客户端实际连得到的地址；设备可能有多张网卡，写死 Wi-Fi IP 会让有线端拉不到流
+        val host = req.header("host")?.substringBefore(':')?.takeIf { it.isNotEmpty() } ?: lanIp()
+        val soap = OnvifService.handle(req.body, host, port, RtspServer.port)
+        respond(out, 200, soap, SOAP_TYPE)
+    }
+
+    /**
      * 一键关闭并踢出所有第三方客户端（PRD FR-15 结果与状态）。
      * 只关集成开关、只断 Basic 连接：自有观看端继续可用，值守不会被误中断。
      */
@@ -936,6 +950,8 @@ class DeviceServer(
         private const val MAX_LINE_BYTES = 8 * 1024
         private const val JSON_TYPE = "application/json; charset=utf-8"
         private const val HTML_TYPE = "text/html; charset=utf-8"
+        /** ONVIF 客户端（Frigate/HA）按 SOAP 1.2 的响应类型解析，回 json 会直接判为设备不可用 */
+        private const val SOAP_TYPE = "application/soap+xml; charset=utf-8"
         private const val BOUNDARY = "quietsentry-frame"
     }
 }

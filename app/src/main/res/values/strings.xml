@@ -370,7 +370,7 @@
     <!-- W27 第三方集成（PRD FR-15） -->
     <string name="settings_section_integration">第三方集成</string>
     <string name="settings_integration_switch">开启局域网 Web 控制台与外部拉流</string>
-    <string name="settings_integration_hint">开启后，局域网内任何拿到地址与凭据的设备都能访问该画面；认证失败 5 次将锁定 10 分钟。RTSP / ONVIF 尚未提供，当前仅 Web 控制台与 MJPEG / 快照。</string>
+    <string name="settings_integration_hint">开启后，局域网内任何拿到地址与凭据的设备都能访问该画面；认证失败 5 次将锁定 10 分钟。当前提供 Web 控制台、MJPEG / 快照，以及 RTSP（H.264 主/子码流 over TCP）与 ONVIF Profile S（NVR / Home Assistant 接入）。</string>
     <string name="settings_integration_enable_title">开启第三方集成？</string>
     <string name="settings_integration_enable_message">开启后，同一局域网内的其他设备可能访问该画面。仅在你了解这一风险并愿意承担时开启。</string>
     <string name="settings_integration_enable_ok">我已了解，开启</string>
