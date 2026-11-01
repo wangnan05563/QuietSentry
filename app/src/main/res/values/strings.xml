@@ -17,6 +17,8 @@
     <string name="camera_missing_title">静哨 · 无法进入值守</string>
     <string name="camera_missing">本机没有可用相机，值守无法启动；可改用黑屏记录模式</string>
     <string name="segment_error">分片录制中断：错误码 %1$d</string>
+    <string name="segment_storage_full">存储空间不足，已停止值守</string>
+    <string name="segment_storage_full_hint">请清理设备存储或调低保留天数后重新开始值守。</string>
     <string name="start_guard">开始值守</string>
     <string name="stop_guard">停止</string>
     <string name="guard_started_tip">值守中：按电源键熄屏后采集继续，通知栏可随时确认</string>

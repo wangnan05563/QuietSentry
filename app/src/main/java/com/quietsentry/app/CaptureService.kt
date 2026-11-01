@@ -409,13 +409,29 @@ class CaptureService : LifecycleService() {
         segmentStartMs = System.currentTimeMillis()
         val pending = File(output.path + ".pending")
 
-        val options = FileOutputOptions.Builder(output).build()
-        var pendingRecording = capture.output.prepareRecording(this, options)
-        if (hasAudioPermission()) pendingRecording = pendingRecording.withAudioEnabled()
-        pending.writeText(output.name)
+        // 磁盘写满时连 .pending 标记都写不进去；这条路径此前没有异常处理，
+        // ENOSPC 会被直接抛到主线程把前台服务打崩（真机 10-31 的崩溃栈即在此处）。
+        // 存储满时重试没有意义，如实提示并停止采集，避免用户以为还在录。
+        val prepared = runCatching {
+            val options = FileOutputOptions.Builder(output).build()
+            var pendingRecording = capture.output.prepareRecording(this, options)
+            if (hasAudioPermission()) pendingRecording = pendingRecording.withAudioEnabled()
+            pending.writeText(output.name)
+            pendingRecording
+        }.getOrElse { e ->
+            Log.w(TAG, "segment unavailable: ${e.message}")
+            pending.delete()
+            updateNotification(getString(R.string.segment_storage_full))
+            notifier.showGuardNote(
+                getString(R.string.segment_storage_full),
+                getString(R.string.segment_storage_full_hint)
+            )
+            stopCapture()
+            return
+        }
 
         recording = runCatching {
-            pendingRecording.start(ContextCompat.getMainExecutor(this)) { event ->
+            prepared.start(ContextCompat.getMainExecutor(this)) { event ->
                 if (event !is VideoRecordEvent.Finalize) return@start
                 // 分片可能因为相机异常提前结束，必须清掉残留计时，否则它会误停刚开起的下一片
                 segmentTimer.removeCallbacks(stopCurrentSegment)
