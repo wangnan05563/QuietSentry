@@ -201,8 +201,13 @@ class CaptureService : LifecycleService() {
         GuardState.setPaused(this, false)
         PrivacyGuard.applyStreamMask(this)
         schedulePowerTick()
-        // 上一次进程被杀会留下未收敛的分片，先修复再开新片，避免索引里出现打不开的文件
-        repairInterruptedClips()
+        // 上一次进程被杀会留下未收敛的分片，先修复再开新片，避免索引里出现打不开的文件。
+        // MediaMetadataRetriever 逐个探测会阻塞主线程，放到独立线程；修复只处理旧分片，
+        // 与新分片写入没有竞态。
+        Thread({ repairInterruptedClips() }, "clip-repair").apply {
+            isDaemon = true
+            start()
+        }
         // 启动即执行一次保留策略：进程可能已经很久没运行过，期间新录的内容可能已超出过期或配额
         StorageKeeper.enforce(this)
         startNetworkMonitor()
