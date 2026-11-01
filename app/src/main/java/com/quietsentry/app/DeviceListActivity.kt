@@ -428,7 +428,13 @@ class DeviceListActivity : AppCompatActivity() {
     private fun pairWith(peer: LanDiscovery.Peer, code: String) {
         io.execute {
             val info = DeviceHttp.info(peer.host, peer.port)
-            val result = DeviceHttp.pair(peer.host, peer.port, pairing.publicKeyBase64(), code)
+            val direct = DeviceHttp.pair(peer.host, peer.port, pairing.publicKeyBase64(), code)
+            // 普通配对失败时把同一输入当作一次性恢复码再试一次：用户不必理解两套码的差别，
+            // 恢复码正确会清空旧配对并以 Owner 身份接管
+            val result = direct ?: DeviceHttp.pair(
+                peer.host, peer.port, pairing.publicKeyBase64(), code, recoveryCode = code
+            )
+            val usedRecovery = direct == null && result != null
             runOnUiThread {
                 if (info == null || result == null) {
                     Toast.makeText(this, R.string.device_list_pair_failed, Toast.LENGTH_SHORT).show()
@@ -455,7 +461,11 @@ class DeviceListActivity : AppCompatActivity() {
                     )
                 )
                 if (added) {
-                    Toast.makeText(this, R.string.device_list_paired, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this,
+                        if (usedRecovery) R.string.device_list_paired_recovery else R.string.device_list_paired,
+                        Toast.LENGTH_SHORT
+                    ).show()
                 } else {
                     Toast.makeText(
                         this,

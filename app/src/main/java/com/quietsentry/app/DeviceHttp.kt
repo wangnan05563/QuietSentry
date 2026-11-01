@@ -81,10 +81,17 @@ object DeviceHttp {
      * 用 6 位配对码换取令牌。角色由服务端判定（首个配对者为 Owner），
      * 客户端不自行决定，避免两台观看端都以为自己是所有者。
      */
-    fun pair(host: String, port: Int, publicKey: String, code: String): PairResult? {
+    fun pair(
+        host: String,
+        port: Int,
+        publicKey: String,
+        code: String,
+        recoveryCode: String? = null,
+    ): PairResult? {
         val body = JSONObject()
             .put("publicKey", publicKey)
             .put("code", code)
+            .apply { if (recoveryCode != null) put("recoveryCode", recoveryCode) }
             .toString()
         val response = call(host, port, "/api/pair", method = "POST", body = body) ?: return null
         val json = runCatching { JSONObject(response) }.getOrNull() ?: return null

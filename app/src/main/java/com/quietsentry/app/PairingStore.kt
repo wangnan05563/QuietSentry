@@ -1,6 +1,7 @@
 package com.quietsentry.app
 
 import android.content.Context
+import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.KeyPair
@@ -75,6 +76,42 @@ class PairingStore(context: Context) {
      * 一次性 6 位码：作为二维码扫不出来时的兜底。5 分钟有效且用一次即失效，
      * 避免用户把一张截图长期留在聊天记录里变成永久后门。
      */
+    // ---------- 本地恢复码（PRD §10.3 / 开放问题 O4） ----------
+
+    private val recoveryHash: String?
+        get() = prefs.getString(KEY_RECOVERY_HASH, null)
+
+    /**
+     * 生成一次性恢复码：只存 SHA-256 摘要，页面关闭后无法再次展示。
+     * 恢复码不是日常配对入口，只在换机/丢失时用于强制接管，因此给 24 小时有效期。
+     */
+    @Synchronized
+    fun newRecoveryCode(): String {
+        val code = CryptoBox.randomCode()
+        val hash = MessageDigest.getInstance("SHA-256").digest(code.toByteArray())
+        prefs.edit()
+            .putString(KEY_RECOVERY_HASH, Base64.encodeToString(hash, Base64.NO_WRAP))
+            .putLong(KEY_RECOVERY_EXPIRES, System.currentTimeMillis() + RECOVERY_TTL_MS)
+            .putBoolean(KEY_RECOVERY_USED, false)
+            .apply()
+        return code
+    }
+
+    /** 校验并消费恢复码；哈希比对使用常量时间，避免逐字节试探 */
+    @Synchronized
+    fun consumeRecoveryCode(input: String): Boolean {
+        if (prefs.getBoolean(KEY_RECOVERY_USED, true)) return false
+        if (prefs.getLong(KEY_RECOVERY_EXPIRES, 0L) <= System.currentTimeMillis()) return false
+        val expected = recoveryHash ?: return false
+        val actual = Base64.encodeToString(
+            MessageDigest.getInstance("SHA-256").digest(input.trim().toByteArray()),
+            Base64.NO_WRAP
+        )
+        if (!MessageDigest.isEqual(expected.toByteArray(), actual.toByteArray())) return false
+        prefs.edit().putBoolean(KEY_RECOVERY_USED, true).apply()
+        return true
+    }
+
     @Synchronized
     fun newPairCode(): String {
         val code = CryptoBox.randomCode()
@@ -288,6 +325,10 @@ class PairingStore(context: Context) {
 
         /** 二维码/配对码有效期：够用户从相机端走到观看端，又不至于长期留在相册截图里 */
         const val PAIR_CODE_TTL_MS = 5 * 60 * 1000L
+        const val KEY_RECOVERY_HASH = "recovery_hash"
+        const val KEY_RECOVERY_EXPIRES = "recovery_expires"
+        const val KEY_RECOVERY_USED = "recovery_used"
+        const val RECOVERY_TTL_MS = 24 * 60 * 60 * 1000L
         const val MIN_INVITE_MS = 10 * 60 * 1000L
         /** PRD FR-12 给 Guest 的有效期上限是 24 小时，邀请窗口不应超过它 */
         const val MAX_INVITE_MS = 24 * 60 * 60 * 1000L

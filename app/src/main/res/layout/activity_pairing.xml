@@ -114,10 +114,17 @@
             android:textSize="13sp" />
 
         <Button
-            android:id="@+id/pairing_revoke_all"
+            android:id="@+id/pairing_recovery"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:text="@string/pairing_recovery" />
+
+        <Button
+            android:id="@+id/pairing_revoke_all"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:text="@string/pairing_revoke_all" />
     </LinearLayout>
 </ScrollView>

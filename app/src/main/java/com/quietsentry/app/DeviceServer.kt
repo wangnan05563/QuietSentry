@@ -193,6 +193,16 @@ class DeviceServer(
             ?: return respond(out, 400, errorBody("bad_json"))
         val publicKey = body.optString("publicKey")
         if (publicKey.isEmpty()) return respond(out, 400, errorBody("missing_public_key"))
+        // 恢复码接管：换机/旧 Owner 失联时，凭设备本机生成的一次性码清空旧配对。
+        // 必须在校验名额之前处理，否则满员时旧配对还没清就已被 limit_reached 拒绝。
+        val recovery = body.optString("recoveryCode").takeIf { it.isNotEmpty() }
+        if (recovery != null) {
+            if (!pairing.consumeRecoveryCode(recovery)) {
+                return respond(out, 403, errorBody("invalid_recovery"))
+            }
+            pairing.revokeAll()
+            AuditLog.record(context, AuditLog.PAIR, "恢复码接管：旧配对已清空")
+        }
         val invite = body.optString("invite").takeIf { it.isNotEmpty() }
         // 上限检查放在消耗配对码之前：满员时不该先把用户手里的码作废
         if (pairing.atCapacity() && !pairing.hasGrant(publicKey)) {

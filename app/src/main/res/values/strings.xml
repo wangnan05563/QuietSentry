@@ -132,6 +132,10 @@
     <string name="pairing_role_member">成员</string>
     <string name="pairing_role_guest">访客</string>
     <string name="pairing_revoke">撤销</string>
+    <string name="pairing_recovery">生成恢复码</string>
+    <string name="pairing_recovery_title">一次性恢复码</string>
+    <string name="pairing_recovery_message">换机或旧手机失联时，在新观看端输入此码可清空旧配对并接管。\n\n%1$s\n\n此码 24 小时内有效，使用后立即失效。</string>
+    <string name="pairing_recovery_done">关闭</string>
     <string name="pairing_revoke_all">撤销全部授权</string>
     <string name="pairing_revoke_title">撤销这台设备的授权？</string>
     <string name="pairing_revoke_message">对方将立即失去实时画面与回看权限。</string>
@@ -153,6 +157,7 @@
     <string name="device_list_pair">配对</string>
     <string name="device_list_pair_failed">配对失败：配对码错误或已过期</string>
     <string name="device_list_pair_mismatch">设备指纹不一致，已拒绝连接</string>
+    <string name="device_list_paired_recovery">已通过恢复码接管设备</string>
     <string name="device_list_paired">已添加设备</string>
     <string name="device_preview_hint">选择左侧设备查看实时画面</string>
     <string name="device_preview_connecting">正在连接实时画面…</string>

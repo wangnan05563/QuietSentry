@@ -65,6 +65,15 @@ class PairingActivity : AppCompatActivity() {
         findViewById<Button>(R.id.pairing_invite_guest).setOnClickListener {
             showInvite(PairingStore.Role.GUEST)
         }
+        findViewById<Button>(R.id.pairing_recovery).setOnClickListener {
+            // 只展示这一次：恢复码用后即焚，页面关闭后无法再次取得，避免长期留在截图里
+            val code = pairing.newRecoveryCode()
+            AlertDialog.Builder(this)
+                .setTitle(R.string.pairing_recovery_title)
+                .setMessage(getString(R.string.pairing_recovery_message, code))
+                .setPositiveButton(R.string.pairing_recovery_done, null)
+                .show()
+        }
         findViewById<Button>(R.id.pairing_revoke_all).setOnClickListener { confirmRevokeAll() }
         refresh()
     }
