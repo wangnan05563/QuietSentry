@@ -582,7 +582,7 @@ class DeviceServer(
         if (!requireIntegration(socket, req, out)) return
         // Host 头里的地址才是客户端实际连得到的地址；设备可能有多张网卡，写死 Wi-Fi IP 会让有线端拉不到流
         val host = req.header("host")?.substringBefore(':')?.takeIf { it.isNotEmpty() } ?: lanIp()
-        val soap = OnvifService.handle(req.body, host, port, RtspServer.port)
+        val soap = OnvifService.handle(req.body, host, port, RtspServer.port, events.recent(10))
         respond(out, 200, soap, SOAP_TYPE)
     }
 

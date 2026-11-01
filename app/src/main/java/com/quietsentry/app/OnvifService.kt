@@ -26,6 +26,18 @@ object OnvifService {
     private var discoveryThread: Thread? = null
     private var discoverySocket: MulticastSocket? = null
 
+    // 单订阅即可：设备是单用户场景，多客户端同时订阅没有产品需求
+    private var subId: String? = null
+    private var subExpiresAt = 0L
+    private var lastPullAt = 0L
+    private const val SUB_TTL_MS = 10 * 60 * 1000L
+
+    private fun isoNow(offsetMs: Long = 0L): String {
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US)
+        fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        return fmt.format(java.util.Date(System.currentTimeMillis() + offsetMs))
+    }
+
     @Synchronized
     fun ensureDiscovery(context: Context, httpPortProvider: () -> Int) {
         appContext = context.applicationContext
@@ -112,7 +124,13 @@ object OnvifService {
      * 处理 SOAP 请求。host 取自 HTTP Host 头，保证返回的地址是客户端实际连得到的地址
      * （设备可能有多张网卡，写死 Wi-Fi IP 会让有线连接的客户端拉不到流）。
      */
-    fun handle(body: String, host: String, httpPort: Int, rtspPort: Int): String {
+    fun handle(
+        body: String,
+        host: String,
+        httpPort: Int,
+        rtspPort: Int,
+        recentEvents: List<Event> = emptyList(),
+    ): String {
         val operation = operationOf(body)
         if (operation == null) return fault("ActionNotSupported", "无法识别的请求")
         val deviceUrl = "http://$host:$httpPort/onvif/device_service"
@@ -267,8 +285,69 @@ object OnvifService {
                 """
             )
 
-            // 事件订阅需要 PullPoint 长轮询与事件转发，当前没有实现；
-            // 明确回 Fault 而不是给一个"永远收不到事件"的订阅地址，避免 NVR 端静默失效
+            // PullPoint：订阅创建后由客户端轮询 PullMessages，服务端把运动事件转成 ONVIF 通知。
+            // 单订阅足够覆盖单机位设备；多客户端场景属于 P2 多机位规划。
+            "CreatePullPointSubscription" -> {
+                subId = java.util.UUID.randomUUID().toString()
+                subExpiresAt = System.currentTimeMillis() + SUB_TTL_MS
+                lastPullAt = System.currentTimeMillis()
+                envelope(
+                    """
+                    <tev:CreatePullPointSubscriptionResponse>
+                      <tev:SubscriptionReference>
+                        <wsa5:Address xmlns:wsa5="http://www.w3.org/2005/08/addressing">http://$host:$httpPort/onvif/sub</wsa5:Address>
+                      </tev:SubscriptionReference>
+                      <tev:CurrentTime>${isoNow()}</tev:CurrentTime>
+                      <tev:TerminationTime>${isoNow(SUB_TTL_MS)}</tev:TerminationTime>
+                    </tev:CreatePullPointSubscriptionResponse>
+                    """
+                )
+            }
+
+            "PullMessages" -> {
+                if (subId == null || System.currentTimeMillis() > subExpiresAt) {
+                    return fault("NotAuthorized", "订阅不存在或已过期")
+                }
+                val fresh = recentEvents
+                    .filter { it.type == EventType.MOTION && it.occurredAt > lastPullAt }
+                    .takeLast(5)
+                lastPullAt = System.currentTimeMillis()
+                val messages = fresh.joinToString("") {
+                    """
+                    <tev:NotificationMessage>
+                      <tev:Topic>tns1:RuleEngine/CellMotionDetector/Motion</tev:Topic>
+                      <tev:Message>
+                        <tt:Source><tt:SimpleItem Name="VideoSourceConfigurationToken" Value="main"/></tt:Source>
+                        <tt:Data><tt:SimpleItem Name="IsMotion" Value="true"/></tt:Data>
+                      </tt:Message>
+                    </tev:NotificationMessage>
+                    """
+                }
+                envelope(
+                    """
+                    <tev:PullMessagesResponse>
+                      <tev:CurrentTime>${isoNow()}</tev:CurrentTime>
+                      <tev:TerminationTime>${isoNow((subExpiresAt - System.currentTimeMillis()).coerceAtLeast(0L))}</tev:TerminationTime>
+                      $messages
+                    </tev:PullMessagesResponse>
+                    """
+                )
+            }
+
+            "Renew" -> {
+                if (subId == null) return fault("NotAuthorized", "订阅不存在")
+                subExpiresAt = System.currentTimeMillis() + SUB_TTL_MS
+                envelope(
+                    "<tev:RenewResponse><tev:TerminationTime>${isoNow(SUB_TTL_MS)}</tev:TerminationTime></tev:RenewResponse>"
+                )
+            }
+
+            "Unsubscribe" -> {
+                subId = null
+                subExpiresAt = 0L
+                envelope("<tev:UnsubscribeResponse/>")
+            }
+
             else -> fault("ActionNotSupported", "事件订阅未实现：$operation")
         }
     }
