@@ -704,20 +704,33 @@ class DeviceServer(
      * 密码来源与 Web 控制台一致，仍是集成令牌，不新增第二套凭据。
      */
     private fun onvifTokenOk(body: String): Boolean {
-        val user = Regex("<(?:[A-Za-z0-9]+:)?Username>([^<]+)<").find(body)
-            ?.groupValues?.get(1)?.trim() ?: return false
-        if (!MessageDigest.isEqual(user.toByteArray(), LanIntegration.USERNAME.toByteArray())) return false
-        val passwordText = Regex("<(?:[A-Za-z0-9]+:)?PasswordText>([^<]+)<").find(body)
+        // 标准 ONVIF 客户端的 Password/Nonce 都带 Type/EncodingType 属性，正则必须允许属性，
+        // 否则 HA、onvif-zeep 这类客户端会全部被判 401
+        // 必须排除 UsernameToken：否则正则先命中 <wsse:UsernameToken> 标签后的缩进空白，
+        // 捕获值 trim 后为空，标准客户端（HA/onvif-zeep）会被误判为用户名不匹配
+        val user = Regex("<(?:[A-Za-z0-9]+:)?Username(?!Token)[^>]*>([^<]+)<").find(body)
             ?.groupValues?.get(1)?.trim()
+        val passwordText = Regex("<(?:[A-Za-z0-9]+:)?PasswordText[^>]*>([^<]+)<").find(body)
+            ?.groupValues?.get(1)?.trim()
+        // 负向断言避免把 PasswordText 当成 Digest 的 Password
+        val digest = Regex("<(?:[A-Za-z0-9]+:)?Password(?!Text)[^>]*>([^<]+)<").find(body)
+            ?.groupValues?.get(1)?.trim()
+        val nonceRaw = Regex("<(?:[A-Za-z0-9]+:)?Nonce[^>]*>([^<]+)<").find(body)
+            ?.groupValues?.get(1)?.trim()
+        val created = Regex("<(?:[A-Za-z0-9]+:)?Created[^>]*>([^<]+)<").find(body)
+            ?.groupValues?.get(1)?.trim()
+        // 只记匹配状态与长度，不把凭据本身写进日志
+        Log.i(
+            TAG,
+            "onvif auth: body=${body.length} user=$user text=${passwordText?.length ?: -1} " +
+                "digest=${digest?.length ?: -1} nonce=${nonceRaw?.length ?: -1} created=${created?.length ?: -1}"
+        )
+        if (user == null) return false
+        if (!MessageDigest.isEqual(user.toByteArray(), LanIntegration.USERNAME.toByteArray())) return false
         if (passwordText != null) {
             return LanIntegration.verify(context, user, passwordText) == LanIntegration.Result.OK
         }
-        val digest = Regex("<(?:[A-Za-z0-9]+:)?Password>([^<]+)<").find(body)
-            ?.groupValues?.get(1)?.trim() ?: return false
-        val nonceRaw = Regex("<(?:[A-Za-z0-9]+:)?Nonce>([^<]+)<").find(body)
-            ?.groupValues?.get(1)?.trim() ?: return false
-        val created = Regex("<(?:[A-Za-z0-9]+:)?Created>([^<]+)<").find(body)
-            ?.groupValues?.get(1)?.trim() ?: return false
+        if (digest == null || nonceRaw == null || created == null) return false
         val nonce = runCatching { Base64.decode(nonceRaw, Base64.NO_WRAP) }.getOrNull() ?: return false
         val raw = nonce +
             created.toByteArray(Charsets.UTF_8) +

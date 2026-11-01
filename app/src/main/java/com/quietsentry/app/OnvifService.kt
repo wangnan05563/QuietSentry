@@ -367,7 +367,9 @@ object OnvifService {
     private fun operationOf(body: String): String? {
         val bodyIndex = body.indexOf("Body")
         if (bodyIndex < 0) return null
-        val names = Regex("<(?:[A-Za-z0-9]+:)?([A-Za-z][A-Za-z0-9]*)[ >]").findAll(body.substring(bodyIndex))
+        // 标准 ONVIF 客户端普遍写自闭合标签（<GetDeviceInformation/>），
+        // 只允许空格或 '>' 会把所有自闭合请求判成 ActionNotSupported
+        val names = Regex("<(?:[A-Za-z0-9]+:)?([A-Za-z][A-Za-z0-9]*)[\\s/>]").findAll(body.substring(bodyIndex))
         names.forEach { match ->
             val name = match.groupValues[1]
             if (name != "Body" && name != "Header" && name != "Envelope") return name
