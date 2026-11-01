@@ -36,30 +36,39 @@ SOAP_NS = {
 }
 
 
-def security_header(username: str, password: str) -> str:
-    """WS-UsernameToken（PasswordDigest）。HA 与多数 NVR 默认用 Digest，不是 PasswordText。"""
-    nonce = os.urandom(16)
-    created = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    digest = base64.b64encode(
-        hashlib.sha1(nonce + created.encode("utf-8") + password.encode("utf-8")).digest()
-    ).decode("ascii")
+def security_header(username: str, password: str, auth: str) -> str:
+    """WS-UsernameToken。Digest 是 HA/NVR 默认；Text 用于把“令牌/开关问题”与“摘要计算问题”分开。"""
+    if auth == "text":
+        credential = f"<wsse:PasswordText>{password}</wsse:PasswordText>"
+    else:
+        nonce = os.urandom(16)
+        created = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        digest = base64.b64encode(
+            hashlib.sha1(nonce + created.encode("utf-8") + password.encode("utf-8")).digest()
+        ).decode("ascii")
+        credential = (
+            '<wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/'
+            'oasis-200401-wss-username-token-profile-1.0#PasswordDigest">'
+            f"{digest}</wsse:Password>"
+            f'<wsse:Nonce EncodingType="http://docs.oasis-open.org/wss/2004/01/'
+            f'oasis-200401-wss-soap-message-security-1.0#Base64Binary">{base64.b64encode(nonce).decode("ascii")}</wsse:Nonce>'
+            f"<wsu:Created>{created}</wsu:Created>"
+        )
     return f"""
     <wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
                     xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
       <wsse:UsernameToken>
         <wsse:Username>{username}</wsse:Username>
-        <wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest">{digest}</wsse:Password>
-        <wsse:Nonce EncodingType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary">{base64.b64encode(nonce).decode("ascii")}</wsse:Nonce>
-        <wsu:Created>{created}</wsu:Created>
+        {credential}
       </wsse:UsernameToken>
     </wsse:Security>"""
 
 
-def envelope(body: str, username: str, password: str) -> str:
+def envelope(body: str, username: str, password: str, auth: str) -> str:
     ns = " ".join(f'xmlns:{key}="{value}"' for key, value in SOAP_NS.items())
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope {ns}>
-  <soap:Header>{security_header(username, password)}</soap:Header>
+  <soap:Header>{security_header(username, password, auth)}</soap:Header>
   <soap:Body>{body}</soap:Body>
 </soap:Envelope>"""
 
@@ -83,8 +92,12 @@ def has_fault(body: str) -> bool:
 
 
 def extract(body: str, pattern: str) -> str | None:
+    """marker 有两种写法：带捕获组取具体值，不带则只判存在（返回匹配全文）。
+    早先一律取 group(1)，遇到 `SubscriptionReference` 这类只作存在性判断的 marker 会直接抛 IndexError。"""
     match = re.search(pattern, body)
-    return match.group(1) if match else None
+    if not match:
+        return None
+    return match.group(1) if match.re.groups else match.group(0)
 
 
 def check_rtsp(uri: str) -> tuple[bool, str]:
@@ -132,6 +145,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--token", required=True, help="设置页“访问令牌”，即 ONVIF 密码")
     parser.add_argument("--user", default="admin")
+    parser.add_argument("--auth", choices=["digest", "text"], default="digest")
     parser.add_argument("--timeout", type=float, default=8)
     parser.add_argument("--skip-discovery", action="store_true")
     parser.add_argument("--skip-rtsp", action="store_true")
@@ -155,7 +169,7 @@ def main() -> int:
          r"<tt:Uri>([^<]+)</tt:Uri>"),
         ("CreatePullPointSubscription",
          '<tev:CreatePullPointSubscription><tev:InitialTerminationTime>PT10M</tev:InitialTerminationTime>'
-         "</tev:CreatePullPointSubscription>", r"<tev:SubscriptionReference>"),
+         "</tev:CreatePullPointSubscription>", r"<wsa5:Address[^>]*>([^<]+)<"),
         ("PullMessages",
          '<tev:PullMessages><tev:Timeout>PT5S</tev:Timeout><tev:MessageLimit>5</tev:MessageLimit></tev:PullMessages>',
          r"<tev:CurrentTime>([^<]+)"),
@@ -166,7 +180,7 @@ def main() -> int:
 
     stream_uri = None
     for name, body, marker in operations:
-        xml = envelope(body, args.user, args.token)
+        xml = envelope(body, args.user, args.token, args.auth)
         try:
             status, response = post(base, xml, args.timeout)
         except OSError as error:
