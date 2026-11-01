@@ -277,10 +277,15 @@
     <string name="settings_update_version">当前版本 %1$s</string>
     <string name="settings_update_check">检查更新</string>
     <string name="settings_update_hint">升级会暂停值守约 1 分钟；升级后设置与配对关系保留。</string>
-    <string name="settings_update_confirm_title">升级前请确认</string>
-    <string name="settings_update_confirm_message">当前正在值守。升级会暂停采集约 1 分钟，是否继续？</string>
-    <string name="settings_update_confirm_ok">前往更新</string>
-    <string name="settings_update_no_store">未找到应用商店，请通过已安装渠道更新</string>
+    <string name="settings_update_checking_version">当前版本 %1$s · 正在检查…</string>
+    <string name="settings_update_latest">当前版本 %1$s · 已是最新</string>
+    <string name="settings_update_available_title">发现新版本 %1$s</string>
+    <string name="settings_update_available_message">当前版本 %1$s，最新版本 %2$s\n\n%3$s</string>
+    <string name="settings_update_no_notes">该版本没有发布说明。</string>
+    <string name="settings_update_open">打开发布页</string>
+    <string name="settings_update_open_failed">无法打开浏览器，请手动访问发布页</string>
+    <string name="settings_update_failed">当前版本 %1$s · 检查失败，请确认网络后重试</string>
+    <string name="settings_update_unbuilt">当前版本 %1$s · 未内置仓库地址</string>
     <string name="settings_section_start">快速开始</string>
     <string name="settings_quick_steps">三步把旧手机变成摄像头：\n1. 摄像头端打开“配对与设备”，生成二维码或 6 位配对码。\n2. 观看端在“我的设备”里添加摄像头，扫码或输入配对码。\n3. 摄像头端点“开始值守”，观看端点设备卡片看实时画面。</string>
     <string name="settings_quick_pairing">打开配对与设备</string>
@@ -408,4 +413,15 @@
     <string name="settings_integration_disable">关闭并踢出所有客户端</string>
     <string name="settings_integration_disabled">已关闭第三方集成</string>
     <string name="settings_integration_not_running">局域网服务未启动，无法显示地址</string>
+
+    <!-- 首次启动功能介绍（走马灯）：放在合法用途确认之后，先明确边界，再讲怎么用 -->
+    <string name="onboard_skip">跳过</string>
+    <string name="onboard_next">下一步</string>
+    <string name="onboard_start">开始使用</string>
+    <string name="onboard_page1_title">放稳，对准，接上电源</string>
+    <string name="onboard_page1_body">找一个能看全门口或房间的位置，把设备固定好。\n\n接上充电线可以整夜值守；没接电源时，值守最多持续 2 小时，到点会自动停止并在通知栏说明原因。</string>
+    <string name="onboard_page2_title">屏幕熄灭，画面继续</string>
+    <string name="onboard_page2_body">采集由前台服务承担，按电源键熄屏不会中断。\n\n值守期间通知栏会一直显示“值守中”，无法隐藏——这是对家里其他人的告知。</string>
+    <string name="onboard_page3_title">另一台设备，随时看到</string>
+    <string name="onboard_page3_body">在观看端打开“我的设备”，扫摄像头端的二维码，或输入 6 位配对码。\n\n画面只在局域网内传输，不经过任何服务器。</string>
 </resources>

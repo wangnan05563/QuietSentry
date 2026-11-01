@@ -46,6 +46,11 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var maskButton: Button
     private lateinit var integrationSwitch: SwitchCompat
     private lateinit var integrationAddress: TextView
+    private lateinit var updateButton: Button
+    private lateinit var updateVersion: TextView
+
+    /** 最近一次检查到的新版本；手动点“打开发布页”时不再发第二次请求 */
+    private var pendingRelease: UpdateChecker.Release? = null
 
     private var quiet = AlertPolicy.Quiet(false, 0, 0)
     private var plan = AlertPolicy.DetectPlan(false, 8 * 60, 22 * 60)
@@ -120,9 +125,11 @@ class SettingsActivity : AppCompatActivity() {
             startActivity(Intent(this, DeviceListActivity::class.java))
         }
 
-        findViewById<TextView>(R.id.settings_update_version).text =
+        updateVersion = findViewById(R.id.settings_update_version)
+        updateVersion.text =
             getString(R.string.settings_update_version, UpdateChecker.current(this).versionName)
-        findViewById<Button>(R.id.settings_update_check).setOnClickListener { confirmUpdate() }
+        updateButton = findViewById(R.id.settings_update_check)
+        updateButton.setOnClickListener { checkUpdate(silent = false) }
 
         quiet = AlertPolicy.quiet(this)
         quietSwitch.setOnCheckedChangeListener { _, checked ->
@@ -162,6 +169,8 @@ class SettingsActivity : AppCompatActivity() {
         renderLastSummary()
         bindPrivacy()
         bindIntegration()
+        // 进入设置页即自动比对一次内置仓库版本；节流避免反复打开设置时白白消耗 API 配额
+        autoCheckUpdate()
     }
 
     override fun onResume() {
@@ -447,24 +456,71 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * 值守中升级会中断采集，因此先给出明确后果再跳转；待机时直接打开商店，少一次无意义的确认。
+     * 在线更新（FR-17）：只比对 GitHub Releases 的公开版本，不做应用内静默下载。
+     * 静默检查失败不打扰用户——设置页打开时网络不可用是常态，弹提示只会制造噪音。
      */
-    private fun confirmUpdate() {
-        if (!GuardState.isActive(this)) {
-            openStore()
-            return
+    private fun autoCheckUpdate() {
+        val prefs = getSharedPreferences(UPDATE_PREFS, MODE_PRIVATE)
+        val last = prefs.getLong(KEY_UPDATE_AT, 0L)
+        if (System.currentTimeMillis() - last < UPDATE_INTERVAL_MS) return
+        prefs.edit().putLong(KEY_UPDATE_AT, System.currentTimeMillis()).apply()
+        checkUpdate(silent = true)
+    }
+
+    private fun checkUpdate(silent: Boolean) {
+        val version = UpdateChecker.current(this).versionName
+        if (!silent) {
+            updateButton.isEnabled = false
+            // 结果写在版本行而不是再弹一个 Toast：系统对连续 Toast 的替换并不可靠，
+            // 实测 Android 15 上第二个 Toast 会被 ToastPresenter 直接丢弃，用户看不到任何结论
+            updateVersion.text = getString(R.string.settings_update_checking_version, version)
         }
+        UpdateChecker.check { result ->
+            if (isFinishing || isDestroyed) return@check
+            updateButton.isEnabled = true
+            result.onSuccess { release ->
+                if (release != null && UpdateChecker.isNewer(version, release.version)) {
+                    pendingRelease = release
+                    updateVersion.text = getString(R.string.settings_update_version, version)
+                    showUpdateAvailable(version, release)
+                } else {
+                    updateVersion.text = getString(R.string.settings_update_latest, version)
+                }
+            }.onFailure { error ->
+                updateVersion.text = if (error is UpdateChecker.NoRepoException) {
+                    getString(R.string.settings_update_unbuilt, version)
+                } else {
+                    getString(R.string.settings_update_failed, version)
+                }
+            }
+        }
+    }
+
+    private fun showUpdateAvailable(current: String, release: UpdateChecker.Release) {
+        // 发布说明可能很长，对话框只展示前 500 字，完整内容交给发布页
+        val notes = release.notes.trim().take(500)
         AlertDialog.Builder(this)
-            .setTitle(R.string.settings_update_confirm_title)
-            .setMessage(R.string.settings_update_confirm_message)
-            .setPositiveButton(R.string.settings_update_confirm_ok) { _, _ -> openStore() }
+            .setTitle(getString(R.string.settings_update_available_title, release.version))
+            .setMessage(
+                getString(
+                    R.string.settings_update_available_message,
+                    current,
+                    release.version,
+                    notes.ifEmpty { getString(R.string.settings_update_no_notes) }
+                )
+            )
+            .setPositiveButton(R.string.settings_update_open) { _, _ ->
+                pendingRelease?.let(::openReleasePage)
+            }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
-    private fun openStore() {
-        if (!UpdateChecker.openStore(this)) {
-            Toast.makeText(this, R.string.settings_update_no_store, Toast.LENGTH_SHORT).show()
+    private fun openReleasePage(release: UpdateChecker.Release) {
+        // 优先跳发布页而不是直链 APK：用户需要先看到版本说明与签名来源，再决定是否中断值守升级
+        val url = release.pageUrl.ifEmpty { release.apkUrl.orEmpty() }
+        if (!UpdateChecker.openPage(this, url)) {
+            Toast.makeText(this, R.string.settings_update_open_failed, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -566,5 +622,10 @@ class SettingsActivity : AppCompatActivity() {
 
         /** 审计页一次最多拉 100 条：再多也没人逐条读完，徒增滚动与拼串成本 */
         const val AUDIT_LIMIT = 100
+
+        /** 自动检查节流：未认证 GitHub API 每小时只有 60 次配额，10 分钟一次足够 */
+        const val UPDATE_PREFS = "update_prefs"
+        const val KEY_UPDATE_AT = "last_check"
+        const val UPDATE_INTERVAL_MS = 10 * 60 * 1000L
     }
 }

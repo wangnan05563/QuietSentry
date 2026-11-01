@@ -41,7 +41,14 @@ class ConsentActivity : AppCompatActivity() {
                 render()
             } else if (checkbox.isChecked) {
                 ConsentStore.accept(this)
-                startActivity(Intent(this, MainActivity::class.java))
+                // 同意之后先看功能介绍：MainActivity 没有“首次引导”职责，
+                // 由这里分流可以避免主界面先闪一下再被引导页盖住
+                val next = if (OnboardingStore.seen(this)) {
+                    MainActivity::class.java
+                } else {
+                    OnboardingActivity::class.java
+                }
+                startActivity(Intent(this, next))
                 finish()
             }
         }

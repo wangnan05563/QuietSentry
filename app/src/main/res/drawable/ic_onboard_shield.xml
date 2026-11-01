@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 引导页头图：与启动图标同一套“盾 + 镜头”几何，用矢量实现，
+     避免为一张插图引入 1024px 位图（低内存设备上会白白占几 MB） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="@color/qs_accent"
+        android:pathData="M54,12 L86,24 V54 C86,72 72,84 54,96 C36,84 22,72 22,54 V24 Z" />
+
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="6"
+        android:pathData="M54,38 A14,14 0 1,1 53.99,38 Z" />
+
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M54,44 A6,6 0 1,1 53.99,44 Z" />
+
+</vector>

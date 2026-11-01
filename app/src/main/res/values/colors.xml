@@ -17,4 +17,6 @@
     <color name="qs_warn">#FFFFB74D</color>
     <color name="qs_danger">#FFFF5252</color>
     <color name="qs_idle">#FF9E9E9E</color>
+    <!-- 启动图标背景：与品牌深底一致，自适应图标只暴露这一种颜色，避免各启动器取到白色 -->
+    <color name="qs_icon_bg">#FF05100E</color>
 </resources>

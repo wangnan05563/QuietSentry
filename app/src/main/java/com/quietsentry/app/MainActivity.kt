@@ -89,6 +89,12 @@ class MainActivity : AppCompatActivity() {
             finish()
             return
         }
+        // 兜底入口：引导页被系统或用户跳过时（例如从通知直达），首次仍需补看一次
+        if (!OnboardingStore.seen(this)) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+            finish()
+            return
+        }
         setContentView(R.layout.activity_main)
         previewView = findViewById(R.id.preview_view)
         statusText = findViewById(R.id.status_text)
