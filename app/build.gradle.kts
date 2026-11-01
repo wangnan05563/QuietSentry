@@ -12,6 +12,27 @@ val keystoreProps = Properties().apply {
     if (keystoreFile.exists()) keystoreFile.inputStream().use { load(it) }
 }
 
+// 版本号外置在根 package.json：发布脚本每次打包前推进 patch，Gradle 只读取。
+// 不在 Gradle 内部推进，是因为 IDE 里随手点一次 Run 也会改写工作区文件，给版本管理制造噪音。
+val buildMetaText = rootProject.file("package.json")
+    .takeIf { it.exists() }
+    ?.readText()
+    .orEmpty()
+
+fun metaString(key: String, fallback: String): String =
+    Regex("\"$key\"\\s*:\\s*\"([^\"]*)\"").find(buildMetaText)?.groupValues?.get(1) ?: fallback
+
+val baseVersion = metaString("version", "0.1.0")
+val patchLabel = metaString("patch", "")
+val buildNumber = Regex("\"buildNumber\"\\s*:\\s*(\\d+)")
+    .find(buildMetaText)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+
+// 在线更新直接读内置仓库：地址来自 package.json，避免把 owner/repo 散落在代码与脚本里
+val repoSlug = Regex("github\\.com[/:]([^/]+/[^/.]+)")
+    .find(metaString("url", ""))
+    ?.groupValues?.get(1)
+    .orEmpty()
+
 android {
     namespace = "com.quietsentry.app"
     compileSdk = 35
@@ -22,8 +43,15 @@ android {
         applicationId = "com.quietsentry.app"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // versionCode 必须单调递增，patch 号只用于人眼识别；未跑发布脚本时回退到基线版本
+        versionCode = maxOf(buildNumber, 1)
+        versionName = if (patchLabel.isEmpty()) baseVersion else "$baseVersion-$patchLabel"
+        buildConfigField("String", "GIT_REPO", "\"$repoSlug\"")
+    }
+
+    buildFeatures {
+        // BuildConfig 在 AGP 8 默认关闭；在线更新需要把仓库地址编译进包内
+        buildConfig = true
     }
 
     signingConfigs {

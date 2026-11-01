@@ -1,0 +1,16 @@
+{
+  "name": "quiet-sentry",
+  "displayName": "QuietSentry",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Turn a spare Android device into a private, local-first security camera.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wangnan05563/QuietSentry.git"
+  },
+  "build": {
+    "buildNumber": 5,
+    "patch": "20261101.5",
+    "builtAt": "2026-11-01 23:33:52"
+  }
+}
