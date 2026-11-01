@@ -1,6 +1,15 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+// 发布签名材料不进版本库：keystore.properties 由发布方在本地填写，
+// 缺失时 release 保持 unsigned，CI 与日常 debug 构建不受影响。
+val keystoreFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystoreFile.exists()) keystoreFile.inputStream().use { load(it) }
 }
 
 android {
@@ -17,9 +26,22 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        if (keystoreFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile", "release.jks"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            // 没有密钥时保持 unsigned，避免为了“能构建”而把调试签名混进发布包
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

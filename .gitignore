@@ -1,6 +1,10 @@
 .gradle/
 build/
 local.properties
+# 发布签名材料：只保留 example，真实密钥不进版本库
+keystore.properties
+*.jks
+*.keystore
 .idea/
 *.iml
 .screenshots/
