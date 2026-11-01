@@ -397,7 +397,8 @@ class DeviceListActivity : AppCompatActivity() {
 
     private fun showPeerPicker(peers: List<LanDiscovery.Peer>) {
         if (peers.isEmpty()) {
-            Toast.makeText(this, R.string.device_list_no_device, Toast.LENGTH_SHORT).show()
+            // mDNS 发现不到时允许手动填 IP：跨网段、模拟器 NAT、或路由器禁用多播时唯一可用路径
+            promptManual()
             return
         }
         val labels = peers.map { "${it.name}\n${it.host}:${it.port}" }
@@ -405,6 +406,40 @@ class DeviceListActivity : AppCompatActivity() {
             .setTitle(R.string.device_list_pick)
             .setItems(labels.toTypedArray()) { _, which -> promptCode(peers[which]) }
             .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun promptManual() {
+        val host = EditText(this).apply { hint = getString(R.string.device_list_manual_host_hint) }
+        val port = EditText(this).apply {
+            hint = getString(R.string.device_list_manual_port_hint)
+            inputType = InputType.TYPE_CLASS_NUMBER
+        }
+        val code = EditText(this).apply {
+            hint = getString(R.string.device_list_code_hint)
+            inputType = InputType.TYPE_CLASS_NUMBER
+            filters = arrayOf(InputFilter.LengthFilter(6))
+        }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 0)
+            addView(host)
+            addView(port)
+            addView(code)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.device_list_manual_title)
+            .setView(box)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.device_list_pair) { _, _ ->
+                val h = host.text.toString().trim()
+                val p = port.text.toString().trim().toIntOrNull()
+                val c = code.text.toString().trim()
+                if (h.isNotEmpty() && p != null && c.isNotEmpty()) {
+                    // 手动地址通常是端口映射或跨网段，证书指纹无法从 mDNS 取得，按 HTTP 配对
+                    pairWith(LanDiscovery.Peer("manual", h, h, p, ""), c, preferTls = false)
+                }
+            }
             .show()
     }
 
@@ -425,12 +460,13 @@ class DeviceListActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun pairWith(peer: LanDiscovery.Peer, code: String) {
+    private fun pairWith(peer: LanDiscovery.Peer, code: String, preferTls: Boolean = true) {
         io.execute {
             val info = DeviceHttp.info(peer.host, peer.port)
             // 先用 HTTP 的 /api/info 取得 HTTPS 端口与证书指纹（公开信息），
-            // 注册信任锚后配对与控制全部走 HTTPS；旧版本设备没有 tls 字段则继续 HTTP
-            val securePort = if (info != null && info.tlsPort > 0 && info.tlsFingerprint.isNotEmpty()) {
+            // 注册信任锚后配对与控制全部走 HTTPS；旧版本设备没有 tls 字段则继续 HTTP。
+            // 手动地址（端口映射/跨网段）无法保证 8443 可达，preferTls=false 时按用户给的端口走 HTTP。
+            val securePort = if (preferTls && info != null && info.tlsPort > 0 && info.tlsFingerprint.isNotEmpty()) {
                 TlsTrust.register(peer.host, info.tlsPort, info.tlsFingerprint)
                 info.tlsPort
             } else {
@@ -462,7 +498,7 @@ class DeviceListActivity : AppCompatActivity() {
                         room = "",
                         host = peer.host,
                         port = securePort,
-                        tlsFingerprint = if (securePort != peer.port) info?.tlsFingerprint.orEmpty() else "",
+                        tlsFingerprint = if (preferTls && securePort != peer.port) info?.tlsFingerprint.orEmpty() else "",
                         token = result.token,
                         order = 0,
                         lastSeenAt = System.currentTimeMillis(),

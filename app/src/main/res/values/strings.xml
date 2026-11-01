@@ -155,6 +155,9 @@
     <string name="device_list_code_title">输入 %1$s 的 6 位配对码</string>
     <string name="device_list_code_hint">6 位配对码</string>
     <string name="device_list_pair">配对</string>
+    <string name="device_list_manual_title">手动添加设备</string>
+    <string name="device_list_manual_host_hint">设备 IP 或主机名</string>
+    <string name="device_list_manual_port_hint">端口（默认 8080）</string>
     <string name="device_list_pair_failed">配对失败：配对码错误或已过期</string>
     <string name="device_list_pair_mismatch">设备指纹不一致，已拒绝连接</string>
     <string name="device_list_paired_recovery">已通过恢复码接管设备</string>
