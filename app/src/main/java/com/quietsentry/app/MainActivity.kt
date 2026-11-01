@@ -134,6 +134,25 @@ class MainActivity : AppCompatActivity() {
             }
             beginGuard()
         }
+        findViewById<Button>(R.id.record_button).setOnClickListener {
+            if (CaptureService.isRunning) {
+                statusText.text = getString(R.string.guard_already_running)
+                return@setOnClickListener
+            }
+            if (!ensureStartable()) return@setOnClickListener
+            // 连续记录同样可能长时间挂机，沿用“仅充电时值守”的确认口径
+            val snapshot = PowerGuard.snapshot(this)
+            if (PowerGuard.chargeOnly(this) && !snapshot.charging) {
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.power_unplugged_title)
+                    .setMessage(R.string.power_unplugged_message)
+                    .setPositiveButton(R.string.power_unplugged_confirm) { _, _ -> startRecordOnly() }
+                    .setNegativeButton(R.string.power_unplugged_cancel, null)
+                    .show()
+                return@setOnClickListener
+            }
+            startRecordOnly()
+        }
         stopButton.setOnClickListener {
             // 导出要等最后一个分片 Finalize 后才开始，先给出“正在保存”提示并禁用以防重复点击
             stopButton.isEnabled = false
@@ -242,9 +261,35 @@ class MainActivity : AppCompatActivity() {
             hasPermission(Manifest.permission.POST_NOTIFICATIONS)
 
     /**
-     * 真正的启动动作：先申请电池豁免，再拉起前台服务并收起预览。
-     * 单独抽出是因为“未接电源确认”和“直接启动”两条路径都必须走同一套副作用。
+     * 连续记录模式：与值守共用同一条采集与分片管线，只是不跑检测与声音告警。
+     * 为什么仍走前台服务：录制本身就是 camera 类型前台服务的职责，绕开它会被系统在息屏后回收。
      */
+    private fun startRecordOnly() {
+        requestBatteryExemption()
+        ContextCompat.startForegroundService(
+            this,
+            Intent(this, CaptureService::class.java)
+                .setAction(CaptureService.ACTION_START)
+                .putExtra(CaptureService.EXTRA_RECORD_ONLY, true)
+        )
+        suppressPreview()
+    }
+
+    /** 值守与连续记录共用的启动前置检查：权限缺一不可，否则前台服务会直接抛异常。 */
+    private fun ensureStartable(): Boolean {
+        if (!hasPermission(Manifest.permission.CAMERA)) {
+            requestPermissions.launch(requiredPermissions)
+            statusText.text = getString(R.string.permission_required)
+            return false
+        }
+        if (!hasNotificationPermission()) {
+            requestPermissions.launch(requiredPermissions)
+            statusText.text = getString(R.string.notification_required)
+            return false
+        }
+        return true
+    }
+
     private fun beginGuard() {
         // 未豁免时弹系统对话框：实测锁屏 7 分钟后 Samsung 会冻结 UID，前台服务挡不住
         requestBatteryExemption()

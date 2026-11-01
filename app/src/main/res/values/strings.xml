@@ -243,6 +243,8 @@
     <string name="settings_quiet_hint_off">关闭时任何事件都会通知</string>
     <string name="settings_quiet_hint_on">%1$s 至 %2$s 内不发送事件通知，常驻值守通知不受影响</string>
     <string name="settings_quiet_hint_cross">时段跨越午夜：今天 %1$s 到次日 %2$s</string>
+    <string name="capture_recording">连续记录中 · 采集中</string>
+    <string name="record_mode_entry">连续记录</string>
     <string name="settings_section_plan">检测时段</string>
     <string name="settings_plan_switch">仅在该时段内推送</string>
     <string name="settings_plan_start">开始时间</string>

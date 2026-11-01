@@ -117,6 +117,9 @@ class CaptureService : LifecycleService() {
     private var stopping = false
     private var segmentIndex = 0
 
+    /** 连续记录模式：只录制不检测，避免长时间挂机时检测器持续占用算力与电量（PRD §5.1） */
+    private var recordOnly = false
+
     /**
      * 相机分析与 JPEG 编码放在独立单线程：CameraX 默认用传入的 executor 回调，
      * 640x480 的 YUV→Bitmap→JPEG 每帧约 10ms，放在主线程会直接造成通知与界面掉帧，
@@ -163,7 +166,10 @@ class CaptureService : LifecycleService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         when (intent?.action) {
-            ACTION_START -> startCapture()
+            ACTION_START -> {
+                recordOnly = intent?.getBooleanExtra(EXTRA_RECORD_ONLY, false) ?: recordOnly
+                startCapture()
+            }
             ACTION_STOP -> stopCapture()
             // 观看端请求暂停：与用户本机停止走同一条停采流程，只是要额外留下"被远程暂停"的状态与记录
             ACTION_PAUSE -> pauseByRemote()
@@ -280,7 +286,12 @@ class CaptureService : LifecycleService() {
             } else {
                 // 先发布到实时流再交给检测器；检测器负责 image.close()，
                 // 这里不能提前关闭，否则 JPEG 编码与运动检测都会拿到失效缓冲
-                detector.analyze(image)
+                if (recordOnly) {
+                    // 连续记录只保实时流，不跑检测；关闭缓冲避免分析管线卡住
+                    image.close()
+                } else {
+                    detector.analyze(image)
+                }
             }
         }
         analysis = ImageAnalysis.Builder()
@@ -313,14 +324,14 @@ class CaptureService : LifecycleService() {
             // 只有前置镜头的设备要把降级结果说出来，否则用户会以为“后置坏了”
             updateNotification(
                 getString(
-                    if (primary.facing == CameraCharacteristics.LENS_FACING_FRONT) {
-                        R.string.capture_running_front
-                    } else {
-                        R.string.capture_running
+                    when {
+                        recordOnly -> R.string.capture_recording
+                        primary.facing == CameraCharacteristics.LENS_FACING_FRONT -> R.string.capture_running_front
+                        else -> R.string.capture_running
                     }
                 )
             )
-            if (soundDetector == null) startSoundDetector()
+            if (!recordOnly && soundDetector == null) startSoundDetector()
             startNextSegment(generation)
             // 相机绑定成功后才值得对外提供服务：否则观看端只能拿到一个“在线但永远无画面”的设备
             startLanServer()
@@ -860,6 +871,9 @@ class CaptureService : LifecycleService() {
 
         const val ACTION_EXPORTED = "com.quietsentry.app.action.EXPORTED"
         const val EXTRA_EXPORTED = "exported_count"
+
+        /** 启动时带上该 extra 表示连续记录模式；缺省为值守模式 */
+        const val EXTRA_RECORD_ONLY = "record_only"
 
         /** 进程重启后 sessionStartMs 已丢失，兜底只导最近 10 分钟，避免把历史分片重新灌进相册。 */
         private const val FALLBACK_SESSION_MS = 10 * 60 * 1000L
