@@ -6,6 +6,10 @@
     <string name="capture_channel_name">采集状态</string>
     <string name="capture_starting">正在启动采集…</string>
     <string name="capture_running">值守中 · 采集中</string>
+    <!-- 摄像头端唯一常驻可见面是前台通知：对讲/警笛由他人触发，必须在这里露出 -->
+    <string name="capture_remote_talk">正在对讲（观看端）</string>
+    <string name="capture_remote_siren">警笛已触发 · 10 秒后自动停止</string>
+    <string name="capture_remote_torch">手电已打开 · 10 秒后自动关闭</string>
     <!-- PRD §10.5 能力降级：没有后置镜头时如实说明当前用的是前置 -->
     <string name="capture_running_front">值守中 · 本机无后置镜头，正在使用前置镜头</string>
     <string name="camera_busy">相机被其他应用占用，等待释放…</string>
@@ -329,6 +333,23 @@
     <string name="audit_empty">还没有安全相关记录\n配对、撤销、暂停、遮罩与应用锁变更会出现在这里</string>
     <string name="audit_export_saved">审计日志已保存</string>
     <string name="audit_export_failed">导出失败</string>
+    <string name="live_talk">按住对讲</string>
+    <string name="live_talk_permission">需要麦克风权限才能对讲</string>
+    <string name="live_talk_unavailable">无法启动对讲：麦克风被占用或不可用</string>
+    <string name="live_talk_failed">对讲中断：设备离线或已停止值守</string>
+    <string name="live_siren">警笛</string>
+    <string name="live_torch">手电</string>
+    <string name="live_siren_title">触发警笛？</string>
+    <string name="live_siren_message">摄像头端会响 10 秒后自动停止，随后冷却 30 秒。22:00–07:00 默认禁用。</string>
+    <string name="live_torch_title">打开手电？</string>
+    <string name="live_torch_message">摄像头端补光 10 秒后自动关闭，随后冷却 30 秒。</string>
+    <string name="live_deter_cooldown">冷却中：请 %1$d 秒后再试</string>
+    <string name="live_deter_night">夜间时段已禁用警笛</string>
+    <string name="live_deter_forbidden">访客没有远程控制权限</string>
+    <string name="live_deter_not_running">设备未在值守，无法执行</string>
+    <string name="live_deter_failed">操作未被接受，请稍后再试</string>
+    <string name="live_deter_done">已触发，10 秒后自动结束</string>
+    <string name="live_talk_active">松开结束</string>
     <string name="live_pause">暂停</string>
     <string name="live_pause_title">远程暂停相机？</string>
     <string name="live_pause_message">相机端将停止采集并在本机通知栏提示。暂停后无法从观看端恢复，需要到相机端手动重新开始值守。</string>

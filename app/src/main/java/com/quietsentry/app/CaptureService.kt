@@ -17,6 +17,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.camera.core.Camera
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FileOutputOptions
@@ -71,6 +72,9 @@ class CaptureService : LifecycleService() {
     private var provider: ProcessCameraProvider? = null
     private var videoCapture: VideoCapture<Recorder>? = null
     private var analysis: ImageAnalysis? = null
+
+    /** 远程手电（PRD FR-16）需要 CameraControl；只在绑定期间有效，销毁后必须清空 */
+    private var boundCamera: Camera? = null
 
     /**
      * 相机可用性监听（PRD §10.5 能力降级）：相机是独占资源，被其他应用抢走时
@@ -127,8 +131,13 @@ class CaptureService : LifecycleService() {
     private var unpluggedSince = 0L
     private var lastThrottled = false
 
+    /** 远程动作提示的恢复计时：10 秒后通知要回到常规文案，否则会一直停在“正在对讲” */
+    private val remoteLabelTimer = Handler(Looper.getMainLooper())
+    private val restoreRemoteLabel = Runnable { updateNotification(getString(R.string.capture_running)) }
+
     override fun onCreate() {
         super.onCreate()
+        instance = this
         createChannel()
         // 事件通道必须在第一次 notify 之前建好，否则 Android 8+ 会直接丢弃通知
         notifier.ensureChannels()
@@ -254,12 +263,22 @@ class CaptureService : LifecycleService() {
             .also { it.setAnalyzer(analysisExecutor, frameAnalyzer) }
         try {
             cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
+            boundCamera = cameraProvider.bindToLifecycle(
                 cameraOwner,
                 CameraCapabilities.selector(primary),
                 capture,
                 analysis
             )
+            // 手电由 Deterrent 计时关闭，这里只提供开关；没有闪光灯的设备由 enableTorch 自行失败
+            Deterrent.torchSwitch = { on ->
+                val control = boundCamera?.cameraControl
+                if (control == null) {
+                    false
+                } else {
+                    control.enableTorch(on)
+                    true
+                }
+            }
             bindRetries = 0
             rebinding = false
             // 只有前置镜头的设备要把降级结果说出来，否则用户会以为“后置坏了”
@@ -682,6 +701,16 @@ class CaptureService : LifecycleService() {
         manager.notify(NOTIFICATION_ID, buildNotification(text))
     }
 
+    /**
+     * 对讲/警笛/手电都由观看端触发，而设备往往放在别的房间：
+     * 摄像头端唯一的常驻可见面就是这条前台通知，不刷新它，用户事后才知道设备被动过。
+     */
+    private fun flashRemoteActivity(text: String) {
+        remoteLabelTimer.removeCallbacks(restoreRemoteLabel)
+        updateNotification(text)
+        remoteLabelTimer.postDelayed(restoreRemoteLabel, REMOTE_LABEL_MS)
+    }
+
     private fun buildNotification(text: String): android.app.Notification {
         val stopIntent = Intent(this, CaptureService::class.java).setAction(ACTION_STOP)
         val stopPending = PendingIntent.getService(
@@ -710,8 +739,15 @@ class CaptureService : LifecycleService() {
         segmentTimer.removeCallbacks(stopCurrentSegment)
         segmentTimer.removeCallbacks(retryBind)
         powerTimer.removeCallbacks(powerTick)
+        remoteLabelTimer.removeCallbacks(restoreRemoteLabel)
+        if (instance === this) instance = null
         unwatchCamera()
         stopNetworkMonitor()
+        // 威慑状态绑定在采集上：服务一停，手电必须关掉、警笛音调与对讲播放器都要释放，
+        // 否则下一次启动会拿到一个还占着音频设备或闪光灯的残留实例
+        Deterrent.release()
+        TalkPlayer.release()
+        boundCamera = null
         soundDetector?.stop()
         soundDetector = null
         analysis = null
@@ -762,6 +798,9 @@ class CaptureService : LifecycleService() {
         /** 降载档隔一帧分析：帧率减半仍能捕捉运动起始，又实实在在省下一半推理电量 */
         private const val THROTTLE_FRAME_SKIP = 2
 
+        /** 远程动作提示在通知栏停留的时长：与警笛/手电的 10 秒自动停止对齐 */
+        private const val REMOTE_LABEL_MS = 10_000L
+
         /** 相机被抢占后的重试次数与间隔：3 次 × 3 秒覆盖解锁、扫码等短暂占用 */
         private const val BIND_RETRY_LIMIT = 3
         private const val BIND_RETRY_DELAY_MS = 3_000L
@@ -769,5 +808,13 @@ class CaptureService : LifecycleService() {
         /** 供界面判断值守是否在运行；相机是独占资源，值守与黑屏模式不能同时绑定。仅由本服务写入。 */
         @Volatile
         var isRunning = false
+
+        /** 只用于把“他人触发的动作”推到前台通知；不暴露实例方法，避免界面绕过 isRunning 直接操作采集 */
+        @Volatile
+        private var instance: CaptureService? = null
+
+        fun showRemoteActivity(text: String) {
+            instance?.flashRemoteActivity(text)
+        }
     }
 }

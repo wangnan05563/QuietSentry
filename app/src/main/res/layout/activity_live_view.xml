@@ -59,31 +59,66 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:background="@color/qs_overlay"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:padding="8dp">
 
-        <Button
-            android:id="@+id/live_quality"
-            android:layout_width="0dp"
+        <!-- 六个按钮排成两行：单行在竖屏手机上会把每个按钮压到不足 55dp，点不中 -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:text="@string/live_quality_auto" />
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/live_snapshot"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:text="@string/live_snapshot" />
+            <Button
+                android:id="@+id/live_talk"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="@string/live_talk" />
 
-        <Button
-            android:id="@+id/live_pause"
-            android:layout_width="0dp"
+            <Button
+                android:id="@+id/live_siren"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="@string/live_siren" />
+
+            <Button
+                android:id="@+id/live_torch"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/live_torch" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/live_pause" />
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/live_quality"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="@string/live_quality_auto" />
+
+            <Button
+                android:id="@+id/live_snapshot"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="@string/live_snapshot" />
+
+            <Button
+                android:id="@+id/live_pause"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/live_pause" />
+        </LinearLayout>
     </LinearLayout>
 </FrameLayout>

@@ -111,6 +111,41 @@ object DeviceHttp {
     fun pause(host: String, port: Int, token: String): Boolean =
         call(host, port, "/api/pause", method = "POST", token = token) != null
 
+    /** 威慑操作的结果：冷却与夜间禁用必须能被区分，界面才能说清“为什么没响” */
+    data class ControlResult(val ok: Boolean, val error: String = "", val retryAfterSec: Int = 0)
+
+    fun siren(host: String, port: Int, token: String): ControlResult =
+        trigger(host, port, "/api/siren", token)
+
+    fun torch(host: String, port: Int, token: String): ControlResult =
+        trigger(host, port, "/api/torch", token)
+
+    /**
+     * 对讲：每 0.5 秒一块 16kHz/16bit 单声道 PCM。
+     * 返回 false 就让采集线程停下——继续上传只会在服务端越积越多，听起来像延迟越来越大。
+     */
+    fun talk(host: String, port: Int, token: String, pcm: ByteArray): Boolean {
+        val reply = request(
+            host, port, "/api/talk",
+            method = "POST", token = token, bytes = pcm, contentType = OCTET_TYPE
+        ) ?: return false
+        return reply.code in 200..299
+    }
+
+    private fun trigger(host: String, port: Int, path: String, token: String): ControlResult {
+        val reply = request(host, port, path, method = "POST", token = token)
+            ?: return ControlResult(false, "unreachable")
+        if (reply.code in 200..299) return ControlResult(true)
+        val json = runCatching { JSONObject(reply.body) }.getOrNull()
+        return ControlResult(
+            ok = false,
+            error = json?.optString("error").orEmpty().ifEmpty { "http_${reply.code}" },
+            retryAfterSec = json?.optInt("retryAfterSec") ?: 0,
+        )
+    }
+
+    private data class Reply(val code: Int, val body: String)
+
     private fun call(
         host: String,
         port: Int,
@@ -118,21 +153,38 @@ object DeviceHttp {
         method: String = "GET",
         token: String? = null,
         body: String? = null,
-    ): String? = runCatching {
+    ): String? = request(host, port, path, method, token, body)
+        ?.takeIf { it.code in 200..299 }
+        ?.body
+
+    private fun request(
+        host: String,
+        port: Int,
+        path: String,
+        method: String = "GET",
+        token: String? = null,
+        body: String? = null,
+        bytes: ByteArray? = null,
+        contentType: String = JSON_TYPE,
+    ): Reply? = runCatching {
         val connection = URL("http://$host:$port$path").openConnection() as HttpURLConnection
         connection.requestMethod = method
         // 局域网内设备响应通常 <50ms；3 秒足够区分“离线”与“慢”，也避免轮询线程被一台掉线设备拖住
         connection.connectTimeout = TIMEOUT_MS
         connection.readTimeout = TIMEOUT_MS
         token?.let { connection.setRequestProperty("X-Auth-Token", it) }
-        if (body != null) {
+        val payload = bytes ?: body?.toByteArray(Charsets.UTF_8)
+        if (payload != null) {
             connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json")
-            connection.outputStream.use { it.write(body.toByteArray()) }
+            connection.setRequestProperty("Content-Type", contentType)
+            connection.outputStream.use { it.write(payload) }
         }
         try {
-            if (connection.responseCode !in 200..299) return@runCatching null
-            connection.inputStream.bufferedReader().use { it.readText() }
+            val code = connection.responseCode
+            // 失败时体里是 error 码，必须读 errorStream；只判状态码会让界面失去区分原因的能力
+            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+            val text = stream?.bufferedReader()?.use { it.readText() } ?: ""
+            Reply(code, text)
         } finally {
             connection.disconnect()
         }
@@ -140,4 +192,6 @@ object DeviceHttp {
 
     private const val TIMEOUT_MS = 3_000
     private const val DEFAULT_MAX_VIEWERS = 5
+    private const val JSON_TYPE = "application/json"
+    private const val OCTET_TYPE = "application/octet-stream"
 }

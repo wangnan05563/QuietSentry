@@ -153,6 +153,10 @@ class DeviceServer(
             req.method == "POST" && req.path == "/api/revoke" -> handleRevoke(req, out)
             // 远程暂停（PRD FR-14）：Owner/Member 都可请求，Guest 不能
             req.method == "POST" && req.path == "/api/pause" -> handlePause(req, out)
+            // 双向语音与威慑（PRD FR-16）：对讲 / 警笛 / 手电，同属远程控制，Guest 不可用
+            req.method == "POST" && req.path == "/api/talk" -> handleTalk(req, out)
+            req.method == "POST" && req.path == "/api/siren" -> handleSiren(req, out)
+            req.method == "POST" && req.path == "/api/torch" -> handleTorch(req, out)
             // 第三方集成（PRD FR-15）：仅集成开启时可访问，鉴权走 Basic 或配对令牌
             req.method == "GET" && req.path == "/web" -> handleConsole(socket, req, out)
             req.method == "GET" && req.path == "/api/integration" -> handleIntegrationState(socket, req, out)
@@ -458,6 +462,70 @@ class DeviceServer(
             .onFailure { return respond(out, 503, errorBody("pause_failed")) }
         respond(out, 200, JSONObject().put("ok", true).toString())
     }
+
+    /**
+     * 对讲（PRD FR-16）：观看端按住说话时按 0.5 秒一块上传 PCM，服务端顺序写入播放器。
+     * 只在“从空闲变为播放”时记一条审计：每块都记会让一条对讲刷满整个日志。
+     */
+    private fun handleTalk(req: Request, out: OutputStream) {
+        val grant = requireGrant(req, out) ?: return
+        if (!CaptureService.isRunning) return respond(out, 409, errorBody("not_running"))
+        if (req.bodyBytes.isEmpty()) return respond(out, 400, errorBody("empty_audio"))
+        val wasIdle = !TalkPlayer.isPlaying()
+        if (!TalkPlayer.feed(req.bodyBytes)) return respond(out, 503, errorBody("talk_failed"))
+        if (wasIdle) {
+            AuditLog.record(context, AuditLog.DETERRENT, "对讲开始 role=${grant.role.raw}")
+            // 相机端唯一常驻可见面是前台通知；只在开始时刷新，逐块刷新会把通知变成噪声源
+            CaptureService.showRemoteActivity(context.getString(R.string.capture_remote_talk))
+        }
+        respond(out, 200, JSONObject().put("ok", true).toString())
+    }
+
+    /** 警笛：10 秒自动停止，结束后冷却 30 秒，夜间禁用（PRD FR-16 处理规则） */
+    private fun handleSiren(req: Request, out: OutputStream) {
+        val grant = requireGrant(req, out) ?: return
+        when (Deterrent.siren()) {
+            Deterrent.Result.OK -> {
+                AuditLog.record(context, AuditLog.DETERRENT, "警笛 人工触发 role=${grant.role.raw}")
+                CaptureService.showRemoteActivity(context.getString(R.string.capture_remote_siren))
+                respond(
+                    out, 200,
+                    JSONObject().put("ok", true).put("durationMs", Deterrent.DURATION_MS).toString()
+                )
+            }
+            Deterrent.Result.NOT_RUNNING -> respond(out, 409, errorBody("not_running"))
+            Deterrent.Result.NIGHT -> respond(out, 403, errorBody("night_disabled"))
+            Deterrent.Result.COOLDOWN ->
+                respond(out, 429, cooldownBody("cooldown", Deterrent.sirenCooldownRemainingMs()))
+            Deterrent.Result.UNAVAILABLE -> respond(out, 503, errorBody("siren_unavailable"))
+        }
+    }
+
+    /** 手电：与警笛共用冷却思路，但不做夜间禁用——夜间补光恰恰是最常用的场景 */
+    private fun handleTorch(req: Request, out: OutputStream) {
+        val grant = requireGrant(req, out) ?: return
+        when (Deterrent.torch()) {
+            Deterrent.Result.OK -> {
+                AuditLog.record(context, AuditLog.DETERRENT, "手电 人工触发 role=${grant.role.raw}")
+                CaptureService.showRemoteActivity(context.getString(R.string.capture_remote_torch))
+                respond(
+                    out, 200,
+                    JSONObject().put("ok", true).put("durationMs", Deterrent.DURATION_MS).toString()
+                )
+            }
+            Deterrent.Result.NOT_RUNNING -> respond(out, 409, errorBody("not_running"))
+            Deterrent.Result.NIGHT -> respond(out, 403, errorBody("night_disabled"))
+            Deterrent.Result.COOLDOWN ->
+                respond(out, 429, cooldownBody("cooldown", Deterrent.torchCooldownRemainingMs()))
+            Deterrent.Result.UNAVAILABLE -> respond(out, 503, errorBody("torch_unavailable"))
+        }
+    }
+
+    /** 冷却响应要带剩余秒数：观看端才能说出“再等 12 秒”，而不是一句笼统的失败 */
+    private fun cooldownBody(code: String, remainingMs: Long): String = JSONObject()
+        .put("error", code)
+        .put("retryAfterSec", remainingMs / 1000 + 1)
+        .toString()
 
     /**
      * 局域网 Web 控制台（PRD FR-15）。页面内的相对请求会复用浏览器缓存的 Basic 凭据，
@@ -767,6 +835,8 @@ class DeviceServer(
         val query: Map<String, String>,
         val headers: Map<String, String>,
         val body: String,
+        /** 对讲上传的是 PCM 二进制，按 UTF-8 解码会丢字节，必须同时保留原始字节 */
+        val bodyBytes: ByteArray,
     ) {
         fun header(name: String): String? = headers[name.lowercase()]
 
@@ -798,10 +868,11 @@ class DeviceServer(
                 val declared = headers["content-length"]?.toIntOrNull() ?: 0
                 // 配对请求体只有几十字节；把上限写死，避免被一个超大 body 撑爆内存
                 if (declared > MAX_BODY_BYTES) return null
-                val body = if (declared > 0) {
-                    String(readExactly(input, declared) ?: return null, Charsets.UTF_8)
-                } else ""
-                return Request(parts[0].uppercase(), path, query, headers, body)
+                val raw = if (declared > 0) readExactly(input, declared) ?: return null else ByteArray(0)
+                return Request(
+                    parts[0].uppercase(), path, query, headers,
+                    String(raw, Charsets.UTF_8), raw
+                )
             }
 
             private fun readLine(input: InputStream): String? {

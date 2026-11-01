@@ -1,15 +1,20 @@
 package com.quietsentry.app
 
+import android.Manifest
 import android.app.AlertDialog
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -29,10 +34,19 @@ class LiveViewActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var counterText: TextView
     private lateinit var qualityButton: Button
+    private lateinit var talkButton: Button
 
     private lateinit var device: DeviceRegistry.Device
     private lateinit var streamer: LiveStreamer
     private var quality = QUALITY_AUTO
+
+    /** 只在按住期间存在；松手即置空，用空值作为“当前没在录”的唯一判据 */
+    private var talk: TalkRecorder? = null
+
+    // 权限回调可能发生在 onStop 之后：授予后不要自行开录，交给用户重新按住
+    private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) toast(getString(R.string.live_talk_permission))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +70,25 @@ class LiveViewActivity : AppCompatActivity() {
         qualityButton.setOnClickListener { toggleQuality() }
         findViewById<Button>(R.id.live_snapshot).setOnClickListener { snapshot() }
         findViewById<Button>(R.id.live_pause).setOnClickListener { confirmPause() }
+        findViewById<Button>(R.id.live_siren).setOnClickListener { confirmDeterrent(siren = true) }
+        findViewById<Button>(R.id.live_torch).setOnClickListener { confirmDeterrent(siren = false) }
+
+        // 对讲必须“按住说话”：默认不常开麦克风（PRD FR-16），因此用触摸事件而不是点击
+        talkButton = findViewById(R.id.live_talk)
+        talkButton.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startTalk()
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    stopTalk()
+                    view.performClick()
+                    true
+                }
+                else -> false
+            }
+        }
 
         // 看实时画面时不应因为锁屏而中断观察，也不该让系统栏占掉画面
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -95,10 +128,13 @@ class LiveViewActivity : AppCompatActivity() {
     override fun onStop() {
         // 退到后台就停流：为“可能还要看”而一直解码耗电不值得，回前台会立即重新连上
         if (::streamer.isInitialized) streamer.stop()
+        // 对讲同样不能留到后台：麦克风一旦脱离用户手指，就等于在不知情的情况下持续录音
+        stopTalk()
         super.onStop()
     }
 
     override fun onDestroy() {
+        stopTalk()
         if (::streamer.isInitialized) streamer.release()
         super.onDestroy()
     }
@@ -174,6 +210,86 @@ class LiveViewActivity : AppCompatActivity() {
     private fun onUi(block: () -> Unit) {
         if (isFinishing || isDestroyed) return
         runOnUiThread { if (!isFinishing && !isDestroyed) block() }
+    }
+
+    /**
+     * 按住说话：每次按下都新建一个采集器，松开即销毁。
+     * 复用同一个实例会让“上次失败后残留的线程”混进下一次对讲，且权限被撤销时难以重新判断。
+     */
+    private fun startTalk() {
+        if (talk != null) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            // 首次按下才申请权限：不在进入页面时弹窗，避免打断用户看画面
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        val host = device.host
+        val port = device.port
+        val token = device.token
+        val recorder = TalkRecorder(
+            upload = { pcm -> DeviceHttp.talk(host, port, token, pcm) },
+            onStopped = { failed ->
+                // 服务端不接收（离线、已停止值守）时上传必然失败，这里必须告诉用户话没送出去
+                if (failed) onUi { toast(getString(R.string.live_talk_failed)) }
+            },
+        )
+        if (!recorder.start(this)) {
+            toast(getString(R.string.live_talk_unavailable))
+            return
+        }
+        talk = recorder
+        talkButton.setText(R.string.live_talk_active)
+    }
+
+    private fun stopTalk() {
+        val recorder = talk ?: return
+        talk = null
+        recorder.stop()
+        if (::talkButton.isInitialized) talkButton.setText(R.string.live_talk)
+    }
+
+    /** 警笛与手电都会在摄像头端发出声音/光，误触代价高，因此统一走二次确认（PRD FR-16） */
+    private fun confirmDeterrent(siren: Boolean) {
+        AlertDialog.Builder(this)
+            .setTitle(if (siren) R.string.live_siren_title else R.string.live_torch_title)
+            .setMessage(if (siren) R.string.live_siren_message else R.string.live_torch_message)
+            .setPositiveButton(android.R.string.ok) { _, _ -> requestDeterrent(siren) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun requestDeterrent(siren: Boolean) {
+        val host = device.host
+        val port = device.port
+        val token = device.token
+        Thread {
+            val result =
+                if (siren) DeviceHttp.siren(host, port, token) else DeviceHttp.torch(host, port, token)
+            onUi { showDeterrentResult(result) }
+        }.start()
+    }
+
+    /**
+     * 失败原因必须逐条翻译：冷却、夜间禁用、访客无权限、未在值守都是“没有执行”，
+     * 一句笼统的“失败”会让用户以为设备出了问题，反而重复触发。
+     */
+    private fun showDeterrentResult(result: DeviceHttp.ControlResult) {
+        val text = when {
+            result.ok -> getString(R.string.live_deter_done)
+            result.error == "cooldown" -> getString(R.string.live_deter_cooldown, result.retryAfterSec)
+            result.error == "night_disabled" -> getString(R.string.live_deter_night)
+            result.error == "forbidden" || result.error == "unauthorized" ->
+                getString(R.string.live_deter_forbidden)
+            result.error == "not_running" -> getString(R.string.live_deter_not_running)
+            else -> getString(R.string.live_deter_failed)
+        }
+        toast(text)
+    }
+
+    private fun toast(text: String) {
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
     }
 
     private fun snapshot() {

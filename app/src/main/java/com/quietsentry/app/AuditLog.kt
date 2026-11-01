@@ -27,6 +27,7 @@ object AuditLog {
     const val MASK_CHANGE = "mask_change"
     const val EXPORT = "export"
     const val INTEGRATION = "integration"
+    const val DETERRENT = "deterrent"
 
     data class Entry(val at: Long, val type: String, val detail: String)
 
@@ -111,6 +112,7 @@ object AuditLog {
         MASK_CHANGE -> "隐私遮罩变更"
         EXPORT -> "导出"
         INTEGRATION -> "第三方集成"
+        DETERRENT -> "人工威慑"
         else -> type
     }
 }
