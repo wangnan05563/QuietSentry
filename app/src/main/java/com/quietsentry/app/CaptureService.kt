@@ -531,6 +531,8 @@ class CaptureService : LifecycleService() {
             offlineEvents.incrementAndGet()
             return
         }
+        // 检测时段外仍记录事件，只是不打扰（PRD FR-07：时段外可继续录制但不推送）
+        if (!AlertPolicy.isDetectionWindow(this)) return
         if (AlertPolicy.isQuietNow(this)) return
         val level = AlertPolicy.levelOf(event.type, event.triggers)
         if (!AlertPolicy.accepts(this, level)) return

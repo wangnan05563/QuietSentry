@@ -101,6 +101,57 @@ object AlertPolicy {
             .apply()
     }
 
+    // ---------- 检测时段计划（PRD FR-07） ----------
+
+    private const val KEY_PLAN_ENABLED = "plan_enabled"
+    private const val KEY_PLAN_START = "plan_start_min"
+    private const val KEY_PLAN_END = "plan_end_min"
+    private const val DEFAULT_PLAN_START = 8 * 60
+    private const val DEFAULT_PLAN_END = 22 * 60
+
+    data class DetectPlan(val enabled: Boolean, val startMin: Int, val endMin: Int) {
+        /** 时段跨越午夜（如 22:00–07:00）需要单独提示，否则用户会以为配置反了 */
+        val crossesMidnight: Boolean get() = startMin > endMin
+        fun startLabel(): String = format(startMin)
+        fun endLabel(): String = format(endMin)
+
+        private fun format(minuteOfDay: Int): String =
+            String.format("%02d:%02d", minuteOfDay / 60, minuteOfDay % 60)
+    }
+
+    fun detectPlan(context: Context): DetectPlan {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return DetectPlan(
+            enabled = prefs.getBoolean(KEY_PLAN_ENABLED, false),
+            startMin = prefs.getInt(KEY_PLAN_START, DEFAULT_PLAN_START),
+            endMin = prefs.getInt(KEY_PLAN_END, DEFAULT_PLAN_END),
+        )
+    }
+
+    fun setDetectPlan(context: Context, plan: DetectPlan) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_PLAN_ENABLED, plan.enabled)
+            .putInt(KEY_PLAN_START, plan.startMin)
+            .putInt(KEY_PLAN_END, plan.endMin)
+            .apply()
+    }
+
+    /**
+     * 未启用计划时视为全天允许。时段外仍检测并记录事件，只是不推送，
+     * 因此这里只用于“要不要打扰”，不用于“要不要采集”。
+     */
+    fun isDetectionWindow(context: Context, now: Long = System.currentTimeMillis()): Boolean {
+        val plan = detectPlan(context)
+        if (!plan.enabled) return true
+        val calendar = Calendar.getInstance().apply { timeInMillis = now }
+        val minutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+        return if (plan.startMin <= plan.endMin) {
+            minutes in plan.startMin until plan.endMin
+        } else {
+            minutes >= plan.startMin || minutes < plan.endMin
+        }
+    }
+
     fun minLevel(context: Context): AlertLevel {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_MIN_LEVEL, AlertLevel.NORMAL.raw)

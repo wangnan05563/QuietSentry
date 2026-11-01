@@ -34,6 +34,10 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var quietStart: Button
     private lateinit var quietEnd: Button
     private lateinit var quietHint: TextView
+    private lateinit var planSwitch: SwitchCompat
+    private lateinit var planStart: Button
+    private lateinit var planEnd: Button
+    private lateinit var planHint: TextView
     private lateinit var levelGroup: RadioGroup
     private lateinit var resultContainer: LinearLayout
     private lateinit var summary: TextView
@@ -44,6 +48,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var integrationAddress: TextView
 
     private var quiet = AlertPolicy.Quiet(false, 0, 0)
+    private var plan = AlertPolicy.DetectPlan(false, 8 * 60, 22 * 60)
     private var checks: List<Diagnostics.Check> = emptyList()
 
     /** 程序化回填开关同样会触发监听器，用它区分"用户操作"与"渲染状态" */
@@ -131,6 +136,23 @@ class SettingsActivity : AppCompatActivity() {
             pickTime(quiet.endMin) { quiet = quiet.copy(endMin = it); persistQuiet() }
         }
         renderQuiet()
+
+        planSwitch = findViewById(R.id.settings_plan_switch)
+        planStart = findViewById(R.id.settings_plan_start)
+        planEnd = findViewById(R.id.settings_plan_end)
+        planHint = findViewById(R.id.settings_plan_hint)
+        plan = AlertPolicy.detectPlan(this)
+        planSwitch.setOnCheckedChangeListener { _, checked ->
+            plan = plan.copy(enabled = checked)
+            persistPlan()
+        }
+        planStart.setOnClickListener {
+            pickTime(plan.startMin) { plan = plan.copy(startMin = it); persistPlan() }
+        }
+        planEnd.setOnClickListener {
+            pickTime(plan.endMin) { plan = plan.copy(endMin = it); persistPlan() }
+        }
+        renderPlan()
 
         renderLevel()
         levelGroup.setOnCheckedChangeListener { _, checkedId ->
@@ -359,6 +381,22 @@ class SettingsActivity : AppCompatActivity() {
                 createAuditDocument.launch("quietsentry-audit.txt")
             }
             .show()
+    }
+
+    private fun persistPlan() {
+        AlertPolicy.setDetectPlan(this, plan)
+        renderPlan()
+    }
+
+    private fun renderPlan() {
+        planSwitch.isChecked = plan.enabled
+        planStart.text = plan.startLabel()
+        planEnd.text = plan.endLabel()
+        planHint.text = if (plan.crossesMidnight) {
+            getString(R.string.settings_plan_cross_midnight)
+        } else {
+            getString(R.string.settings_plan_hint)
+        }
     }
 
     private fun persistQuiet() {
