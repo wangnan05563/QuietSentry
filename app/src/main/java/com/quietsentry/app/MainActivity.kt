@@ -91,6 +91,8 @@ class MainActivity : AppCompatActivity() {
         override fun run() {
             refreshStatusCard()
             refreshRecentEvent()
+            // 存储余量与相机占用都会随时间变化，横幅必须进同一轮询
+            refreshBanner()
             statusClock.postDelayed(this, REFRESH_INTERVAL_MS)
         }
     }
@@ -98,15 +100,20 @@ class MainActivity : AppCompatActivity() {
     // 停止值守的导出反馈（正在保存/已保存 N 段）不允许被轮询覆盖，导出流程结束前置位
     private var holdStatusText = false
 
+    // 预览绑定失败多半是相机被其他应用占用；置位后横幅给出“点此重试”，重绑成功即清除
+    private var cameraBusy = false
+
     companion object {
         private const val REFRESH_INTERVAL_MS = 10_000L
         private const val GB = 1024.0 * 1024 * 1024
+        // 低于此余量横幅预警：写满会导致分片失败直接停值守，预警必须留出清理时间
+        private const val STORAGE_LOW_BYTES = 500L * 1024 * 1024
     }
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-            // 弹窗回来无论授没授，横幅都要按最新权限状态刷新
-            updatePermissionBanner()
+            // 弹窗回来无论授没授，横幅都要按最新异常状态刷新
+            refreshBanner()
             if (result[Manifest.permission.CAMERA] == true) {
                 showCameraOrGuard()
             } else {
@@ -133,15 +140,7 @@ class MainActivity : AppCompatActivity() {
         statusText = findViewById(R.id.status_text)
         primaryButton = findViewById(R.id.primary_button)
         bannerPermission = findViewById(R.id.banner_permission)
-        // PRD 3.3：横幅的“唯一动作”就是直达系统设置，不设次级确认，减少授权路径上的点击
-        bannerPermission.setOnClickListener {
-            startActivity(
-                Intent(
-                    Settings.ACTION_APP_NOTIFICATION_SETTINGS,
-                    Uri.parse("package:$packageName")
-                )
-            )
-        }
+        // 横幅文案与动作由 refreshBanner 按当前最高优先异常统一设置
         // 通知点击直达回放：MainActivity 只是中转，用户真正要看的是那一段片段
         consumeEventIntent(intent)
         ContextCompat.registerReceiver(
@@ -209,8 +208,8 @@ class MainActivity : AppCompatActivity() {
         // 若等到开始值守才启动，用户第一次配对就找不到设备
         LanServerHost.ensure(applicationContext)
 
-        // 先按当前权限状态定横幅显隐，再决定是否弹授权框；回调里还会再刷一次
-        updatePermissionBanner()
+        // 先按当前异常状态定横幅显隐，再决定是否弹授权框；回调里还会再刷一次
+        refreshBanner()
         if (requiredPermissions.all(::hasPermission)) {
             showCameraOrGuard()
         } else {
@@ -221,7 +220,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         // 从系统设置页返回时权限可能已变化，横幅必须跟着刷新
-        updatePermissionBanner()
+        refreshBanner()
         // 值守状态可能已变（如从通知停止、服务被杀），主按钮与事件卡都要跟着刷新
         refreshPrimaryButton()
         refreshRecentEvent()
@@ -300,13 +299,40 @@ class MainActivity : AppCompatActivity() {
             hasPermission(Manifest.permission.POST_NOTIFICATIONS)
 
     /**
-     * PRD 3.3：通知权限缺失时顶部横幅提示“告警不可见”，唯一动作直达系统设置。
-     * API<33 系统默认允许通知，无需横幅；授予后横幅立即收起，不留残影。
+     * 三类异常共用一条横幅（PRD 3.3 单横幅原则），按严重度取最高优先：
+     * 通知权限（告警丢失）> 相机占用（预览不可用）> 存储不足（值守将中断）。
+     * 每类只给一个“唯一动作”，直接换文案与点击行为，不做多按钮。
      */
-    private fun updatePermissionBanner() {
-        bannerPermission.visibility =
-            if (hasNotificationPermission()) View.GONE else View.VISIBLE
+    private fun refreshBanner() {
+        when {
+            !hasNotificationPermission() -> showBanner(R.string.banner_notification_permission) {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_APP_NOTIFICATION_SETTINGS,
+                        Uri.parse("package:$packageName")
+                    )
+                )
+            }
+            cameraBusy -> showBanner(R.string.banner_camera_busy) {
+                // 占用方释放是外部事件，用户主动重试是唯一出路；仍失败会在 bindPreview 再置位
+                startCamera()
+            }
+            isStorageLow() -> showBanner(R.string.banner_storage_low) {
+                // 清理手段（最近删除/保留天数）都在时间线，横幅只负责把人带到能清理的地方
+                startActivity(Intent(this, EventTimelineActivity::class.java))
+            }
+            else -> bannerPermission.visibility = View.GONE
+        }
     }
+
+    private fun showBanner(textRes: Int, action: () -> Unit) {
+        bannerPermission.setText(textRes)
+        bannerPermission.setOnClickListener { action() }
+        bannerPermission.visibility = View.VISIBLE
+    }
+
+    private fun isStorageLow(): Boolean =
+        StatFs(filesDir.absolutePath).availableBytes < STORAGE_LOW_BYTES
 
     /** 主按钮文案随值守状态切换；只在状态可能变化的时机调用（onResume / 导出完成）。 */
     private fun refreshPrimaryButton() {
@@ -467,8 +493,15 @@ class MainActivity : AppCompatActivity() {
         try {
             provider.unbindAll()
             provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview)
+            // 绑定成功说明占用已释放，横幅立即收起，不等下一轮 ticker
+            if (cameraBusy) {
+                cameraBusy = false
+                refreshBanner()
+            }
         } catch (e: Exception) {
             // 旧设备可能没有后置主摄，或镜头被其他应用占用，失败要让用户看到原因
+            cameraBusy = true
+            refreshBanner()
             statusText.text = getString(R.string.camera_open_failed, e.message ?: "")
         }
     }
