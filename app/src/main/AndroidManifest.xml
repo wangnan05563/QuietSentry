@@ -82,6 +82,12 @@
             android:name=".DeviceListActivity"
             android:exported="false" />
 
+        <!-- 观看端扫码添加：解析配对二维码并直接握手，锁竖屏让取景框方向稳定 -->
+        <activity
+            android:name=".ScanPairActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <!-- 自组网引导与连通性诊断：只做证据收集，不建立任何隧道 -->
         <activity
             android:name=".RemoteAccessActivity"

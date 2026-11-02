@@ -167,6 +167,14 @@
     <string name="device_list_add">添加摄像头</string>
     <string name="device_list_hint">点卡片看实时画面，长按可重命名、换房间或移除；状态每 5 秒自动刷新</string>
     <string name="device_list_empty">还没有设备\n先在摄像头端打开“配对与设备”，再回到这里添加</string>
+    <string name="device_list_discover">扫描局域网设备</string>
+    <string name="scan_pair_title">扫码添加</string>
+    <string name="scan_pair_hint">对准摄像头端“配对与设备”页上的二维码</string>
+    <string name="scan_pair_back">返回</string>
+    <string name="scan_pair_pairing">已识别配对码，正在配对…</string>
+    <string name="scan_pair_not_qr">这不是静哨配对码，请对准配对页上的二维码</string>
+    <string name="scan_pair_unreachable">无法连接二维码中的设备，请确认在同一网络</string>
+    <string name="scan_pair_camera_denied">需要相机权限才能扫码，请在系统设置中开启</string>
     <string name="device_list_limit">最多管理 %1$d 台设备</string>
     <string name="device_list_discovering">正在搜索局域网内的设备…</string>
     <string name="device_list_no_device">没有发现设备：请确认两台设备连接同一 Wi-Fi</string>

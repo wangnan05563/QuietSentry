@@ -364,9 +364,8 @@ class DeviceListActivity : AppCompatActivity() {
     }
 
     /**
-     * 添加设备：先让 mDNS 发现跑一个短窗口，再让用户选择。
-     * 不做“一直扫描直到有结果”：局域网里可能有很多台设备，长时间扫描既耗电，
-     * 也让用户不确定到底什么时候能选。
+     * 添加设备：三条路径（扫码 / 局域网发现 / 手动 IP）并列展示（PRD 07 §4.5），
+     * 不再默认先跑 mDNS 窗口——发现不到的用户此前根本不知道还有别的路。
      */
     private fun addDevice() {
         if (registry.count() >= DeviceRegistry.MAX_DEVICES) {
@@ -377,6 +376,24 @@ class DeviceListActivity : AppCompatActivity() {
             ).show()
             return
         }
+        val options = arrayOf(
+            getString(R.string.scan_pair_title),
+            getString(R.string.device_list_discover),
+            getString(R.string.device_list_manual_title),
+        )
+        AlertDialog.Builder(this)
+            .setTitle(R.string.device_list_add)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> startActivity(Intent(this, ScanPairActivity::class.java))
+                    1 -> discoverDevices()
+                    else -> promptManual()
+                }
+            }
+            .show()
+    }
+
+    private fun discoverDevices() {
         val peers = mutableListOf<LanDiscovery.Peer>()
         val scanner = LanDiscovery(this)
         discovery?.stop()
