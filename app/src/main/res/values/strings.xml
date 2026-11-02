@@ -306,6 +306,10 @@
     <!-- T04033：当前值由开关本身表达，说明要写清开/关两种取值的后果，避免用户以为关闭只是不提醒 -->
     <string name="settings_charge_only_switch">仅充电时值守</string>
     <string name="settings_charge_only_hint">开启后未接电源启动值守需先确认，且最多运行 2 小时自动停止；关闭后不限时，低电量仍会按电量策略降载或停止。</string>
+    <string name="settings_shutter_switch">拍照震动反馈</string>
+    <string name="settings_shutter_hint">黑屏拍照没有画面确认，成功后以一次短震动提示；夜间担心震动声可关闭。</string>
+    <string name="settings_volume_shutter_switch">音量键快门</string>
+    <string name="settings_volume_shutter_hint">开启后黑屏页内按音量上/下键即拍照，不再调节音量；手机物理按键盲拍更稳。</string>
     <string name="settings_section_health">健康检查</string>
     <string name="settings_diag_run">一键诊断</string>
     <string name="settings_diag_summary">上次诊断 %1$s：%2$d 项通过 / %3$d 项可优化 / %4$d 项阻塞</string>

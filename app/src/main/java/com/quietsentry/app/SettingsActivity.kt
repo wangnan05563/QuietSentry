@@ -119,6 +119,20 @@ class SettingsActivity : AppCompatActivity() {
             PowerGuard.setChargeOnly(this, checked)
         }
 
+        // 黑屏拍照震动反馈（T04023）：黑屏无快门动画，震动是唯一确认，尊重用户可关的选择
+        val shutterSwitch = findViewById<SwitchCompat>(R.id.settings_shutter_switch)
+        shutterSwitch.isChecked = ShutterFeedback.enabled(this)
+        shutterSwitch.setOnCheckedChangeListener { _, checked ->
+            ShutterFeedback.setEnabled(this, checked)
+        }
+
+        // 音量键快门（T04034）：与系统音量互斥，默认关，代价在提示里写清
+        val volumeShutterSwitch = findViewById<SwitchCompat>(R.id.settings_volume_shutter_switch)
+        volumeShutterSwitch.isChecked = VolumeShutter.enabled(this)
+        volumeShutterSwitch.setOnCheckedChangeListener { _, checked ->
+            VolumeShutter.setEnabled(this, checked)
+        }
+
         findViewById<Button>(R.id.settings_back).setOnClickListener { finish() }
         findViewById<Button>(R.id.settings_diag_run).setOnClickListener { runDiagnostics() }
         findViewById<Button>(R.id.settings_diag_export).setOnClickListener {

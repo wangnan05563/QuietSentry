@@ -304,6 +304,42 @@
             android:textColor="@color/qs_text_muted"
             android:textSize="12sp" />
 
+        <!-- 黑屏拍照震动反馈（T04023）：黑屏无快门动画，震动是唯一确认，但允许关闭 -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/settings_shutter_switch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/settings_shutter_switch"
+            android:textColor="@color/qs_text"
+            android:textSize="15sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/settings_shutter_hint"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="12sp" />
+
+        <!-- 音量键快门（T04034）：与系统音量互斥，开启后黑屏页内音量键不再调音量 -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/settings_volume_shutter_switch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/settings_volume_shutter_switch"
+            android:textColor="@color/qs_text"
+            android:textSize="15sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/settings_volume_shutter_hint"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="12sp" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

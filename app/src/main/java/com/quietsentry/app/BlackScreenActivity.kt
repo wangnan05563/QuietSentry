@@ -84,6 +84,18 @@ class BlackScreenActivity : AppCompatActivity() {
 
     override fun onTouchEvent(event: MotionEvent): Boolean = gestureDetector.onTouchEvent(event)
 
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        // 音量键当快门（T04034）：黑屏盲拍时比点屏幕稳。返回 true 吞掉按键，
+        // 否则拍照的同时媒体音量条也会弹出来，黑屏约定就被打破了
+        if (VolumeShutter.enabled(this) && (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN ||
+                keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP)
+        ) {
+            takePhoto()
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
     private fun bindCamera() {
         val future = ProcessCameraProvider.getInstance(this)
         future.addListener({
@@ -126,6 +138,8 @@ class BlackScreenActivity : AppCompatActivity() {
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     statusText.text = getString(R.string.photo_saved, file.name)
+                    // 黑屏无预览无快门动画，短震动是“拍到了”的唯一确认（可关）
+                    ShutterFeedback.vibrate(this@BlackScreenActivity)
                     // 目录遍历放在后台线程，避免刚拍完就影响黑屏页后续的手势响应
                     Thread { StorageKeeper.enforce(this@BlackScreenActivity) }.start()
                 }
