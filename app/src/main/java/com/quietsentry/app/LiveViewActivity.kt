@@ -2,10 +2,13 @@ package com.quietsentry.app
 
 import android.Manifest
 import android.app.AlertDialog
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -39,6 +42,8 @@ class LiveViewActivity : AppCompatActivity() {
     private lateinit var counterText: TextView
     private lateinit var qualityPills: List<TextView>
     private lateinit var talkButton: Button
+    private lateinit var sirenButton: Button
+    private lateinit var torchButton: Button
 
     private lateinit var device: DeviceRegistry.Device
     private lateinit var streamer: LiveStreamer
@@ -50,6 +55,23 @@ class LiveViewActivity : AppCompatActivity() {
      * 连接成功或确认离线时复位，保证真正的断线兜底不受影响。
      */
     private var switchingQuality = false
+
+    /** 触发中的威慑动作（T04052）：非空时按钮变“停止”并倒计时，仅 UI 语义，无并发写者 */
+    private var activeDeterrent: String? = null
+    private var deterrentDeadlineMs = 0L
+    private val uiHandler = Handler(Looper.getMainLooper())
+    private val deterrentTick = object : Runnable {
+        override fun run() {
+            val remainingSec = (deterrentDeadlineMs - System.currentTimeMillis() + 999) / 1000
+            if (remainingSec <= 0 || activeDeterrent == null) {
+                endDeterrentUi()
+                return
+            }
+            activeDeterrentButton()?.text = getString(R.string.live_deter_stop, remainingSec)
+            // 250ms 粒度让秒数跳变发生在 0.25s 内，比整秒轮询更接近服务端的真实剩余时间
+            uiHandler.postDelayed(this, 250)
+        }
+    }
 
     /** 只在按住期间存在；松手即置空，用空值作为“当前没在录”的唯一判据 */
     private var talk: TalkRecorder? = null
@@ -89,8 +111,17 @@ class LiveViewActivity : AppCompatActivity() {
         findViewById<Button>(R.id.live_back).setOnClickListener { finish() }
         findViewById<Button>(R.id.live_snapshot).setOnClickListener { snapshot() }
         findViewById<Button>(R.id.live_pause).setOnClickListener { confirmPause() }
-        findViewById<Button>(R.id.live_siren).setOnClickListener { confirmDeterrent(siren = true) }
-        findViewById<Button>(R.id.live_torch).setOnClickListener { confirmDeterrent(siren = false) }
+        // 触发态下同一按钮变成“停止”：点击语义由 activeDeterrent 决定，不在监听器里重复判断
+        sirenButton = findViewById(R.id.live_siren)
+        torchButton = findViewById(R.id.live_torch)
+        sirenButton.setOnClickListener {
+            if (activeDeterrent == DETERRENT_SIREN) requestDeterrentStop(DETERRENT_SIREN)
+            else confirmDeterrent(siren = true)
+        }
+        torchButton.setOnClickListener {
+            if (activeDeterrent == DETERRENT_TORCH) requestDeterrentStop(DETERRENT_TORCH)
+            else confirmDeterrent(siren = false)
+        }
 
         // 对讲必须“按住说话”：默认不常开麦克风（PRD FR-16），因此用触摸事件而不是点击
         talkButton = findViewById(R.id.live_talk)
@@ -154,6 +185,8 @@ class LiveViewActivity : AppCompatActivity() {
         if (::streamer.isInitialized) streamer.stop()
         // 对讲同样不能留到后台：麦克风一旦脱离用户手指，就等于在不知情的情况下持续录音
         stopTalk()
+        // 倒计时只服务本页 UI：离开页面后回调必须停掉，否则会向已销毁的按钮写文案
+        if (activeDeterrent != null) endDeterrentUi()
         super.onStop()
     }
 
@@ -210,8 +243,9 @@ class LiveViewActivity : AppCompatActivity() {
                 }
             }
             LiveStreamer.State.UNAUTHORIZED -> {
-                statusText.setText(R.string.live_status_unauthorized)
+                // LiveStreamer 收到 401 后已停止重连循环，这里给出重新配对出路而不是干等
                 counterText.text = ""
+                promptRepair()
             }
             LiveStreamer.State.BUSY -> {
                 statusText.text = getString(R.string.live_status_busy, MAX_VIEWERS)
@@ -343,7 +377,9 @@ class LiveViewActivity : AppCompatActivity() {
         Thread {
             val result =
                 if (siren) DeviceHttp.siren(host, port, token) else DeviceHttp.torch(host, port, token)
-            onUi { showDeterrentResult(result) }
+            onUi {
+                showDeterrentResult(siren, result)
+            }
         }.start()
     }
 
@@ -351,9 +387,13 @@ class LiveViewActivity : AppCompatActivity() {
      * 失败原因必须逐条翻译：冷却、夜间禁用、访客无权限、未在值守都是“没有执行”，
      * 一句笼统的“失败”会让用户以为设备出了问题，反而重复触发。
      */
-    private fun showDeterrentResult(result: DeviceHttp.ControlResult) {
+    private fun showDeterrentResult(siren: Boolean, result: DeviceHttp.ControlResult) {
+        if (result.ok) {
+            // 以本地时钟起倒计时：与服务端 DURATION_MS 同源（10 秒），秒级误差可接受
+            beginDeterrentCountdown(if (siren) DETERRENT_SIREN else DETERRENT_TORCH)
+            return
+        }
         val text = when {
-            result.ok -> getString(R.string.live_deter_done)
             result.error == "cooldown" -> getString(R.string.live_deter_cooldown, result.retryAfterSec)
             result.error == "night_disabled" -> getString(R.string.live_deter_night)
             result.error == "forbidden" || result.error == "unauthorized" ->
@@ -362,6 +402,62 @@ class LiveViewActivity : AppCompatActivity() {
             else -> getString(R.string.live_deter_failed)
         }
         toast(text)
+    }
+
+    private fun activeDeterrentButton(): Button? = when (activeDeterrent) {
+        DETERRENT_SIREN -> if (::sirenButton.isInitialized) sirenButton else null
+        DETERRENT_TORCH -> if (::torchButton.isInitialized) torchButton else null
+        else -> null
+    }
+
+    private fun beginDeterrentCountdown(which: String) {
+        activeDeterrent = which
+        deterrentDeadlineMs = System.currentTimeMillis() + Deterrent.DURATION_MS
+        uiHandler.removeCallbacks(deterrentTick)
+        deterrentTick.run()
+    }
+
+    private fun endDeterrentUi() {
+        uiHandler.removeCallbacks(deterrentTick)
+        val which = activeDeterrent ?: return
+        activeDeterrent = null
+        // 复位被倒计时改写的按钮文案；按钮引用在 onCreate 前可能未初始化，按类型兜底
+        if (::sirenButton.isInitialized && which == DETERRENT_SIREN) {
+            sirenButton.setText(R.string.live_siren)
+        }
+        if (::torchButton.isInitialized && which == DETERRENT_TORCH) {
+            torchButton.setText(R.string.live_torch)
+        }
+    }
+
+    /**
+     * 触发态点击“停止”：UI 先行复位，请求在 IO 线程发出后不弹提示——
+     * 停止失败的唯一常见原因是设备已离线，而动作本身 10 秒内必然自然结束，兜底已存在。
+     */
+    private fun requestDeterrentStop(which: String) {
+        endDeterrentUi()
+        val host = device.host
+        val port = device.port
+        val token = device.token
+        Thread {
+            if (which == DETERRENT_SIREN) DeviceHttp.sirenStop(host, port, token)
+            else DeviceHttp.torchStop(host, port, token)
+        }.start()
+    }
+
+    /** PRD 4.3：令牌失效不再留在画面页反复重试，弹一次说明并给出扫码出路 */
+    private fun promptRepair() {
+        if (isFinishing || isDestroyed) return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.live_status_unauthorized)
+            .setMessage(R.string.live_repair_message)
+            .setPositiveButton(R.string.live_repair_action) { _, _ ->
+                startActivity(Intent(this, ScanPairActivity::class.java))
+                finish()
+            }
+            .setNegativeButton(R.string.live_repair_close) { _, _ -> finish() }
+            .setCancelable(false)
+            .show()
     }
 
     private fun toast(text: String) {
@@ -390,6 +486,9 @@ class LiveViewActivity : AppCompatActivity() {
         private const val QUALITY_AUTO = "auto"
         private const val QUALITY_SMOOTH = "sub"
         private const val QUALITY_MAIN = "main"
+        // 触发态按钮标识：与服务端 /api/{siren,torch}/stop 的目标一一对应
+        private const val DETERRENT_SIREN = "siren"
+        private const val DETERRENT_TORCH = "torch"
         // 服务端 MAX_VIEWERS 固定为 5，这里只用于把 429 翻译成人话
         private const val MAX_VIEWERS = 5
         // 兜底快照节流窗口：比重连间隔长一个量级，离线期间不至于每轮重连都拉一次图

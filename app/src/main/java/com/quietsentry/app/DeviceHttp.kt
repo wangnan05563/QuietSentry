@@ -193,6 +193,13 @@ object DeviceHttp {
     fun torch(host: String, port: Int, token: String): ControlResult =
         trigger(host, port, "/api/torch", token)
 
+    // 触发态中途停止（T04052）：与服务端 /api/{siren,torch}/stop 一一对应
+    fun sirenStop(host: String, port: Int, token: String): ControlResult =
+        trigger(host, port, "/api/siren/stop", token)
+
+    fun torchStop(host: String, port: Int, token: String): ControlResult =
+        trigger(host, port, "/api/torch/stop", token)
+
     /**
      * 对讲：每 0.5 秒一块 16kHz/16bit 单声道 PCM。
      * 返回 false 就让采集线程停下——继续上传只会在服务端越积越多，听起来像延迟越来越大。

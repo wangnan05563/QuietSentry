@@ -53,6 +53,37 @@
             android:textSize="13sp" />
     </LinearLayout>
 
+    <!-- 远程动作竖排（PRD 4.3）：对讲/警笛/手电是画面在演时的“插话”动作，
+         放右侧不遮挡底部状态条；仍用文字按钮——项目不引图标库，文字比自带 emoji 图标更可预期 -->
+    <LinearLayout
+        android:id="@+id/live_actions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:orientation="vertical"
+        android:padding="8dp">
+
+        <Button
+            android:id="@+id/live_talk"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/live_talk" />
+
+        <Button
+            android:id="@+id/live_siren"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/live_siren" />
+
+        <Button
+            android:id="@+id/live_torch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/live_torch" />
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/live_bottom_bar"
         android:layout_width="match_parent"
@@ -61,36 +92,6 @@
         android:background="@color/qs_overlay"
         android:orientation="vertical"
         android:padding="8dp">
-
-        <!-- 六个按钮排成两行：单行在竖屏手机上会把每个按钮压到不足 55dp，点不中 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/live_talk"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
-                android:layout_weight="1"
-                android:text="@string/live_talk" />
-
-            <Button
-                android:id="@+id/live_siren"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
-                android:layout_weight="1"
-                android:text="@string/live_siren" />
-
-            <Button
-                android:id="@+id/live_torch"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/live_torch" />
-        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"

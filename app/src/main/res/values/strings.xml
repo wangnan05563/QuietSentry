@@ -270,6 +270,10 @@
     <string name="live_quality_smooth">流畅</string>
     <string name="live_quality_hd">高清</string>
     <string name="live_quality_switching">切换画质…</string>
+    <string name="live_deter_stop">停止 %1$ds</string>
+    <string name="live_repair_action">重新扫码</string>
+    <string name="live_repair_close">关闭</string>
+    <string name="live_repair_message">这台设备的配对授权已失效。请在摄像头端打开配对页重新生成二维码，扫码后即可恢复观看。</string>
     <string name="live_snapshot">截图</string>
     <string name="live_state_connecting">连接中…</string>
     <string name="live_state_connected">已连接</string>
@@ -431,7 +435,6 @@
     <string name="live_deter_forbidden">访客没有远程控制权限</string>
     <string name="live_deter_not_running">设备未在值守，无法执行</string>
     <string name="live_deter_failed">操作未被接受，请稍后再试</string>
-    <string name="live_deter_done">已触发，10 秒后自动结束</string>
     <string name="live_talk_active">松开结束</string>
     <string name="live_pause">暂停</string>
     <string name="live_pause_title">远程暂停相机？</string>

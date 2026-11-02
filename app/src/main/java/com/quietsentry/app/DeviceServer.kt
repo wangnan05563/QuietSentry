@@ -189,6 +189,9 @@ class DeviceServer(
             req.method == "POST" && req.path == "/api/talk" -> handleTalk(req, out)
             req.method == "POST" && req.path == "/api/siren" -> handleSiren(req, out)
             req.method == "POST" && req.path == "/api/torch" -> handleTorch(req, out)
+            // 触发态可中途停止（T04052）：权限口径与触发一致，Guest 不能也不能停
+            req.method == "POST" && req.path == "/api/siren/stop" -> handleSirenStop(req, out)
+            req.method == "POST" && req.path == "/api/torch/stop" -> handleTorchStop(req, out)
             // 第三方集成（PRD FR-15）：仅集成开启时可访问，鉴权走 Basic 或配对令牌
             req.method == "GET" && req.path == "/web" -> handleConsole(socket, req, out)
             req.method == "GET" && req.path == "/api/integration" -> handleIntegrationState(socket, req, out)
@@ -572,6 +575,20 @@ class DeviceServer(
         .put("error", code)
         .put("retryAfterSec", remainingMs / 1000 + 1)
         .toString()
+
+    private fun handleSirenStop(req: Request, out: OutputStream) {
+        val grant = requireGrant(req, out) ?: return
+        Deterrent.stopSiren()
+        AuditLog.record(context, AuditLog.DETERRENT, "警笛 远程停止 role=${grant.role.raw}")
+        respond(out, 200, JSONObject().put("ok", true).toString())
+    }
+
+    private fun handleTorchStop(req: Request, out: OutputStream) {
+        val grant = requireGrant(req, out) ?: return
+        Deterrent.stopTorch()
+        AuditLog.record(context, AuditLog.DETERRENT, "手电 远程停止 role=${grant.role.raw}")
+        respond(out, 200, JSONObject().put("ok", true).toString())
+    }
 
     /**
      * 局域网 Web 控制台（PRD FR-15）。页面内的相对请求会复用浏览器缓存的 Basic 凭据，

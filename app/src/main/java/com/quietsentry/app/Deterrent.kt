@@ -78,6 +78,24 @@ object Deterrent {
     fun torchCooldownRemainingMs(now: Long = SystemClock.elapsedRealtime()): Long =
         (torchCooldownUntil - now).coerceAtLeast(0L)
 
+    /**
+     * 观看端“停止”按钮的远程停止（T04052）：提前停止也按“动作结束”起算冷却，
+     * 否则手动停掉后立刻再触发，等于绕过了冷却的防误触设计。
+     */
+    @Synchronized
+    fun stopSiren() {
+        // 对未在播放的音调调用 stopTone 是无害的：服务端可能在动作已自然结束后才收到停止请求
+        runCatching { tone?.stopTone() }
+        sirenCooldownUntil = SystemClock.elapsedRealtime() + COOLDOWN_MS
+    }
+
+    @Synchronized
+    fun stopTorch() {
+        handler.removeCallbacks(torchOff)
+        torchSwitch?.invoke(false)
+        torchCooldownUntil = SystemClock.elapsedRealtime() + COOLDOWN_MS
+    }
+
     /** 服务销毁时清理：ToneGenerator 不释放会一直占着音频输出通道 */
     @Synchronized
     fun release() {
