@@ -22,6 +22,9 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * MVP 入口：预览用于放置与调角度，值守采集由 CaptureService 负责，
@@ -32,6 +35,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var statusText: TextView
     private lateinit var bannerPermission: TextView
+    private lateinit var recentEvent: TextView
 
     private val requiredPermissions = buildList {
         add(Manifest.permission.CAMERA)
@@ -50,7 +54,7 @@ class MainActivity : AppCompatActivity() {
     private val exportedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val saved = intent.getIntExtra(CaptureService.EXTRA_EXPORTED, 0)
-            stopButton.isEnabled = true
+            primaryButton.isEnabled = true
             statusText.text = if (saved > 0) {
                 getString(R.string.saved_to_gallery, saved)
             } else {
@@ -65,13 +69,18 @@ class MainActivity : AppCompatActivity() {
                     startCamera()
                 }
             }
+            // 停止值守后主按钮要立刻回到“开始值守”，不能等下次 onResume
+            refreshPrimaryButton()
+            refreshRecentEvent()
         }
     }
 
-    private lateinit var stopButton: Button
+    private lateinit var primaryButton: Button
 
     // 值守期间相机由服务独占，界面预览被主动隐藏；用标记记住，停止值守回到界面后才恢复（T03770）
     private var previewSuppressed = false
+
+    private val eventStore by lazy { EventStore(this) }
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -101,7 +110,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         previewView = findViewById(R.id.preview_view)
         statusText = findViewById(R.id.status_text)
-        stopButton = findViewById(R.id.stop_button)
+        primaryButton = findViewById(R.id.primary_button)
         bannerPermission = findViewById(R.id.banner_permission)
         // PRD 3.3：横幅的“唯一动作”就是直达系统设置，不设次级确认，减少授权路径上的点击
         bannerPermission.setOnClickListener {
@@ -121,93 +130,58 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
-        findViewById<Button>(R.id.start_button).setOnClickListener {
-            // 服务已在采集时再发 START 会被内部直接忽略，界面必须自己给出反馈，否则用户以为没点上
-            if (CaptureService.isRunning) {
-                statusText.text = getString(R.string.guard_already_running)
-                return@setOnClickListener
-            }
-            // camera 类型前台服务要求相机权限已授予，否则系统在 startForeground 时直接抛异常
-            if (!hasPermission(Manifest.permission.CAMERA)) {
-                requestPermissions.launch(requiredPermissions)
-                statusText.text = getString(R.string.permission_required)
-                return@setOnClickListener
-            }
-            // PRD §10.5：常驻通知是用户确认“正在采集”的唯一可见凭据，没有它就不允许启动
-            if (!hasNotificationPermission()) {
-                requestPermissions.launch(requiredPermissions)
-                statusText.text = getString(R.string.notification_required)
-                return@setOnClickListener
-            }
-            // PRD O2/FR-13：仅充电时值守默认开启，未接电源必须先确认“限时 2 小时”。
-            // 不确认就直接跑，用户会以为能守一整晚，到点自动停止时人不在场也找不到原因
-            val snapshot = PowerGuard.snapshot(this)
-            if (PowerGuard.chargeOnly(this) && !snapshot.charging) {
-                AlertDialog.Builder(this)
-                    .setTitle(R.string.power_unplugged_title)
-                    .setMessage(R.string.power_unplugged_message)
-                    .setPositiveButton(R.string.power_unplugged_confirm) { _, _ -> beginGuard() }
-                    .setNegativeButton(R.string.power_unplugged_cancel, null)
-                    .show()
-                return@setOnClickListener
-            }
-            beginGuard()
+        // 主按钮按值守状态二合一：空闲=开始值守，运行=停止值守（入口收敛见 T04042）
+        primaryButton.setOnClickListener {
+            if (CaptureService.isRunning) confirmStop() else confirmThenStart { beginGuard() }
         }
-        findViewById<Button>(R.id.record_button).setOnClickListener {
-            if (CaptureService.isRunning) {
-                statusText.text = getString(R.string.guard_already_running)
-                return@setOnClickListener
-            }
-            if (!ensureStartable()) return@setOnClickListener
-            // 连续记录同样可能长时间挂机，沿用“仅充电时值守”的确认口径
-            val snapshot = PowerGuard.snapshot(this)
-            if (PowerGuard.chargeOnly(this) && !snapshot.charging) {
-                AlertDialog.Builder(this)
-                    .setTitle(R.string.power_unplugged_title)
-                    .setMessage(R.string.power_unplugged_message)
-                    .setPositiveButton(R.string.power_unplugged_confirm) { _, _ -> startRecordOnly() }
-                    .setNegativeButton(R.string.power_unplugged_cancel, null)
-                    .show()
-                return@setOnClickListener
-            }
-            startRecordOnly()
-        }
-        stopButton.setOnClickListener {
-            // 停止是破坏性操作：私有原件导出后即被删除，误触无法回退，必须先确认
+        findViewById<Button>(R.id.more_button).setOnClickListener {
+            val entries = listOf(
+                R.string.record_mode_entry,
+                R.string.black_mode_entry,
+                R.string.timeline_entry,
+                R.string.pairing_entry,
+                R.string.device_list_entry,
+                R.string.remote_entry,
+                R.string.settings_entry,
+            )
             AlertDialog.Builder(this)
-                .setTitle(R.string.stop_guard_confirm_title)
-                .setMessage(R.string.stop_guard_confirm_message)
-                .setPositiveButton(R.string.stop_guard_confirm_yes) { _, _ ->
-                    // 导出要等最后一个分片 Finalize 后才开始，先给出“正在保存”提示并禁用以防重复点击
-                    stopButton.isEnabled = false
-                    statusText.text = getString(R.string.saving_to_gallery)
-                    startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP))
+                .setTitle(R.string.more_menu)
+                .setItems(entries.map { getString(it) }.toTypedArray()) { _, which ->
+                    when (entries[which]) {
+                        // 连续记录与值守互斥：服务会忽略重复 START，必须给明确反馈
+                        R.string.record_mode_entry -> {
+                            if (CaptureService.isRunning) {
+                                statusText.text = getString(R.string.guard_already_running)
+                            } else {
+                                confirmThenStart { startRecordOnly() }
+                            }
+                        }
+                        // 值守与黑屏都通过 unbindAll 独占相机，同时进入会让值守录像静默中断
+                        R.string.black_mode_entry -> {
+                            if (CaptureService.isRunning) {
+                                statusText.text = getString(R.string.guard_running_conflict)
+                            } else {
+                                startActivity(Intent(this, BlackScreenActivity::class.java))
+                            }
+                        }
+                        R.string.timeline_entry -> startActivity(Intent(this, EventTimelineActivity::class.java))
+                        R.string.pairing_entry -> startActivity(Intent(this, PairingActivity::class.java))
+                        R.string.device_list_entry -> startActivity(Intent(this, DeviceListActivity::class.java))
+                        R.string.remote_entry -> startActivity(Intent(this, RemoteAccessActivity::class.java))
+                        R.string.settings_entry -> startActivity(Intent(this, SettingsActivity::class.java))
+                    }
                 }
-                .setNegativeButton(android.R.string.cancel, null)
                 .show()
         }
-        findViewById<Button>(R.id.black_mode_button).setOnClickListener {
-            // 值守与黑屏都通过 unbindAll 独占相机，同时进入会让值守录像静默中断
-            if (CaptureService.isRunning) {
-                statusText.text = getString(R.string.guard_running_conflict)
-                return@setOnClickListener
+        recentEvent = findViewById(R.id.recent_event)
+        recentEvent.setOnClickListener {
+            // 点击时重查一次拿最新事件：卡片渲染与点击之间可能刚好有新事件入库
+            eventStore.recent(1).firstOrNull()?.let { event ->
+                startActivity(
+                    Intent(this, EventPlayerActivity::class.java)
+                        .putExtra(EventPlayerActivity.EXTRA_EVENT_ID, event.id)
+                )
             }
-            startActivity(Intent(this, BlackScreenActivity::class.java))
-        }
-        findViewById<Button>(R.id.timeline_button).setOnClickListener {
-            startActivity(Intent(this, EventTimelineActivity::class.java))
-        }
-        findViewById<Button>(R.id.pairing_button).setOnClickListener {
-            startActivity(Intent(this, PairingActivity::class.java))
-        }
-        findViewById<Button>(R.id.device_list_button).setOnClickListener {
-            startActivity(Intent(this, DeviceListActivity::class.java))
-        }
-        findViewById<Button>(R.id.remote_access_button).setOnClickListener {
-            startActivity(Intent(this, RemoteAccessActivity::class.java))
-        }
-        findViewById<Button>(R.id.settings_button).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
         }
 
         // 待机状态也要能在局域网里被发现：观看端的“在线·待机”完全依赖这个常驻监听，
@@ -227,6 +201,9 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         // 从系统设置页返回时权限可能已变化，横幅必须跟着刷新
         updatePermissionBanner()
+        // 值守状态可能已变（如从通知停止、服务被杀），主按钮与事件卡都要跟着刷新
+        refreshPrimaryButton()
+        refreshRecentEvent()
         // 值守中打开 App：界面再次 bind 会把服务已经绑定的采集一并解绑，必须让相机归后台（T03770）
         if (CaptureService.isRunning) {
             suppressPreview()
@@ -298,6 +275,67 @@ class MainActivity : AppCompatActivity() {
     private fun updatePermissionBanner() {
         bannerPermission.visibility =
             if (hasNotificationPermission()) View.GONE else View.VISIBLE
+    }
+
+    /** 主按钮文案随值守状态切换；只在状态可能变化的时机调用（onResume / 导出完成）。 */
+    private fun refreshPrimaryButton() {
+        primaryButton.text =
+            getString(if (CaptureService.isRunning) R.string.stop_guard else R.string.start_guard)
+    }
+
+    /**
+     * 最近事件卡：无事件即隐藏。是否“已留存”不只看 clip 路径——
+     * 片段导出到相册后私有原件会被删除，此时仍有 clipUri 可播，同样算已留存。
+     */
+    private fun refreshRecentEvent() {
+        val event = eventStore.recent(1).firstOrNull()
+        if (event == null) {
+            recentEvent.visibility = View.GONE
+            return
+        }
+        recentEvent.visibility = View.VISIBLE
+        val time = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(event.occurredAt))
+        val retained = event.clipUri != null || event.clip?.isFile == true
+        recentEvent.text = getString(
+            R.string.recent_event_line,
+            time,
+            getString(event.type.labelRes),
+            getString(if (retained) R.string.recent_event_retained else R.string.recent_event_recording)
+        )
+    }
+
+    /**
+     * 值守与连续记录共用的启动前置流程：权限与“仅充电”确认都过了才真正启动。
+     * 未接电源必须先确认“限时 2 小时”，否则到点自动停止时人不在场也找不到原因。
+     */
+    private fun confirmThenStart(start: () -> Unit) {
+        if (!ensureStartable()) return
+        val snapshot = PowerGuard.snapshot(this)
+        if (PowerGuard.chargeOnly(this) && !snapshot.charging) {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.power_unplugged_title)
+                .setMessage(R.string.power_unplugged_message)
+                .setPositiveButton(R.string.power_unplugged_confirm) { _, _ -> start() }
+                .setNegativeButton(R.string.power_unplugged_cancel, null)
+                .show()
+            return
+        }
+        start()
+    }
+
+    private fun confirmStop() {
+        // 停止是破坏性操作：私有原件导出后即被删除，误触无法回退，必须先确认
+        AlertDialog.Builder(this)
+            .setTitle(R.string.stop_guard_confirm_title)
+            .setMessage(R.string.stop_guard_confirm_message)
+            .setPositiveButton(R.string.stop_guard_confirm_yes) { _, _ ->
+                // 导出要等最后一个分片 Finalize 后才开始，先给出“正在保存”提示并禁用以防重复点击
+                primaryButton.isEnabled = false
+                statusText.text = getString(R.string.saving_to_gallery)
+                startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP))
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     /**

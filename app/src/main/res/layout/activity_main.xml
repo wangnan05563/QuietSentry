@@ -24,6 +24,8 @@
         android:textSize="13sp"
         android:visibility="gone" />
 
+    <!-- 入口收敛：高频动作（开始/停止值守）保留实体按钮，其余七入口进“更多”，
+         给预览画面留出最大可视面积，底部只留状态与最近事件 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -39,6 +41,21 @@
             android:textColor="@android:color/white"
             android:textSize="13sp" />
 
+        <TextView
+            android:id="@+id/recent_event"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="#33000000"
+            android:clickable="true"
+            android:ellipsize="end"
+            android:focusable="true"
+            android:maxLines="1"
+            android:padding="10dp"
+            android:textColor="@android:color/white"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -46,69 +63,19 @@
             android:orientation="horizontal">
 
             <Button
-                android:id="@+id/start_button"
+                android:id="@+id/primary_button"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
                 android:layout_weight="1"
                 android:text="@string/start_guard" />
 
             <Button
-                android:id="@+id/stop_button"
-                android:layout_width="0dp"
+                android:id="@+id/more_button"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/stop_guard" />
+                android:layout_marginStart="8dp"
+                android:text="@string/more_menu" />
         </LinearLayout>
-
-        <Button
-            android:id="@+id/record_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/record_mode_entry" />
-
-        <Button
-            android:id="@+id/black_mode_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/black_mode_entry" />
-
-        <Button
-            android:id="@+id/timeline_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/timeline_entry" />
-
-        <Button
-            android:id="@+id/pairing_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/pairing_entry" />
-
-        <Button
-            android:id="@+id/device_list_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/device_list_entry" />
-
-        <Button
-            android:id="@+id/remote_access_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/remote_entry" />
-
-        <Button
-            android:id="@+id/settings_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/settings_entry" />
     </LinearLayout>
 
 </FrameLayout>

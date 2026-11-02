@@ -20,7 +20,12 @@
     <string name="segment_storage_full">存储空间不足，已停止值守</string>
     <string name="segment_storage_full_hint">请清理设备存储或调低保留天数后重新开始值守。</string>
     <string name="start_guard">开始值守</string>
-    <string name="stop_guard">停止</string>
+    <string name="stop_guard">停止值守</string>
+    <string name="more_menu">更多</string>
+    <!-- 首页状态卡：入口收敛后用户仍需一眼看到最近发生了什么，点击直达播放器 -->
+    <string name="recent_event_line">最近事件 %1$s · %2$s · %3$s</string>
+    <string name="recent_event_retained">已留存</string>
+    <string name="recent_event_recording">录制中</string>
     <string name="guard_started_tip">值守中：按电源键熄屏后采集继续，通知栏可随时确认</string>
     <string name="permission_required">需要相机、录音与通知权限</string>
     <string name="black_mode_entry">黑屏记录</string>
