@@ -36,7 +36,7 @@ try {
     Write-Ok "APK: $($info.FullName)"
     Write-Ok "体积: $([math]::Round($info.Length / 1MB, 2)) MB"
     if ($Variant -eq 'release' -and $apk -match '-unsigned') {
-        Write-Note '当前 release APK 未签名：填写 keystore.properties 后重新构建，或运行 release.bat'
+        Write-Note '当前 release APK 未签名：填写 keystore.properties 后重新构建，或运行 scripts\一键发布.bat'
     }
     Write-Host ""
 } catch {

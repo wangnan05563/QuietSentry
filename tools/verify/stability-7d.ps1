@@ -20,7 +20,8 @@
 #   tools\verify\stability-7d.ps1 -Serial <serial> -Days 1 -IntervalMin 5
 #   tools\verify\stability-7d.ps1 -Serial <serial> -MaxSamples 3 -IntervalSec 2   # 冒烟自测
 
-. (Join-Path (Split-Path -Parent $PSScriptRoot) 'build-lib.ps1')
+# 构建公共库已统一到 scripts/；本脚本在 tools/verify，向上两级才是项目根
+. (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'scripts\build-lib.ps1')
 
 $adb = (Get-Toolchain).Adb
 if (-not $adb) {
@@ -133,7 +134,8 @@ for ($index = 0; $index -lt $target; $index++) {
     }
 }
 
-$rows = Import-Csv $csvPath
+# Import-Csv 只有一行时返回单个对象而不是数组，$rows.Count 会为空，摘要数字随之为空
+$rows = @(Import-Csv $csvPath)
 $interruptions = ($rows | Where-Object { [int]$_.pid -eq 0 }).Count
 $serviceOff = ($rows | Where-Object { $_.service_running -ne 'True' }).Count
 $crashFirst = if ($rows.Count -gt 0) { [int]$rows[0].crash_lines } else { 0 }

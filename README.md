@@ -90,14 +90,16 @@ flowchart LR
 
 ```bat
 :: 检查依赖 + 生成当天 patch 号 + 构建 debug APK
-build.bat
+scripts\build.bat
 
 :: 构建并安装到当前连接的设备（多台时会让你选）
-build-and-push.bat
+scripts\build-and-push.bat
 
 :: 只推送已构建的 APK
-push.bat -Variant debug
+scripts\push.bat -Variant debug
 ```
+
+> 构建 / 推送 / 发布脚本统一放在 `scripts/` 下，可直接从项目根执行上面的相对路径命令。
 
 构建脚本会在每次打包前把 **当天日期 + 递增序号** 写入根 `package.json` 的 `build.patch`，
 并递增 `buildNumber`（即 `versionCode`），保证每次产物版本唯一：
@@ -125,7 +127,7 @@ push.bat -Variant debug
 2. 填写 `keystore.properties`，然后运行：
 
    ```bat
-   一键发布.bat
+   scripts\一键发布.bat
    ```
 
    脚本会：推进 patch → 构建签名 APK 与 AAB → `apksigner` 校验 → 通过 `gh` 或
@@ -134,7 +136,7 @@ push.bat -Variant debug
 ### 重新生成图标
 
 ```bat
-python tools\gen-icons.py
+python scripts\gen-icons.py
 ```
 
 同时输出 5 个密度的启动图标、圆形图标、自适应前景、Play Store 512 图标与 1280×640 社交预览。
@@ -148,9 +150,9 @@ python tools\gen-icons.py
 ├─ app/src/main/res/                        # 暗色设计令牌、布局、图标
 ├─ assets/brand/                            # Logo、Play Store 图标、社交预览
 ├─ docs/                                    # 交互、技术方案、合规、兼容矩阵、发布清单
-├─ tools/                                   # 构建 / 推送 / 发布 / 图标生成脚本
+├─ scripts/                                  # 构建 / 推送 / 发布 / 图标生成脚本（统一入口）
+├─ tools/verify/                             # ONVIF / RTSP / TLS / 稳定性验证脚本
 ├─ PRD-QuietSentry.md                       # 产品需求文档
-├─ build.bat  push.bat  build-and-push.bat  一键发布.bat
 └─ package.json                             # 版本与构建元数据
 ```
 
