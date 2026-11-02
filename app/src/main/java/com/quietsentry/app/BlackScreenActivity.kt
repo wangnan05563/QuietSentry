@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,6 +54,12 @@ class BlackScreenActivity : AppCompatActivity() {
 
         statusText = findViewById(R.id.black_status_text)
         statusText.text = getString(R.string.black_hint)
+        // 夜间长时间驻留时提示文字会残留微光；长按提示本身隐藏，TextView 消费事件后
+        // 全局长按退出（Activity onTouchEvent）不会再收到该序列，两个手势互不干扰
+        statusText.setOnLongClickListener { v: View ->
+            v.visibility = View.GONE
+            true
+        }
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                 takePhoto()
