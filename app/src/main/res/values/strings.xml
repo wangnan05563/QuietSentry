@@ -26,6 +26,10 @@
     <string name="recent_event_line">最近事件 %1$s · %2$s · %3$s</string>
     <string name="recent_event_retained">已留存</string>
     <string name="recent_event_recording">录制中</string>
+    <!-- 首页状态卡：运行时长与存储余量是值守中用户最关心的两个量化凭据 -->
+    <string name="status_card_guarding">值守中 · 已运行 %1$s · 存储余量 %2$s</string>
+    <string name="status_card_recording">连续记录 · 已运行 %1$s · 存储余量 %2$s</string>
+    <string name="status_card_idle">待机 · 存储余量 %1$s</string>
     <string name="guard_started_tip">值守中：按电源键熄屏后采集继续，通知栏可随时确认</string>
     <string name="permission_required">需要相机、录音与通知权限</string>
     <string name="black_mode_entry">黑屏记录</string>

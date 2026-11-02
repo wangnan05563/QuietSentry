@@ -22,6 +22,9 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import android.os.Handler
+import android.os.Looper
+import android.os.StatFs
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -81,6 +84,24 @@ class MainActivity : AppCompatActivity() {
     private var previewSuppressed = false
 
     private val eventStore by lazy { EventStore(this) }
+
+    // 状态卡轮询只在界面可见时运行：后台不空转，回到前台 onResume 重新拉起
+    private val statusClock = Handler(Looper.getMainLooper())
+    private val statusTicker = object : Runnable {
+        override fun run() {
+            refreshStatusCard()
+            refreshRecentEvent()
+            statusClock.postDelayed(this, REFRESH_INTERVAL_MS)
+        }
+    }
+
+    // 停止值守的导出反馈（正在保存/已保存 N 段）不允许被轮询覆盖，导出流程结束前置位
+    private var holdStatusText = false
+
+    companion object {
+        private const val REFRESH_INTERVAL_MS = 10_000L
+        private const val GB = 1024.0 * 1024 * 1024
+    }
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -204,6 +225,11 @@ class MainActivity : AppCompatActivity() {
         // 值守状态可能已变（如从通知停止、服务被杀），主按钮与事件卡都要跟着刷新
         refreshPrimaryButton()
         refreshRecentEvent()
+        // 重新进入界面意味着上一轮导出反馈已被用户看过，状态卡恢复接管
+        holdStatusText = false
+        refreshStatusCard()
+        statusClock.removeCallbacks(statusTicker)
+        statusClock.postDelayed(statusTicker, REFRESH_INTERVAL_MS)
         // 值守中打开 App：界面再次 bind 会把服务已经绑定的采集一并解绑，必须让相机归后台（T03770）
         if (CaptureService.isRunning) {
             suppressPreview()
@@ -215,6 +241,11 @@ class MainActivity : AppCompatActivity() {
                 statusText.text = CameraCapabilities.describe(this)
             }
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        statusClock.removeCallbacks(statusTicker)
     }
 
     /**
@@ -284,6 +315,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * 状态卡：运行中显示模式、时长与存储余量，空闲显示待机与存储余量。
+     * 停止值守的导出反馈是破坏性操作的关键回执，用 holdStatusText 挡住轮询覆盖。
+     */
+    private fun refreshStatusCard() {
+        if (holdStatusText) return
+        val freeGb = StatFs(filesDir.absolutePath).availableBytes / GB
+        val free = String.format(Locale.US, "%.1fGB", freeGb)
+        statusText.text = if (CaptureService.isRunning) {
+            val total = (System.currentTimeMillis() - GuardRuntime.startedAtMs).coerceAtLeast(0L) / 1000
+            val elapsed = String.format(Locale.US, "%02d:%02d:%02d", total / 3600, total % 3600 / 60, total % 60)
+            getString(
+                if (GuardRuntime.recordOnly) R.string.status_card_recording else R.string.status_card_guarding,
+                elapsed,
+                free
+            )
+        } else {
+            getString(R.string.status_card_idle, free)
+        }
+    }
+
+    /**
      * 最近事件卡：无事件即隐藏。是否“已留存”不只看 clip 路径——
      * 片段导出到相册后私有原件会被删除，此时仍有 clipUri 可播，同样算已留存。
      */
@@ -331,6 +383,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton(R.string.stop_guard_confirm_yes) { _, _ ->
                 // 导出要等最后一个分片 Finalize 后才开始，先给出“正在保存”提示并禁用以防重复点击
                 primaryButton.isEnabled = false
+                holdStatusText = true
                 statusText.text = getString(R.string.saving_to_gallery)
                 startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP))
             }
@@ -351,6 +404,7 @@ class MainActivity : AppCompatActivity() {
                 .putExtra(CaptureService.EXTRA_RECORD_ONLY, true)
         )
         suppressPreview()
+        // 同 beginGuard：isRunning 尚未置位，状态卡交给 ticker 接管
     }
 
     /** 值守与连续记录共用的启动前置检查：权限缺一不可，否则前台服务会直接抛异常。 */
@@ -375,7 +429,8 @@ class MainActivity : AppCompatActivity() {
             this,
             Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_START)
         )
-        // 服务启动会 unbindAll 抢走相机，界面预览先收起来，避免留下一个永远黑屏的取景框
+        // 服务启动会 unbindAll 抢走相机，界面预览先收起来，避免留下一个永远黑屏的取景框。
+        // 此刻服务的 isRunning 还没置位，立即刷状态卡会误显示“待机”，交给 ticker 10 秒内接管
         suppressPreview()
     }
 

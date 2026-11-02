@@ -210,6 +210,8 @@ class CaptureService : LifecycleService() {
         // 心跳与降载标记只活在内存里：新一轮值守必须从干净状态起步，否则重启后会沿用上一次的降载状态
         GuardRuntime.reset()
         GuardRuntime.beat()
+        // reset 会清掉全部运行态，会话起点与模式必须放在它之后写，否则状态卡读到 0
+        GuardRuntime.start(sessionStartMs, recordOnly)
         // 本机重新开始值守即视为解除远程暂停，同时把设置页保存的遮罩重新注入推流
         GuardState.setPaused(this, false)
         PrivacyGuard.applyStreamMask(this)
@@ -475,6 +477,8 @@ class CaptureService : LifecycleService() {
                     pendingEvents.clear()
                 } else {
                     attachPendingEvents(output, segmentStartMs, previousClip)
+                    // 只统计成功收敛的片子：坏片不代表“在录”，计入会误导用户
+                    GuardRuntime.segmentDone()
                     // 保住刚收敛的片子，下一片的事件若发生在片头 5 秒内要靠它补前置画面
                     previousClip = output
                 }

@@ -67,6 +67,32 @@ object GuardRuntime {
     @Volatile
     var stoppedReason = PowerGuard.Reason.NONE
 
+    /** 本场值守起点（毫秒）；0 表示未在值守。首页状态卡据此显示已运行时长 */
+    @Volatile
+    var startedAtMs = 0L
+        private set
+
+    /** 是否连续记录模式（不跑检测告警）：状态卡文案要区分“值守中/连续记录” */
+    @Volatile
+    var recordOnly = false
+        private set
+
+    /** 本场已收敛分片数：给用户一个“确实在录”的量化凭据 */
+    @Volatile
+    var segmentCount = 0
+        private set
+
+    fun start(atMs: Long, recordOnlyMode: Boolean) {
+        startedAtMs = atMs
+        recordOnly = recordOnlyMode
+        segmentCount = 0
+    }
+
+    /** 分片收敛由主线程 Finalize 回调触发，单线程递增无需原子操作 */
+    fun segmentDone() {
+        segmentCount += 1
+    }
+
     fun beat(now: Long = System.currentTimeMillis()) {
         heartbeatAt = now
     }
@@ -75,6 +101,9 @@ object GuardRuntime {
         heartbeatAt = 0L
         throttled = false
         stoppedReason = PowerGuard.Reason.NONE
+        startedAtMs = 0L
+        recordOnly = false
+        segmentCount = 0
     }
 }
 
