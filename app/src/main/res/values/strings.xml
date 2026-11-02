@@ -264,8 +264,12 @@
 
     <string name="live_close">关闭</string>
     <string name="live_frame_desc">实时画面</string>
-    <string name="live_quality_auto">画质：自动</string>
-    <string name="live_quality_main">画质：主码流</string>
+    <!-- 三档文案直接对应码流语义（PRD 8 风险表）：“流畅”就是子码流，“高清”就是主码流，
+         不再叠加“画质：”前缀——胶囊单选的选中态本身已经表达了这是画质控件 -->
+    <string name="live_quality_auto">自动</string>
+    <string name="live_quality_smooth">流畅</string>
+    <string name="live_quality_hd">高清</string>
+    <string name="live_quality_switching">切换画质…</string>
     <string name="live_snapshot">截图</string>
     <string name="live_state_connecting">连接中…</string>
     <string name="live_state_connected">已连接</string>

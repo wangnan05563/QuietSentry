@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 与胶囊背景配套的文字色：选中档用全白，未选档退到弱化白，
+     让用户在半透明胶囊上一眼分辨当前码流，而不需要额外图标或下划线 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_selected="true" android:color="@color/qs_text" />
+    <item android:color="@color/qs_text_muted" />
+</selector>

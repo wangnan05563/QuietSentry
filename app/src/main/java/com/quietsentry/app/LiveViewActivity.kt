@@ -37,12 +37,19 @@ class LiveViewActivity : AppCompatActivity() {
     private lateinit var image: ImageView
     private lateinit var statusText: TextView
     private lateinit var counterText: TextView
-    private lateinit var qualityButton: Button
+    private lateinit var qualityPills: List<TextView>
     private lateinit var talkButton: Button
 
     private lateinit var device: DeviceRegistry.Device
     private lateinit var streamer: LiveStreamer
     private var quality = QUALITY_AUTO
+
+    /**
+     * 画质切换过渡态（PRD 8 风险表“切换不清帧”）：切换会触发一轮 CONNECTING，
+     * 不加这个标志的话兜底快照会立刻盖掉用户正在看的最后一帧。
+     * 连接成功或确认离线时复位，保证真正的断线兜底不受影响。
+     */
+    private var switchingQuality = false
 
     /** 只在按住期间存在；松手即置空，用空值作为“当前没在录”的唯一判据 */
     private var talk: TalkRecorder? = null
@@ -67,11 +74,19 @@ class LiveViewActivity : AppCompatActivity() {
         image = findViewById(R.id.live_image)
         statusText = findViewById(R.id.live_status)
         counterText = findViewById(R.id.live_counter)
-        qualityButton = findViewById(R.id.live_quality)
+        // 三档 pill 用同一份点击逻辑：映射表把 View 直接绑到目标码流参数，避免逐个写监听器
+        qualityPills = listOf(
+            findViewById(R.id.live_quality_auto),
+            findViewById(R.id.live_quality_smooth),
+            findViewById(R.id.live_quality_hd),
+        )
+        qualityPills.forEachIndexed { index, pill ->
+            pill.setOnClickListener { selectQuality(QUALITY_LEVELS[index]) }
+        }
+        renderQualityPills()
         findViewById<TextView>(R.id.live_title).text = device.name
 
         findViewById<Button>(R.id.live_back).setOnClickListener { finish() }
-        qualityButton.setOnClickListener { toggleQuality() }
         findViewById<Button>(R.id.live_snapshot).setOnClickListener { snapshot() }
         findViewById<Button>(R.id.live_pause).setOnClickListener { confirmPause() }
         findViewById<Button>(R.id.live_siren).setOnClickListener { confirmDeterrent(siren = true) }
@@ -148,12 +163,21 @@ class LiveViewActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun toggleQuality() {
-        quality = if (quality == QUALITY_AUTO) QUALITY_MAIN else QUALITY_AUTO
-        qualityButton.setText(
-            if (quality == QUALITY_AUTO) R.string.live_quality_auto else R.string.live_quality_main
-        )
-        // 换画质只能换一条流：服务端按连接决定码流，不断开就没法重新协商
+    /** 选中态集中渲染：onCreate 的初始档位与切换后的高亮走同一条路径 */
+    private fun renderQualityPills() {
+        qualityPills.forEachIndexed { index, pill ->
+            pill.isSelected = QUALITY_LEVELS[index] == quality
+        }
+    }
+
+    /** 点当前档位不重连：重连会带来一两秒画面停顿，重复点击不应付出这个代价 */
+    private fun selectQuality(target: String) {
+        if (target == quality) return
+        quality = target
+        renderQualityPills()
+        switchingQuality = true
+        // 换画质只能换一条流：服务端按连接决定码流，不断开就没法重新协商。
+        // ImageView 上最后一帧不会被清掉，重连成功前继续显示旧码流的画面作兜底
         streamer.stop()
         streamer.start(quality)
     }
@@ -162,18 +186,28 @@ class LiveViewActivity : AppCompatActivity() {
         when (state) {
             LiveStreamer.State.CONNECTING -> {
                 statusText.text = ""
-                counterText.setText(R.string.live_state_connecting)
-                showFallbackSnapshot()
+                if (switchingQuality) {
+                    // 切画质过渡：保留最后一帧只提示切换中，不拉兜底快照
+                    counterText.setText(R.string.live_quality_switching)
+                } else {
+                    counterText.setText(R.string.live_state_connecting)
+                    showFallbackSnapshot()
+                }
             }
             LiveStreamer.State.CONNECTED -> {
+                switchingQuality = false
                 statusText.text = ""
                 counterText.setText(R.string.live_state_connected)
             }
             LiveStreamer.State.RETRY -> {
                 statusText.setText(R.string.live_status_retry)
                 // 重连次数由 onRetryWait 异步补上，这里清空避免残留上一轮次数
-                counterText.text = ""
-                showFallbackSnapshot()
+                if (switchingQuality) {
+                    counterText.setText(R.string.live_quality_switching)
+                } else {
+                    counterText.text = ""
+                    showFallbackSnapshot()
+                }
             }
             LiveStreamer.State.UNAUTHORIZED -> {
                 statusText.setText(R.string.live_status_unauthorized)
@@ -184,6 +218,8 @@ class LiveViewActivity : AppCompatActivity() {
                 counterText.text = ""
             }
             LiveStreamer.State.OFFLINE -> {
+                // 切换失败也归入离线：复位过渡态，否则设备恢复后的断线兜底会被一直抑制
+                switchingQuality = false
                 statusText.setText(R.string.live_status_offline)
                 counterText.text = ""
                 showFallbackSnapshot()
@@ -348,7 +384,11 @@ class LiveViewActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_DEVICE_ID = "extra_device_id"
+        // 三档与 UI 顺序一一对应：“流畅”就是子码流（服务端 quality=sub 走 main=false），
+        // “高清”是主码流，“自动”从主码流起、写不动由服务端自行降级
+        private val QUALITY_LEVELS = arrayOf(QUALITY_AUTO, QUALITY_SMOOTH, QUALITY_MAIN)
         private const val QUALITY_AUTO = "auto"
+        private const val QUALITY_SMOOTH = "sub"
         private const val QUALITY_MAIN = "main"
         // 服务端 MAX_VIEWERS 固定为 5，这里只用于把 429 翻译成人话
         private const val MAX_VIEWERS = 5

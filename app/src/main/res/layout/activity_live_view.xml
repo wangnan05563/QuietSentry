@@ -97,13 +97,57 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <Button
-                android:id="@+id/live_quality"
+        <!-- 画质三档单选（PRD 4.3）：半透明胶囊替代原两档 toggle；
+             选中态交给 android:selected + selector，Activity 只负责切换 selected 与重连 -->
+        <LinearLayout
+            android:id="@+id/live_quality_group"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="2"
+            android:background="@color/qs_overlay"
+            android:orientation="horizontal"
+            android:padding="2dp">
+
+            <TextView
+                android:id="@+id/live_quality_auto"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
                 android:layout_weight="1"
-                android:text="@string/live_quality_auto" />
+                android:background="@drawable/live_quality_pill_item"
+                android:gravity="center"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:text="@string/live_quality_auto"
+                android:textColor="@color/live_quality_pill_text"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/live_quality_smooth"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/live_quality_pill_item"
+                android:gravity="center"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:text="@string/live_quality_smooth"
+                android:textColor="@color/live_quality_pill_text"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/live_quality_hd"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/live_quality_pill_item"
+                android:gravity="center"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:text="@string/live_quality_hd"
+                android:textColor="@color/live_quality_pill_text"
+                android:textSize="14sp" />
+        </LinearLayout>
 
             <Button
                 android:id="@+id/live_snapshot"
