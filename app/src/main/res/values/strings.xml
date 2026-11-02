@@ -30,6 +30,8 @@
     <string name="lens_back">已切换到后置镜头</string>
     <string name="lens_front">已切换到前置镜头</string>
     <string name="notification_required">未授予通知权限：值守期间必须有常驻通知，你才能随时确认设备正在采集</string>
+    <!-- PRD 3.3：横幅只解释影响并给出唯一动作，避免长文案稀释“缺了会丢告警”这一重点 -->
+    <string name="banner_notification_permission">缺少通知权限，值守告警将不可见。点此去开启</string>
     <string name="guard_running_conflict">值守进行中，请先停止值守再进入黑屏记录</string>
     <string name="guard_running_preview">值守中：画面由后台采集，界面不再占用相机</string>
     <string name="guard_already_running">值守已在运行，无需重复启动</string>

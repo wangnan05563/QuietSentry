@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var previewView: PreviewView
     private lateinit var statusText: TextView
+    private lateinit var bannerPermission: TextView
 
     private val requiredPermissions = buildList {
         add(Manifest.permission.CAMERA)
@@ -74,6 +75,8 @@ class MainActivity : AppCompatActivity() {
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+            // 弹窗回来无论授没授，横幅都要按最新权限状态刷新
+            updatePermissionBanner()
             if (result[Manifest.permission.CAMERA] == true) {
                 showCameraOrGuard()
             } else {
@@ -99,6 +102,16 @@ class MainActivity : AppCompatActivity() {
         previewView = findViewById(R.id.preview_view)
         statusText = findViewById(R.id.status_text)
         stopButton = findViewById(R.id.stop_button)
+        bannerPermission = findViewById(R.id.banner_permission)
+        // PRD 3.3：横幅的“唯一动作”就是直达系统设置，不设次级确认，减少授权路径上的点击
+        bannerPermission.setOnClickListener {
+            startActivity(
+                Intent(
+                    Settings.ACTION_APP_NOTIFICATION_SETTINGS,
+                    Uri.parse("package:$packageName")
+                )
+            )
+        }
         // 通知点击直达回放：MainActivity 只是中转，用户真正要看的是那一段片段
         consumeEventIntent(intent)
         ContextCompat.registerReceiver(
@@ -201,6 +214,8 @@ class MainActivity : AppCompatActivity() {
         // 若等到开始值守才启动，用户第一次配对就找不到设备
         LanServerHost.ensure(applicationContext)
 
+        // 先按当前权限状态定横幅显隐，再决定是否弹授权框；回调里还会再刷一次
+        updatePermissionBanner()
         if (requiredPermissions.all(::hasPermission)) {
             showCameraOrGuard()
         } else {
@@ -210,6 +225,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // 从系统设置页返回时权限可能已变化，横幅必须跟着刷新
+        updatePermissionBanner()
         // 值守中打开 App：界面再次 bind 会把服务已经绑定的采集一并解绑，必须让相机归后台（T03770）
         if (CaptureService.isRunning) {
             suppressPreview()
@@ -273,6 +290,15 @@ class MainActivity : AppCompatActivity() {
     private fun hasNotificationPermission(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+
+    /**
+     * PRD 3.3：通知权限缺失时顶部横幅提示“告警不可见”，唯一动作直达系统设置。
+     * API<33 系统默认允许通知，无需横幅；授予后横幅立即收起，不留残影。
+     */
+    private fun updatePermissionBanner() {
+        bannerPermission.visibility =
+            if (hasNotificationPermission()) View.GONE else View.VISIBLE
+    }
 
     /**
      * 连续记录模式：与值守共用同一条采集与分片管线，只是不跑检测与声音告警。

@@ -10,6 +10,20 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- PRD 3.3：权限缺失时顶部阻断色横幅，默认隐藏，授予后即收起 -->
+    <TextView
+        android:id="@+id/banner_permission"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:background="#C62828"
+        android:gravity="center"
+        android:padding="10dp"
+        android:text="@string/banner_notification_permission"
+        android:textColor="@android:color/white"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
