@@ -34,6 +34,10 @@ class DeviceListActivity : AppCompatActivity() {
     private lateinit var emptyText: TextView
     private lateinit var hintText: TextView
 
+    /** 空态盒与离线提示条仅窄屏布局存在，宽屏双栏下为 null，使用点全部判空 */
+    private var emptyBox: View? = null
+    private var offlineBar: View? = null
+
     private val io = Executors.newFixedThreadPool(DeviceRegistry.MAX_DEVICES)
     private val handler = Handler(Looper.getMainLooper())
 
@@ -71,9 +75,23 @@ class DeviceListActivity : AppCompatActivity() {
         container = findViewById(R.id.device_list_container)
         emptyText = findViewById(R.id.device_list_empty)
         hintText = findViewById(R.id.device_list_hint)
+        // 空态盒与离线提示条只有窄屏布局存在；sw600dp 双栏仍是纯文字空态，取到 null 走原路径
+        val emptyBox = findViewById<View>(R.id.device_list_empty_box)
+        val offlineBar = findViewById<View>(R.id.device_list_offline_bar)
+        this.emptyBox = emptyBox
+        this.offlineBar = offlineBar
 
         findViewById<Button>(R.id.device_list_back).setOnClickListener { finish() }
         findViewById<Button>(R.id.device_list_add).setOnClickListener { addDevice() }
+        findViewById<Button>(R.id.device_empty_scan)?.setOnClickListener {
+            startActivity(Intent(this, ScanPairActivity::class.java))
+        }
+        findViewById<Button>(R.id.device_empty_manual)?.setOnClickListener { promptManual() }
+        findViewById<Button>(R.id.device_list_rescan)?.setOnClickListener { rescan() }
+        findViewById<Button>(R.id.device_list_diag)?.setOnClickListener {
+            // 诊断面板在设置页内：跳过去比复制一套诊断 UI 更能保持“诊断只读”的一致口径
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
 
         // 只有 sw600dp 布局提供右侧画面面板；窄屏下这几个 id 不存在，取到的是 null
         previewImage = findViewById(R.id.device_preview_image)
@@ -137,7 +155,13 @@ class DeviceListActivity : AppCompatActivity() {
             .sortedWith(compareBy({ it.second.level.ordinal }, { it.first.order }))
 
         container.removeAllViews()
+        // 空态分流（PRD 07 §4.2）：“从未添加”给三步说明与添加按钮；
+        // “全部离线”给同一网络提示与重扫/诊断入口——两种空的原因不同，用户要做的动作也不同
         emptyText.visibility = if (ordered.isEmpty()) View.VISIBLE else View.GONE
+        emptyBox?.visibility = if (ordered.isEmpty()) View.VISIBLE else View.GONE
+        val allOffline = ordered.isNotEmpty() &&
+            ordered.all { it.second.level == DeviceState.Level.OFFLINE }
+        offlineBar?.visibility = if (allOffline) View.VISIBLE else View.GONE
         hintText.visibility = if (ordered.isEmpty()) View.GONE else View.VISIBLE
         // 预览设备被移除（或被别的页面删掉）后右侧面板不能继续显示上一次的画面
         if (previewDeviceId != null && ordered.none { it.first.id == previewDeviceId }) clearPreview()
@@ -391,6 +415,12 @@ class DeviceListActivity : AppCompatActivity() {
                 }
             }
             .show()
+    }
+
+    /** 全部离线时的“重新扫描”：不等下一轮 5 秒轮询，立即拉一次状态给用户即时反馈 */
+    private fun rescan() {
+        Toast.makeText(this, R.string.device_list_discovering, Toast.LENGTH_SHORT).show()
+        poll()
     }
 
     private fun discoverDevices() {

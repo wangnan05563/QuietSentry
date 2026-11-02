@@ -45,6 +45,45 @@
         android:textColor="#99FFFFFF"
         android:textSize="12sp" />
 
+    <!-- 全部离线时的分流提示（PRD 07 §4.2）：与“从未添加”空态区分开，
+         有设备在线时该条就是噪音，由代码控制显隐 -->
+    <LinearLayout
+        android:id="@+id/device_list_offline_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#26D97706"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/device_list_offline_banner"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/device_offline_banner"
+            android:textColor="#FFD97706"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/device_list_rescan"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/device_offline_rescan"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/device_list_diag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/device_offline_diag"
+            android:textSize="12sp" />
+    </LinearLayout>
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -62,15 +101,39 @@
                 android:padding="12dp" />
         </ScrollView>
 
-        <TextView
-            android:id="@+id/device_list_empty"
+        <!-- 从未添加的空态（PRD 07 §4.2）：三步说明 + 扫码主按钮 + 手动 IP 次按钮，
+             三条配对路径中至少两条在空态直接可见，不让用户先理解“添加”是个流程 -->
+        <LinearLayout
+            android:id="@+id/device_list_empty_box"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center"
+            android:orientation="vertical"
             android:padding="32dp"
-            android:text="@string/device_list_empty"
-            android:textColor="#99FFFFFF"
-            android:textSize="14sp"
-            android:visibility="gone" />
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/device_list_empty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/device_list_empty"
+                android:textColor="#99FFFFFF"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/device_empty_scan"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/scan_pair_title" />
+
+            <Button
+                android:id="@+id/device_empty_manual"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/device_empty_manual" />
+        </LinearLayout>
     </FrameLayout>
 </LinearLayout>
