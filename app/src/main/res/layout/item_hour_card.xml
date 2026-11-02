@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小时卡（PRD 2.6）：首张缩略图 + 条数，点击可折叠/展开该小时（T04054） -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingTop="6dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="2dp">
+
+    <ImageView
+        android:id="@+id/hour_thumb"
+        android:layout_width="56dp"
+        android:layout_height="42dp"
+        android:scaleType="centerCrop" />
+
+    <TextView
+        android:id="@+id/hour_label"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:paddingStart="10dp"
+        android:textColor="#FF777777"
+        android:textSize="13sp" />
+
+    <!-- 用文字箭头而不是引入图标库：只有两种状态，一个字符最省 -->
+    <TextView
+        android:id="@+id/hour_arrow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingStart="8dp"
+        android:textColor="#FF777777"
+        android:textSize="13sp" />
+</LinearLayout>

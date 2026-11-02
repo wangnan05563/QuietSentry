@@ -17,6 +17,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -41,6 +42,18 @@ class EventTimelineActivity : AppCompatActivity() {
     private var unreadOnly = false
     private var lockedOnly = false
     private var onlyDeleted = false
+
+    private lateinit var undoBar: View
+    private lateinit var undoText: TextView
+
+    /** 撤销窗口内被删的事件 id：撤销是“整批恢复”，连续删除不用每次重来一遍 */
+    private val pendingDeleted = ArrayList<Long>()
+
+    private val undoClock = android.os.Handler(android.os.Looper.getMainLooper())
+    private val undoHide = Runnable {
+        undoBar.visibility = View.GONE
+        pendingDeleted.clear()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,7 +87,8 @@ class EventTimelineActivity : AppCompatActivity() {
                 listOf(
                     getString(R.string.timeline_filter_all_types),
                     getString(R.string.timeline_filter_motion),
-                    getString(R.string.timeline_filter_sound)
+                    getString(R.string.timeline_filter_sound),
+                    getString(R.string.timeline_type_person)
                 )
             )
         }.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -87,6 +101,7 @@ class EventTimelineActivity : AppCompatActivity() {
                 typeFilter = when (position) {
                     1 -> EventType.MOTION
                     2 -> EventType.SOUND
+                    3 -> EventType.PERSON
                     else -> null
                 }
                 reload()
@@ -105,8 +120,12 @@ class EventTimelineActivity : AppCompatActivity() {
         }
 
         listView.setOnItemClickListener { _, _, position, _ ->
-            val row = adapter.getItem(position)
-            if (row is TimelineAdapter.Row.Item) openEvent(row.event)
+            when (val row = adapter.getItem(position)) {
+                // 小时卡本身就是开关：点卡片在「聚合」与「铺开」之间切换（T04054）
+                is TimelineAdapter.Row.HourCard -> adapter.toggleHour(row.key)
+                is TimelineAdapter.Row.Item -> openEvent(row.event)
+                else -> Unit
+            }
         }
         listView.setOnItemLongClickListener { _, _, position, _ ->
             val row = adapter.getItem(position)
@@ -117,6 +136,11 @@ class EventTimelineActivity : AppCompatActivity() {
                 false
             }
         }
+
+        // 撤销条（T04055）：删除不再二次确认，5 秒内可一键恢复
+        undoBar = findViewById(R.id.undo_bar)
+        undoText = findViewById(R.id.undo_text)
+        findViewById<Button>(R.id.undo_button).setOnClickListener { undoDelete() }
 
         // 保留期清理放在后台线程：可能要删几百张缩略图与分片，放主线程会卡首帧
         Thread {
@@ -192,17 +216,27 @@ class EventTimelineActivity : AppCompatActivity() {
             .show()
     }
 
+    /**
+     * 删除走“先删 + 5 秒撤销”而不是二次确认（PRD 2.7）：删除本身可逆（进最近删除），
+     * 多弹一层确认框只增加操作成本；撤销条给足 5 秒，误删当场就能救回来。
+     */
     private fun confirmDelete(event: Event) {
-        AlertDialog.Builder(this)
-            .setTitle(R.string.timeline_delete_title)
-            .setMessage(R.string.timeline_delete_message)
-            .setPositiveButton(R.string.timeline_action_delete) { _, _ ->
-                store.markDeleted(event.id)
-                Toast.makeText(this, R.string.timeline_deleted_toast, Toast.LENGTH_SHORT).show()
-                reload()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        store.markDeleted(event.id)
+        pendingDeleted += event.id
+        undoText.text = getString(R.string.timeline_undo_bar, pendingDeleted.size)
+        undoBar.visibility = View.VISIBLE
+        // 重置 5 秒窗口：连续删多件时撤销的是整批，计时从最后一次删除算起
+        undoClock.removeCallbacks(undoHide)
+        undoClock.postDelayed(undoHide, UNDO_WINDOW_MS)
+        reload()
+    }
+
+    private fun undoDelete() {
+        undoClock.removeCallbacks(undoHide)
+        undoBar.visibility = View.GONE
+        pendingDeleted.forEach { store.restoreDeleted(it) }
+        pendingDeleted.clear()
+        reload()
     }
 
     private fun confirmPurge(event: Event) {
@@ -223,13 +257,22 @@ class EventTimelineActivity : AppCompatActivity() {
     /**
      * 时间轴行模型。分组放在适配器里而不是查询里：
      * 日期边界取决于设备时区，SQLite 只能按毫秒排序，分组必须用同一套时间格式才不会和界面显示错位。
-     * 小时标题只为让“同一小时多条”一眼可见，不折叠内容——折叠会让用户误以为事件丢失。
+     * 小时卡（PRD 2.6）默认展开，点击可折叠为「首张缩略图 + N 条」——折叠只是收起重复行，
+     * 点一下就展开，用户不会误以为事件丢失。
      */
     private class TimelineAdapter : BaseAdapter() {
 
         sealed class Row {
             data class DayHeader(val label: String) : Row()
-            data class HourHeader(val label: String, val count: Int) : Row()
+
+            class HourCard(
+                val key: String,
+                val label: String,
+                val count: Int,
+                /** 该小时第一张可用缩略图：聚合卡的脸面，没有就留空由布局自然收窄 */
+                val firstThumb: File?,
+            ) : Row()
+
             data class Item(val event: Event) : Row()
         }
 
@@ -238,34 +281,53 @@ class EventTimelineActivity : AppCompatActivity() {
         private val hourFormat = SimpleDateFormat("HH:00", Locale.getDefault())
         private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
-        fun submit(events: List<Event>) {
-            rows.clear()
-            val counts = HashMap<String, Int>()
-            for (event in events) {
-                val key = hourKey(event)
-                counts[key] = (counts[key] ?: 0) + 1
-            }
-            var lastDay: String? = null
-            var lastHour: String? = null
-            for (event in events) {
-                val day = dayFormat.format(Date(event.occurredAt))
-                val hour = hourFormat.format(Date(event.occurredAt))
-                if (day != lastDay) {
-                    rows += Row.DayHeader(day)
-                    lastDay = day
-                    lastHour = null
-                }
-                if (hour != lastHour) {
-                    rows += Row.HourHeader(hour, counts[hourKey(event)] ?: 1)
-                    lastHour = hour
-                }
-                rows += Row.Item(event)
-            }
+        /** 折叠状态按小时 key 记忆：重新查询（筛选变化）后用户展开过的小时保持展开 */
+        private val collapsed = HashSet<String>()
+
+        /** 适配器方法要在主线程调，折叠切换后只需 notifyDataSetChanged 一次 */
+        fun toggleHour(key: String) {
+            if (!collapsed.remove(key)) collapsed.add(key)
             notifyDataSetChanged()
         }
 
-        private fun hourKey(event: Event): String =
-            dayFormat.format(Date(event.occurredAt)) + "#" + hourFormat.format(Date(event.occurredAt))
+        fun submit(events: List<Event>) {
+            rows.clear()
+            // 先按天/小时聚合成组：组内首事件提供缩略图，条数决定卡片文案
+            class HourGroup(val day: String, val hour: String, val key: String) {
+                val events = ArrayList<Event>()
+            }
+            var lastGroup: HourGroup? = null
+            val groups = ArrayList<HourGroup>()
+            for (event in events) {
+                val day = dayFormat.format(Date(event.occurredAt))
+                val hour = hourFormat.format(Date(event.occurredAt))
+                val key = "$day#$hour"
+                val group = lastGroup?.takeIf { it.key == key } ?: HourGroup(day, hour, key).also {
+                    groups += it
+                    lastGroup = it
+                }
+                group.events += event
+            }
+            var lastDay: String? = null
+            for (group in groups) {
+                if (group.day != lastDay) {
+                    rows += Row.DayHeader(group.day)
+                    lastDay = group.day
+                }
+                val card = Row.HourCard(
+                    group.key,
+                    group.hour,
+                    group.events.size,
+                    group.events.firstOrNull { it.thumbnail?.isFile == true }?.thumbnail
+                )
+                rows += card
+                // 折叠的小时只显示卡片本身；展开才铺出全部事件行
+                if (group.key !in collapsed) {
+                    group.events.forEach { rows += Row.Item(it) }
+                }
+            }
+            notifyDataSetChanged()
+        }
 
         override fun getCount(): Int = rows.size
 
@@ -277,11 +339,12 @@ class EventTimelineActivity : AppCompatActivity() {
 
         override fun getItemViewType(position: Int): Int = when (rows[position]) {
             is Row.DayHeader -> 0
-            is Row.HourHeader -> 1
+            is Row.HourCard -> 1
             is Row.Item -> 2
         }
 
-        override fun isEnabled(position: Int): Boolean = rows[position] is Row.Item
+        override fun isEnabled(position: Int): Boolean =
+            rows[position] is Row.Item || rows[position] is Row.HourCard
 
         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
             when (val row = rows[position]) {
@@ -293,17 +356,19 @@ class EventTimelineActivity : AppCompatActivity() {
                     }).also { it.text = row.label }
                 }
 
-                is Row.HourHeader -> {
-                    val label = if (row.count > 1) {
+                is Row.HourCard -> {
+                    val view = convertView ?: android.view.LayoutInflater.from(parent.context)
+                        .inflate(R.layout.item_hour_card, parent, false)
+                    val thumb = view.findViewById<ImageView>(R.id.hour_thumb)
+                    val bitmap = row.firstThumb?.let { BitmapFactory.decodeFile(it.absolutePath) }
+                    thumb.setImageBitmap(bitmap)
+                    thumb.visibility = if (bitmap == null) View.GONE else View.VISIBLE
+                    view.findViewById<TextView>(R.id.hour_label).text =
                         parent.context.getString(R.string.timeline_hour_count, row.label, row.count)
-                    } else {
-                        row.label
-                    }
-                    (convertView as? TextView ?: TextView(parent.context).apply {
-                        setTextColor(0xFF777777.toInt())
-                        textSize = 11f
-                        setPadding(12.dp(parent), 6.dp(parent), 12.dp(parent), 2.dp(parent))
-                    }).also { it.text = label }
+                    // 展开态箭头朝下提示可收起，折叠态朝右提示可展开
+                    view.findViewById<TextView>(R.id.hour_arrow).text =
+                        if (collapsed.contains(row.key)) "▸" else "▾"
+                    view
                 }
 
                 is Row.Item -> {
@@ -354,5 +419,8 @@ class EventTimelineActivity : AppCompatActivity() {
     companion object {
         /** 与 EventStore 的清理口径保持一致（PRD O6：最近删除保留 7 天）。 */
         private val RETAIN_MS = 7L * 24 * 60 * 60 * 1000
+
+        /** 撤销窗口（PRD 2.7）：5 秒后撤销条自动消失，事件保持已删除状态 */
+        private const val UNDO_WINDOW_MS = 5_000L
     }
 }

@@ -100,11 +100,10 @@
     <string name="timeline_action_delete">删除</string>
     <string name="timeline_action_restore">恢复</string>
     <string name="timeline_action_purge">彻底删除</string>
-    <string name="timeline_delete_title">删除这条事件？</string>
-    <string name="timeline_delete_message">删除后移入“最近删除”，7 天内可恢复；已锁定的会一直保留。</string>
     <string name="timeline_purge_title">彻底删除这条事件？</string>
     <string name="timeline_purge_message">索引与本地片段会立即清除，无法恢复。</string>
-    <string name="timeline_deleted_toast">已移到最近删除</string>
+    <string name="timeline_undo_bar">已删除 %1$d 个事件</string>
+    <string name="timeline_undo">撤销</string>
     <string name="timeline_restored_toast">已恢复</string>
     <string name="timeline_purged_toast">已彻底删除</string>
 
