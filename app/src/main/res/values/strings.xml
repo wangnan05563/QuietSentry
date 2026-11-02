@@ -274,6 +274,8 @@
     <string name="live_repair_action">重新扫码</string>
     <string name="live_repair_close">关闭</string>
     <string name="live_repair_message">这台设备的配对授权已失效。请在摄像头端打开配对页重新生成二维码，扫码后即可恢复观看。</string>
+    <!-- 磁贴文案要短：下拉面板的空间按字符数排版，长文案会被截断 -->
+    <string name="tile_guard">值守</string>
     <string name="live_snapshot">截图</string>
     <string name="live_state_connecting">连接中…</string>
     <string name="live_state_connected">已连接</string>

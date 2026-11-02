@@ -116,6 +116,19 @@
             android:exported="false"
             android:foregroundServiceType="camera|microphone" />
 
+        <!-- 快捷设置磁贴（T04059）：只有系统允许绑定（BIND_QUICK_SETTINGS_TILE 是系统权限，
+             对普通调用方等价于不可用），用户仍需手动把磁贴拖进面板 -->
+        <service
+            android:name=".GuardTileService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/tile_guard"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- 开机只发“设备已重启”提醒，不自动拉起相机（PRD FR-13）：
              后台静默启动采集会绕过用户确认，也容易在用户不在场时被系统二次回收 -->
         <receiver

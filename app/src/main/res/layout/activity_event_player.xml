@@ -51,6 +51,15 @@
             android:visibility="gone" />
     </FrameLayout>
 
+    <!-- 响度历史条（T04059）：与进度条方向一致，拖动回看时哪段有声音一眼可见 -->
+    <com.quietsentry.app.WaveformView
+        android:id="@+id/waveform"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginTop="4dp" />
+
     <SeekBar
         android:id="@+id/seek_bar"
         android:layout_width="match_parent"

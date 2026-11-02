@@ -1,10 +1,13 @@
 package com.quietsentry.app
 
+import android.Manifest
 import android.content.ContentValues
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
 import android.media.MediaScannerConnection
+import android.media.audiofx.Visualizer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,6 +22,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -44,8 +48,11 @@ class EventPlayerActivity : AppCompatActivity() {
     private lateinit var muteButton: Button
     private lateinit var titleText: TextView
     private lateinit var missingText: TextView
+    private lateinit var waveform: WaveformView
 
     private var mediaPlayer: MediaPlayer? = null
+    /** 响度历史条的数据源；随 MediaPlayer 会话走，换片（前置→主片）必须重挂 */
+    private var visualizer: Visualizer? = null
     private var videoUri: Uri? = null
     private var prepared = false
     private var dragging = false
@@ -76,6 +83,7 @@ class EventPlayerActivity : AppCompatActivity() {
         muteButton = findViewById(R.id.mute_button)
         titleText = findViewById(R.id.player_title)
         missingText = findViewById(R.id.missing_text)
+        waveform = findViewById(R.id.waveform)
 
         val eventId = intent.getLongExtra(EXTRA_EVENT_ID, -1L)
         val event = if (eventId > 0) store.get(eventId) else null
@@ -144,6 +152,8 @@ class EventPlayerActivity : AppCompatActivity() {
     private fun showMissing() {
         missingText.visibility = View.VISIBLE
         videoView.visibility = View.GONE
+        // 没有可播的文件就没有音频会话，波形留着会一直画无意义的空底柱
+        waveform.visibility = View.GONE
         seekBar.isEnabled = false
         playButton.isEnabled = false
         muteButton.isEnabled = false
@@ -184,12 +194,64 @@ class EventPlayerActivity : AppCompatActivity() {
                 playButton.setText(R.string.player_play)
             }
             mainHandler.post(progressTicker)
+            attachVisualizer(mp)
         }
         videoView.setOnErrorListener { _, _, _ ->
             // 相册条目可能被用户在系统相册里删掉，解码失败就按“文件不可用”处理
             showMissing()
             true
         }
+    }
+
+    /**
+     * 响度历史条数据源（T04059）：Visualizer 只读回放的音频输出采样，不录任何内容，
+     * 但系统仍要求持有 RECORD_AUDIO 权限才允许实例化——未授权时整条隐藏而不是留空视图。
+     * 采集尺寸取最小、采样率取最大：波形只需要 0..1 的粗略响度，尺寸大纯属浪费算力。
+     * 部分 ROM 的 Visualizer 对回放输出恒为全零（只支持全局混音采样），此时波形
+     * 退化为恒定的最低柱，如实表现为“无声”，不做额外探测兜底以免过度设计。
+     */
+    private fun attachVisualizer(mp: MediaPlayer) {
+        releaseVisualizer()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            waveform.visibility = View.GONE
+            return
+        }
+        runCatching {
+            val viz = Visualizer(mp.audioSessionId)
+            viz.captureSize = Visualizer.getCaptureSizeRange()[0]
+            viz.setDataCaptureListener(
+                object : Visualizer.OnDataCaptureListener {
+                    override fun onWaveFormDataCapture(
+                        v: Visualizer, bytes: ByteArray, samplingRate: Int
+                    ) {
+                        // 历史条每柱要的是“这一瞬有多响”，取峰值比均值更贴合人耳对突发声的感知
+                        var peak = 0
+                        for (b in bytes) {
+                            val magnitude = b.toInt() and 0xFF
+                            if (magnitude > peak) peak = magnitude
+                        }
+                        waveform.push(peak / 255f)
+                    }
+
+                    override fun onFftDataCapture(
+                        v: Visualizer, bytes: ByteArray, samplingRate: Int
+                    ) = Unit
+                },
+                Visualizer.getMaxCaptureRate(), true, false
+            )
+            viz.enabled = true
+            visualizer = viz
+        }.onFailure {
+            // 个别 ROM 拒绝挂音频会话（session 未激活等）：波形隐藏即可，不能影响播放本身
+            waveform.visibility = View.GONE
+        }
+    }
+
+    private fun releaseVisualizer() {
+        visualizer?.let { runCatching { it.enabled = false; it.release() } }
+        visualizer = null
     }
 
     private fun onSegmentFinished() {
@@ -331,6 +393,7 @@ class EventPlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         mainHandler.removeCallbacks(progressTicker)
+        releaseVisualizer()
         runCatching { videoView.stopPlayback() }
         mediaPlayer = null
         super.onDestroy()
