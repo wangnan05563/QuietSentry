@@ -27,6 +27,12 @@ class LiveStreamer(
         fun onState(state: State)
 
         fun onFrame(frame: Bitmap)
+
+        /**
+         * 每次进入重连等待时回调累计尝试次数（T04050）。
+         * 默认空实现：不关心次数的调用方（未来接入的面板）不必被迫实现。
+         */
+        fun onRetryWait(attempt: Int) {}
     }
 
     private val io = Executors.newSingleThreadExecutor()
@@ -41,6 +47,9 @@ class LiveStreamer(
 
     @Volatile
     private var latest: Bitmap? = null
+
+    /** 连续失败计数：连上一次就归零，退避只针对“一直连不上”的场景累加 */
+    private var retryAttempt = 0
 
     /** 双栏右侧的截图按钮不需要等下一帧，直接取最近解码成功的一帧 */
     fun currentFrame(): Bitmap? = latest
@@ -81,11 +90,14 @@ class LiveStreamer(
                     running = false
                     return
                 }
-                if (!sleepRetry(gen)) return
+                retryAttempt++
+                listener.onRetryWait(retryAttempt)
+                if (!sleepRetry(gen, backoffDelay(retryAttempt))) return
                 continue
             }
 
             listener.onState(State.CONNECTED)
+            retryAttempt = 0
             while (running && gen == generation) {
                 val bytes = stream.readFrame() ?: break
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: continue
@@ -96,18 +108,27 @@ class LiveStreamer(
             client = null
             if (alive(gen)) {
                 listener.onState(State.RETRY)
-                if (!sleepRetry(gen)) return
+                retryAttempt++
+                listener.onRetryWait(retryAttempt)
+                if (!sleepRetry(gen, backoffDelay(retryAttempt))) return
             }
         }
     }
 
     /**
-     * 用 3 秒分片轮询而不是一次长 sleep：stop() 之后最多 200ms 就能让循环退出，
+     * 退避序列 1/3/5/10 秒（PRD FR-08）：前两次快重连抓住“Wi-Fi 抖一下”这类瞬时故障，
+     * 之后逐步拉长，避免设备真离线时每 3 秒打一次连接+快照请求把它彻底拖垮。
+     */
+    private fun backoffDelay(attempt: Int): Long =
+        BACKOFF_MS[(attempt - 1).coerceIn(0, BACKOFF_MS.lastIndex)]
+
+    /**
+     * 用 200ms 分片轮询而不是一次长 sleep：stop() 之后最多 200ms 就能让循环退出，
      * 否则用户切走页面时线程还会带着一条连接多活几秒。
      */
-    private fun sleepRetry(gen: Int): Boolean {
+    private fun sleepRetry(gen: Int, delayMs: Long): Boolean {
         var waited = 0L
-        while (running && gen == generation && waited < RETRY_DELAY_MS) {
+        while (running && gen == generation && waited < delayMs) {
             Thread.sleep(RETRY_STEP_MS)
             waited += RETRY_STEP_MS
         }
@@ -123,7 +144,7 @@ class LiveStreamer(
     }
 
     private companion object {
-        const val RETRY_DELAY_MS = 3_000L
+        val BACKOFF_MS = longArrayOf(1_000L, 3_000L, 5_000L, 10_000L)
         const val RETRY_STEP_MS = 200L
     }
 }

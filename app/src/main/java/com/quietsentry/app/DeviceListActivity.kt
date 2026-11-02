@@ -284,10 +284,32 @@ class DeviceListActivity : AppCompatActivity() {
                     if (gen != previewGeneration) return
                     runOnUiThread { if (!stopped) previewImage?.setImageBitmap(frame) }
                 }
+
+                override fun onRetryWait(attempt: Int) {
+                    if (gen != previewGeneration) return
+                    runOnUiThread {
+                        // 与全屏口径一致：状态之外再给次数，用户才知道还在推进而不是卡死
+                        if (!stopped) previewStatus?.text = getString(R.string.live_retry_count, attempt)
+                    }
+                }
             }
         )
         previewDeviceId = device.id
         if (!stopped) preview?.start(QUALITY_AUTO)
+        // 宽屏右侧与全屏同等待遇（T04049）：连接建立前先垫一张最近快照，避免白屏等待；
+        // 只拉这一次，重连期间的全屏兜底由 LiveViewActivity 自己的节流逻辑负责
+        io.execute {
+            val shot = runCatching { DeviceHttp.snapshot(device.host, device.port, device.token) }
+                .getOrNull() ?: return@execute
+            val bitmap = BitmapFactory.decodeByteArray(shot.jpeg, 0, shot.jpeg.size)
+                ?: return@execute
+            runOnUiThread {
+                // 快照回来的同时可能已切到别的设备或直播帧已到达，代号比对防止旧图盖新画面
+                if (gen == previewGeneration && !stopped && previewImage != null) {
+                    previewImage?.setImageBitmap(bitmap)
+                }
+            }
+        }
         // 立即重绘一次，选中高亮不用等下一轮 5 秒轮询
         render()
     }

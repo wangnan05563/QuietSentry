@@ -119,6 +119,11 @@ class LiveViewActivity : AppCompatActivity() {
                 override fun onState(state: LiveStreamer.State) = onUi { renderState(state) }
 
                 override fun onFrame(frame: Bitmap) = onUi { image.setImageBitmap(frame) }
+
+                // 重连次数跟在“信号中断”后面显示：只报状态不报进度，用户会以为卡死了
+                override fun onRetryWait(attempt: Int) = onUi {
+                    counterText.text = getString(R.string.live_retry_count, attempt)
+                }
             }
         )
     }
@@ -166,6 +171,7 @@ class LiveViewActivity : AppCompatActivity() {
             }
             LiveStreamer.State.RETRY -> {
                 statusText.setText(R.string.live_status_retry)
+                // 重连次数由 onRetryWait 异步补上，这里清空避免残留上一轮次数
                 counterText.text = ""
                 showFallbackSnapshot()
             }
