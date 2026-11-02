@@ -19,4 +19,14 @@
     <color name="qs_idle">#FF9E9E9E</color>
     <!-- 启动图标背景：与品牌深底一致，自适应图标只暴露这一种颜色，避免各启动器取到白色 -->
     <color name="qs_icon_bg">#FF05100E</color>
+
+    <!-- 设计 Token（02-交互与视觉设计 §6.1/6.2，T04025）：
+         与上面 MVP 旧令牌并存，W09 统一替换后才移除旧值；
+         按PRD 命名 qs_color_*，供新页面（状态卡/观看端）直接引用，避免随手取色。 -->
+    <color name="qs_color_primary">#FF0F766E</color>
+    <color name="qs_color_ok">#FF16A34A</color>
+    <color name="qs_color_warn">#FFD97706</color>
+    <color name="qs_color_error">#FFDC2626</color>
+    <color name="qs_color_bg_base">#FF0B0F10</color>
+    <color name="qs_color_bg_surface">#FF151B1D</color>
 </resources>
