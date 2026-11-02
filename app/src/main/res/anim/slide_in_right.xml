@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 平台只内置了 slide_in_left/slide_out_right，反向（向左翻下一页）需要这里补齐，
+     时长与内置 slide 动画保持一致，两个方向观感才对称 -->
+<translate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:fromXDelta="100%p"
+    android:toXDelta="0"
+    android:duration="300" />

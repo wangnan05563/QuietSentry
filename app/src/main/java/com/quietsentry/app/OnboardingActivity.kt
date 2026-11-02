@@ -3,13 +3,17 @@ package com.quietsentry.app
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.os.Bundle
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
+import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.ViewFlipper
 import androidx.appcompat.app.AppCompatActivity
+import kotlin.math.abs
 
 /**
  * 首次启动的功能介绍页（走马灯）。
@@ -20,6 +24,28 @@ import androidx.appcompat.app.AppCompatActivity
  * 不做自动轮播：值守场景用户会慢慢读，定时翻页会把没读完的说明直接推走。
  */
 class OnboardingActivity : AppCompatActivity() {
+
+    /** 快速轻扫才会翻页：距离和速度双阈值，避免手指停在页面上小幅拖动被当成翻页 */
+    private val swipeMinDistance by lazy { dp(80) }
+    private val swipeMinVelocity by lazy { dp(800) }
+
+    private val gestures by lazy {
+        GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float,
+            ): Boolean {
+                val dx = e2.x - (e1?.x ?: e2.x)
+                if (abs(dx) < swipeMinDistance || abs(velocityX) < swipeMinVelocity) return false
+                // 水平分量必须明显大于垂直：用户沿纵向滑动时不应带动翻页
+                if (abs(velocityX) < abs(velocityY)) return false
+                goTo(if (dx < 0) page + 1 else page - 1)
+                return true
+            }
+        })
+    }
 
     private lateinit var flipper: ViewFlipper
     private lateinit var dots: LinearLayout
@@ -55,15 +81,37 @@ class OnboardingActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.onboard_skip).setOnClickListener { complete() }
-        actionButton.setOnClickListener {
-            if (page < pages.lastIndex) {
-                page++
-                flipper.showNext()
-                render()
-            } else {
-                complete()
-            }
+        actionButton.setOnClickListener { goTo(page + 1) }
+
+        // 手势翻页挂在 flipper 上：子页全是静态文字，不消费触摸，事件必然落到这里
+        flipper.setOnTouchListener { view, event ->
+            gestures.onTouchEvent(event)
+            view.performClick()
+            true
         }
+        render()
+    }
+
+    /**
+     * 目标页越界或原地时静默忽略：第一页继续右滑、末页继续左滑都停在当前页，
+     * 用户不需要从边界手势里“弹回”。末页的下一页动作就是进入配对引导（PRD 4.5）。
+     */
+    private fun goTo(target: Int) {
+        if (target !in pages.indices) {
+            if (target > pages.lastIndex) complete(toPairing = true)
+            return
+        }
+        val forward = target > page
+        // 翻页动画方向跟随手势：向左滑出下一页，向右滑出上一页，与手指方向一致。
+        // 平台只内置了 left 方向的两个 slide 动画，right 方向用的是自建 res/anim 资源
+        flipper.inAnimation = AnimationUtils.loadAnimation(
+            this, if (forward) R.anim.slide_in_right else android.R.anim.slide_in_left
+        )
+        flipper.outAnimation = AnimationUtils.loadAnimation(
+            this, if (forward) R.anim.slide_out_left else android.R.anim.slide_out_right
+        )
+        if (forward) flipper.showNext() else flipper.showPrevious()
+        page = target
         render()
     }
 
@@ -89,9 +137,14 @@ class OnboardingActivity : AppCompatActivity() {
         )
     }
 
-    private fun complete() {
+    /**
+     * 走完引导落到配对引导（末页“开始使用”），跳过则回主界面：
+     * 跳过者可能只是复装应用，不需要再被领一遍配对流程。
+     */
+    private fun complete(toPairing: Boolean = false) {
         OnboardingStore.markSeen(this)
-        startActivity(Intent(this, MainActivity::class.java))
+        val next = if (toPairing) PairingActivity::class.java else MainActivity::class.java
+        startActivity(Intent(this, next))
         finish()
     }
 
