@@ -19,6 +19,12 @@ class WaveformView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
 
+    init {
+        // 波形是视觉装饰：响度信息无对应的文字语义，TalkBack 聚焦只会报“未加标签”，
+        // 声明为不重要让读屏直接跳过，播放状态仍由播放器控件承载
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.argb(220, 0, 191, 166) // qs_accent 的不透明版：小面积高亮更易读
     }
