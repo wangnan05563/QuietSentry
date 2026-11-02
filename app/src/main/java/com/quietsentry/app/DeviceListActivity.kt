@@ -1,7 +1,9 @@
 package com.quietsentry.app
 
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
@@ -62,6 +64,23 @@ class DeviceListActivity : AppCompatActivity() {
     private var preview: LiveStreamer? = null
     private var previewDeviceId: String? = null
 
+    /**
+     * 大屏事件侧栏（T04058）：仅 sw840dp 布局存在，取到 null 即窄/中屏。
+     * 侧栏只展示时间线——远端片段回放能力未提供，行不接点击。
+     */
+    private var sideBar: View? = null
+    private var sideEvents: LinearLayout? = null
+    private var sideEmpty: TextView? = null
+
+    /** 侧栏事件流的上次拉取时间：与封面快照共用 30 秒节流，远端查询不该跟着 5 秒轮询跑 */
+    private var sideEventsAt = 0L
+
+    /** 侧栏开合状态。折叠屏折叠/展开会 recreate，选择要跨重建保持，所以落 SharedPreferences */
+    private var sideOpen = true
+
+    /** 记录当前断点是否 ≥840dp：跨断点才 recreate 换布局，同断点内旋转不折腾播放流 */
+    private var lastBreakWide = false
+
     /** 每次切换预览设备都递增：旧流的回调即使已经排队到主线程，也会因为代号过期被丢弃 */
     private var previewGeneration = 0
 
@@ -107,6 +126,21 @@ class DeviceListActivity : AppCompatActivity() {
             val id = previewDeviceId ?: return@setOnClickListener
             registry.all().firstOrNull { it.id == id }?.let { openFullScreen(it) }
         }
+
+        // 事件侧栏只有 sw840dp 布局存在；收起把手与展开按钮成对出现
+        sideBar = findViewById(R.id.device_side_bar)
+        sideEvents = findViewById(R.id.device_side_events)
+        sideEmpty = findViewById(R.id.device_side_empty)
+        findViewById<Button>(R.id.device_side_collapse)?.setOnClickListener { setSideOpen(false) }
+        findViewById<Button>(R.id.device_side_expand)?.setOnClickListener { setSideOpen(true) }
+        sideOpen = getPreferences(Context.MODE_PRIVATE).getBoolean(PREF_SIDE_OPEN, true)
+        applySideVisibility()
+        lastBreakWide = isWideBreakpoint()
+
+        // 从重建（折叠切换）中恢复选中设备：画面流要重新握手，但设备选择不该丢
+        savedInstanceState?.getString(KEY_PREVIEW_DEVICE)?.let { id ->
+            registry.all().firstOrNull { it.id == id }?.let { showPreview(it) }
+        }
     }
 
     override fun onResume() {
@@ -115,6 +149,18 @@ class DeviceListActivity : AppCompatActivity() {
         handler.post(pollRunnable)
         // 与全屏页同一策略：退后台停流，回前台自动重连，不在看不见的时候继续解码耗电
         if (previewDeviceId != null) preview?.start(QUALITY_AUTO)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // sw 最小宽度只在折叠/展开时变化，横竖屏不变；跨过 840dp 才 recreate 换布局，
+        // 同断点内的任何尺寸变化都让画面流继续跑，这正是“不因折叠切换重建播放器”的落点
+        if ((newConfig.smallestScreenWidthDp >= SIDE_BREAK_DP) != lastBreakWide) recreate()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(KEY_PREVIEW_DEVICE, previewDeviceId)
     }
 
     override fun onPause() {
@@ -150,6 +196,8 @@ class DeviceListActivity : AppCompatActivity() {
                 if (status != null) registry.markSeen(device.id, now, status.lastEventAt)
                 // 在线才拉快照：离线设备连状态都没有，快照也一定拉不到，请求只会白等 3 秒超时
                 if (status != null) refreshSnapshot(device, now)
+                // 侧栏事件流跟随轮询但自带 30 秒节流：只刷当前选中设备
+                if (device.id == previewDeviceId) refreshSideEvents(device, now)
                 if (!stopped) runOnUiThread { render() }
             }
         }
@@ -296,6 +344,9 @@ class DeviceListActivity : AppCompatActivity() {
         )
         previewDeviceId = device.id
         if (!stopped) preview?.start(QUALITY_AUTO)
+        // 选中即强制拉一次事件流：30 秒节流只约束同一设备的持续刷新
+        sideEventsAt = 0L
+        refreshSideEvents(device, System.currentTimeMillis())
         // 宽屏右侧与全屏同等待遇（T04049）：连接建立前先垫一张最近快照，避免白屏等待；
         // 只拉这一次，重连期间的全屏兜底由 LiveViewActivity 自己的节流逻辑负责
         io.execute {
@@ -351,6 +402,78 @@ class DeviceListActivity : AppCompatActivity() {
         previewTitle?.text = ""
         previewStatus?.visibility = View.VISIBLE
         previewStatus?.setText(R.string.device_preview_hint)
+        // 侧栏跟着清空：留着已移除设备的事件会让用户以为还在看这台设备
+        sideEvents?.removeAllViews()
+        sideEmpty?.visibility = View.VISIBLE
+        sideEmpty?.setText(R.string.device_side_empty)
+    }
+
+    /** 侧栏开合状态落盘：recreate（折叠切换）后用户的选择原样恢复 */
+    private fun setSideOpen(open: Boolean) {
+        sideOpen = open
+        getPreferences(Context.MODE_PRIVATE).edit().putBoolean(PREF_SIDE_OPEN, open).apply()
+        applySideVisibility()
+        // 收起期间不拉事件（省流），展开时立即补一次，不等下一轮轮询
+        val id = previewDeviceId
+        if (open && id != null) {
+            sideEventsAt = 0L
+            registry.all().firstOrNull { it.id == id }?.let {
+                refreshSideEvents(it, System.currentTimeMillis())
+            }
+        }
+    }
+
+    private fun applySideVisibility() {
+        sideBar?.visibility = if (sideOpen) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.device_side_expand)?.visibility =
+            if (sideOpen) View.GONE else View.VISIBLE
+    }
+
+    private fun isWideBreakpoint(): Boolean =
+        resources.configuration.smallestScreenWidthDp >= SIDE_BREAK_DP
+
+    /**
+     * 拉取选中设备的远端事件流。节流与封面快照一致（30 秒）：
+     * 事件列表是整页 JSON，跟着 5 秒轮询拉对相机端与观看端都不划算。
+     */
+    private fun refreshSideEvents(device: DeviceRegistry.Device, now: Long) {
+        if (sideBar == null || !sideOpen) return
+        if (now - sideEventsAt < SNAPSHOT_INTERVAL_MS) return
+        sideEventsAt = now
+        val host = device.host
+        val port = device.port
+        val token = device.token
+        val id = device.id
+        io.execute {
+            val events = runCatching { DeviceHttp.events(host, port, token) }.getOrNull()
+            runOnUiThread {
+                // 拉取期间可能已切换设备：旧结果落进新设备侧栏会张冠李戴
+                if (!stopped && previewDeviceId == id) renderSideEvents(events)
+            }
+        }
+    }
+
+    private fun renderSideEvents(events: List<DeviceHttp.RemoteEvent>?) {
+        val list = sideEvents ?: return
+        val empty = sideEmpty ?: return
+        // 拉取失败不能显示“没有事件”：离线与无事件是两回事，混在一起会误导用户判断设备状态
+        if (events == null) {
+            empty.setText(R.string.device_side_unavailable)
+            empty.visibility = View.VISIBLE
+            list.removeAllViews()
+            return
+        }
+        val now = System.currentTimeMillis()
+        list.removeAllViews()
+        events.forEach { event ->
+            val row = LayoutInflater.from(this).inflate(R.layout.item_remote_event, list, false)
+            row.findViewById<TextView>(R.id.side_event_type).text =
+                getString(EventType.fromRaw(event.type).labelRes)
+            row.findViewById<TextView>(R.id.side_event_time).text = relativeTime(event.occurredAt, now)
+            list.addView(row)
+        }
+        empty.setText(R.string.device_side_empty)
+        empty.visibility = if (events.isEmpty()) View.VISIBLE else View.GONE
     }
 
     private fun detailText(state: DeviceState.View, now: Long): String {
@@ -689,5 +812,11 @@ class DeviceListActivity : AppCompatActivity() {
 
         // 服务端 MAX_VIEWERS 固定为 5，这里只用于把 429 翻译成人话
         const val MAX_VIEWERS = 5
+
+        /** 大屏断点（PRD 4.7）：≥840dp 才挂事件侧栏 */
+        const val SIDE_BREAK_DP = 840
+
+        private const val PREF_SIDE_OPEN = "side_open"
+        private const val KEY_PREVIEW_DEVICE = "preview_device"
     }
 }

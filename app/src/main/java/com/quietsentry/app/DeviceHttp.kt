@@ -49,6 +49,36 @@ object DeviceHttp {
 
     data class PairResult(val token: String, val role: String, val fingerprint: String)
 
+    /**
+     * 大屏事件侧栏的最小字段集（T04058）。远端片段回放能力尚未提供，
+     * 侧栏只做时间线展示，所以不携带缩略图/片段路径，够区分类型与新旧即可。
+     */
+    data class RemoteEvent(
+        val id: Long,
+        val type: String,
+        val occurredAt: Long,
+        val confidence: Int,
+        val read: Boolean,
+        val locked: Boolean,
+    )
+
+    fun events(host: String, port: Int, token: String, limit: Int = 20): List<RemoteEvent>? {
+        val body = call(host, port, "/api/events?limit=$limit", token = token) ?: return null
+        val json = runCatching { JSONObject(body) }.getOrNull() ?: return null
+        val array = json.optJSONArray("events") ?: return null
+        return (0 until array.length()).map { i ->
+            val item = array.getJSONObject(i)
+            RemoteEvent(
+                id = item.optLong("id"),
+                type = item.optString("type"),
+                occurredAt = item.optLong("occurredAt"),
+                confidence = item.optInt("confidence"),
+                read = item.optBoolean("read"),
+                locked = item.optBoolean("locked"),
+            )
+        }
+    }
+
     fun info(host: String, port: Int): Info? {
         val body = call(host, port, "/api/info") ?: return null
         val json = runCatching { JSONObject(body) }.getOrNull() ?: return null

@@ -77,10 +77,13 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
-        <!-- 观看端设备列表：局域网发现与状态轮询；宽屏双栏需要横竖屏都能切换 -->
+        <!-- 观看端设备列表：局域网发现与状态轮询；宽屏双栏需要横竖屏都能切换。
+             smallestScreenSize 变化（折叠屏折叠/展开）交由 Activity 自行判断：
+             同断点内不重建以保住播放流，跨 840dp 断点才 recreate 换布局（T04058） -->
         <activity
             android:name=".DeviceListActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:configChanges="smallestScreenSize|screenSize" />
 
         <!-- 观看端扫码添加：解析配对二维码并直接握手，锁竖屏让取景框方向稳定 -->
         <activity
