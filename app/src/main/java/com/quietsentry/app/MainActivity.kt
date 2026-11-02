@@ -160,10 +160,18 @@ class MainActivity : AppCompatActivity() {
             startRecordOnly()
         }
         stopButton.setOnClickListener {
-            // 导出要等最后一个分片 Finalize 后才开始，先给出“正在保存”提示并禁用以防重复点击
-            stopButton.isEnabled = false
-            statusText.text = getString(R.string.saving_to_gallery)
-            startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP))
+            // 停止是破坏性操作：私有原件导出后即被删除，误触无法回退，必须先确认
+            AlertDialog.Builder(this)
+                .setTitle(R.string.stop_guard_confirm_title)
+                .setMessage(R.string.stop_guard_confirm_message)
+                .setPositiveButton(R.string.stop_guard_confirm_yes) { _, _ ->
+                    // 导出要等最后一个分片 Finalize 后才开始，先给出“正在保存”提示并禁用以防重复点击
+                    stopButton.isEnabled = false
+                    statusText.text = getString(R.string.saving_to_gallery)
+                    startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP))
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
         findViewById<Button>(R.id.black_mode_button).setOnClickListener {
             // 值守与黑屏都通过 unbindAll 独占相机，同时进入会让值守录像静默中断
