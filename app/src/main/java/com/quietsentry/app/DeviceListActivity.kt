@@ -3,6 +3,7 @@ package com.quietsentry.app
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -43,6 +44,11 @@ class DeviceListActivity : AppCompatActivity() {
 
     /** 最近一次拉取结果；null 表示这台设备当前不可达，不缓存过期状态 */
     private val statuses = HashMap<String, DeviceHttp.Status?>()
+
+    // 卡片封面快照（T04046）：内存缓存上一张成功画面，离线后仍显示“最后见过的样子”；
+    // 拉取间隔独立于状态轮询——快照是整张 JPEG，5 秒一张对相机端与观看端都不划算
+    private val snapshots = HashMap<String, Bitmap>()
+    private val lastSnapshotAt = HashMap<String, Long>()
     private var discovery: LanDiscovery? = null
     private var stopped = false
 
@@ -142,9 +148,36 @@ class DeviceListActivity : AppCompatActivity() {
                 synchronized(statuses) { statuses[device.id] = status }
                 // 只有拿到状态才算“见过”：设备离线时 lastSeenAt 保持不变，界面才能显示离线了多久
                 if (status != null) registry.markSeen(device.id, now, status.lastEventAt)
+                // 在线才拉快照：离线设备连状态都没有，快照也一定拉不到，请求只会白等 3 秒超时
+                if (status != null) refreshSnapshot(device, now)
                 if (!stopped) runOnUiThread { render() }
             }
         }
+    }
+
+    /** 低频刷新卡片封面快照；缓存到内存里，离线后卡片仍显示最后见过的画面 */
+    private fun refreshSnapshot(device: DeviceRegistry.Device, now: Long) {
+        val last = synchronized(lastSnapshotAt) { lastSnapshotAt[device.id] ?: 0L }
+        if (now - last < SNAPSHOT_INTERVAL_MS) return
+        synchronized(lastSnapshotAt) { lastSnapshotAt[device.id] = now }
+        val shot = runCatching {
+            DeviceHttp.snapshot(device.host, device.port, device.token)?.let {
+                decodeThumbnail(it.jpeg)
+            }
+        }.getOrNull() ?: return
+        synchronized(snapshots) { snapshots[device.id] = shot }
+    }
+
+    /** 缩略图只有 56dp：按像素下采样解码，避免一张 1080p 快照占 8MB 内存 */
+    private fun decodeThumbnail(jpeg: ByteArray): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, bounds)
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= THUMB_TARGET_PX) sample *= 2
+        return BitmapFactory.decodeByteArray(
+            jpeg, 0, jpeg.size,
+            BitmapFactory.Options().apply { inSampleSize = sample }
+        )
     }
 
     private fun render() {
@@ -178,7 +211,17 @@ class DeviceListActivity : AppCompatActivity() {
 
     private fun row(device: DeviceRegistry.Device, state: DeviceState.View, now: Long): View {
         val view = LayoutInflater.from(this).inflate(R.layout.item_device, container, false)
-        view.findViewById<TextView>(R.id.device_cover).text = device.name.take(1).ifEmpty { "?" }
+        // 封面优先用最近快照；没有（从未拍到或拉取失败）才退回首字，这正是 PRD 的兜底顺序
+        val cover = view.findViewById<TextView>(R.id.device_cover)
+        val thumb = view.findViewById<ImageView>(R.id.device_thumb)
+        val shot = synchronized(snapshots) { snapshots[device.id] }
+        if (shot != null) {
+            thumb.setImageBitmap(shot)
+            thumb.visibility = View.VISIBLE
+            cover.visibility = View.GONE
+        } else {
+            cover.text = device.name.take(1).ifEmpty { "?" }
+        }
         view.findViewById<TextView>(R.id.device_name).text = device.name
         val room = device.room.ifEmpty { getString(R.string.device_room_unset) }
         view.findViewById<TextView>(R.id.device_meta).text = getString(
@@ -290,7 +333,11 @@ class DeviceListActivity : AppCompatActivity() {
 
     private fun detailText(state: DeviceState.View, now: Long): String {
         val parts = mutableListOf<String>()
-        if (state.level == DeviceState.Level.OFFLINE) {
+        // 告警是时间线的第一句：用户扫一眼卡片要立刻知道“刚刚发生了什么”；
+        // 时间由末尾的“最后事件”统一给出，这里不重复拼一遍相对时间
+        if (state.level == DeviceState.Level.ALERT) {
+            parts += getString(R.string.device_card_alert)
+        } else if (state.level == DeviceState.Level.OFFLINE) {
             parts += getString(R.string.device_card_offline_for, relativeTime(state.seenAt, now))
             // PRD FR-03 异常：离线超过 24 小时要给出“长期离线”，普通“3 天前”容易被当成刚掉线
             if (now - state.seenAt >= LONG_OFFLINE_MS) {
@@ -381,6 +428,9 @@ class DeviceListActivity : AppCompatActivity() {
                 io.execute { DeviceHttp.leave(device.host, device.port, device.token) }
                 registry.remove(device.id)
                 synchronized(statuses) { statuses.remove(device.id) }
+                // 快照连同设备一起清掉：留着只会让已移除的设备在“最近删除”边缘占内存
+                synchronized(snapshots) { snapshots.remove(device.id) }
+                synchronized(lastSnapshotAt) { lastSnapshotAt.remove(device.id) }
                 Toast.makeText(this, R.string.device_removed, Toast.LENGTH_SHORT).show()
                 render()
             }
@@ -601,6 +651,12 @@ class DeviceListActivity : AppCompatActivity() {
     private companion object {
         const val POLL_INTERVAL_MS = 5_000L
         const val DISCOVERY_WINDOW_MS = 5_000L
+
+        /** 卡片快照低频刷新：整张 JPEG 比状态 JSON 重得多，30 秒一张足够表达“最后见过什么” */
+        const val SNAPSHOT_INTERVAL_MS = 30_000L
+
+        /** 缩略图目标边长：56dp 的封面按 2x 屏幕密度预留即可 */
+        const val THUMB_TARGET_PX = 128
         const val MINUTE_MS = 60_000L
         const val HOUR_MS = 3_600_000L
         const val DAY_MS = 86_400_000L

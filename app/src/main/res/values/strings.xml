@@ -193,6 +193,7 @@
     <string name="device_list_pair_mismatch">设备指纹不一致，已拒绝连接</string>
     <string name="device_list_paired_recovery">已通过恢复码接管设备</string>
     <string name="device_list_paired">已添加设备</string>
+    <string name="device_card_alert">检测到动静</string>
     <string name="device_preview_hint">选择左侧设备查看实时画面</string>
     <string name="device_preview_connecting">正在连接实时画面…</string>
     <string name="device_preview_full">全屏</string>
