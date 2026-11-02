@@ -482,4 +482,9 @@
     <string name="onboard_page2_body">采集由前台服务承担，按电源键熄屏不会中断。\n\n值守期间通知栏会一直显示“值守中”，无法隐藏——这是对家里其他人的告知。</string>
     <string name="onboard_page3_title">另一台设备，随时看到</string>
     <string name="onboard_page3_body">在观看端打开“我的设备”，扫摄像头端的二维码，或输入 6 位配对码。\n\n画面只在局域网内传输，不经过任何服务器。</string>
+
+    <!-- 缩略图对 TalkBack 说出“是什么”即可，具体状态由同行文字承载，描述不重复 -->
+    <string name="device_thumb_desc">设备画面缩略图</string>
+    <string name="hour_thumb_desc">该小时首条事件缩略图</string>
+    <string name="event_thumb_desc">事件画面缩略图</string>
 </resources>

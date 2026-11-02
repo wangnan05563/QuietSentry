@@ -12,7 +12,7 @@
         android:layout_width="96dp"
         android:layout_height="72dp"
         android:background="#22FFFFFF"
-        android:contentDescription="@null"
+        android:contentDescription="@string/event_thumb_desc"
         android:scaleType="centerCrop" />
 
     <LinearLayout
