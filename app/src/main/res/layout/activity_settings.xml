@@ -192,6 +192,14 @@
             android:layout_marginTop="8dp"
             android:text="@string/settings_pin_change" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/settings_pin_hint"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="12sp" />
+
         <Button
             android:id="@+id/settings_mask"
             android:layout_width="match_parent"
@@ -269,6 +277,32 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/settings_integration_disable" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/settings_section_power"
+            android:textColor="@color/qs_text"
+            android:textSize="16sp" />
+
+        <!-- T04033：仅充电时值守此前只有默认值、无 UI 开关，用户改不了也看不到当前取值 -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/settings_charge_only_switch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/settings_charge_only_switch"
+            android:textColor="@color/qs_text"
+            android:textSize="15sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/settings_charge_only_hint"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="12sp" />
 
         <TextView
             android:layout_width="match_parent"

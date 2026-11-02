@@ -273,6 +273,10 @@
     <string name="settings_level_normal">仅普通及以上</string>
     <string name="settings_level_urgent">仅紧急</string>
     <string name="settings_level_hint">紧急（连续运动）永远送达；普通为单次运动与声音；提示为设备状态类消息。</string>
+    <string name="settings_section_power">电源与保活</string>
+    <!-- T04033：当前值由开关本身表达，说明要写清开/关两种取值的后果，避免用户以为关闭只是不提醒 -->
+    <string name="settings_charge_only_switch">仅充电时值守</string>
+    <string name="settings_charge_only_hint">开启后未接电源启动值守需先确认，且最多运行 2 小时自动停止；关闭后不限时，低电量仍会按电量策略降载或停止。</string>
     <string name="settings_section_health">健康检查</string>
     <string name="settings_diag_run">一键诊断</string>
     <string name="settings_diag_summary">上次诊断 %1$s：%2$d 项通过 / %3$d 项可优化 / %4$d 项阻塞</string>
@@ -362,6 +366,8 @@
     <string name="pin_cleared">应用锁已关闭</string>
     <string name="settings_section_privacy">安全与隐私</string>
     <string name="settings_pin_switch">应用锁（进入私密页需输入 PIN）</string>
+    <!-- T04033：开关标题只说触发条件，这里补影响范围与退出代价，凑齐“当前值+影响说明” -->
+    <string name="settings_pin_hint">开启后进入黑屏记录、回看与本设置页的降保护操作都要求验证；关闭后任何人拿到手机即可回看。</string>
     <string name="settings_pin_change">修改 PIN</string>
     <string name="settings_mask">隐私遮罩</string>
     <string name="settings_mask_value">隐私遮罩：%1$s</string>

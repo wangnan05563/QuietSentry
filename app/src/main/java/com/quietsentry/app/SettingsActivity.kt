@@ -44,6 +44,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var pinSwitch: SwitchCompat
     private lateinit var pinChange: Button
     private lateinit var maskButton: Button
+    private lateinit var chargeOnlySwitch: SwitchCompat
     private lateinit var integrationSwitch: SwitchCompat
     private lateinit var integrationAddress: TextView
     private lateinit var updateButton: Button
@@ -111,6 +112,12 @@ class SettingsActivity : AppCompatActivity() {
         pinSwitch = findViewById(R.id.settings_pin_switch)
         pinChange = findViewById(R.id.settings_pin_change)
         maskButton = findViewById(R.id.settings_mask)
+        // T04033：仅充电时值守此前只有默认值没有开关，用户改不了也看不到当前取值
+        chargeOnlySwitch = findViewById(R.id.settings_charge_only_switch)
+        chargeOnlySwitch.isChecked = PowerGuard.chargeOnly(this)
+        chargeOnlySwitch.setOnCheckedChangeListener { _, checked ->
+            PowerGuard.setChargeOnly(this, checked)
+        }
 
         findViewById<Button>(R.id.settings_back).setOnClickListener { finish() }
         findViewById<Button>(R.id.settings_diag_run).setOnClickListener { runDiagnostics() }
