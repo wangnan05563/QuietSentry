@@ -166,6 +166,7 @@
     <string name="device_list_add">添加摄像头</string>
     <string name="device_list_hint">点卡片看实时画面，长按可重命名、换房间或移除；状态每 5 秒自动刷新</string>
     <string name="device_list_empty">还没有设备\n1. 在摄像头端打开“配对与设备”\n2. 回到这里扫二维码或输入 6 位配对码\n3. 配对成功即可观看</string>
+    <string name="device_empty_code">输入配对码</string>
     <string name="device_empty_manual">手动输入 IP</string>
     <string name="device_offline_banner">设备可能不在同一网络或已关机</string>
     <string name="device_offline_rescan">重新扫描</string>

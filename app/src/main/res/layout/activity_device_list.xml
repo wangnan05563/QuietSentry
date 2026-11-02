@@ -101,8 +101,8 @@
                 android:padding="12dp" />
         </ScrollView>
 
-        <!-- 从未添加的空态（PRD 07 §4.2）：三步说明 + 扫码主按钮 + 手动 IP 次按钮，
-             三条配对路径中至少两条在空态直接可见，不让用户先理解“添加”是个流程 -->
+        <!-- 从未添加的空态（PRD 07 §4.2）：三步说明 + 三条配对路径全部可见
+             （扫码主按钮 / 配对码 / 手动 IP），不让用户先理解“添加”是个流程 -->
         <LinearLayout
             android:id="@+id/device_list_empty_box"
             android:layout_width="match_parent"
@@ -127,6 +127,13 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:text="@string/scan_pair_title" />
+
+            <Button
+                android:id="@+id/device_empty_code"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/device_empty_code" />
 
             <Button
                 android:id="@+id/device_empty_manual"

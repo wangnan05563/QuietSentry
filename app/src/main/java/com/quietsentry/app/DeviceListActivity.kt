@@ -112,6 +112,9 @@ class DeviceListActivity : AppCompatActivity() {
         findViewById<Button>(R.id.device_empty_scan)?.setOnClickListener {
             startActivity(Intent(this, ScanPairActivity::class.java))
         }
+        // 配对码路径 = 先局域网发现摄像头再输 6 位码（与“添加”对话框里的路径同源），
+        // 空态直接暴露它，避免“发现不到时不知道还有别的路”
+        findViewById<Button>(R.id.device_empty_code)?.setOnClickListener { discoverDevices() }
         findViewById<Button>(R.id.device_empty_manual)?.setOnClickListener { promptManual() }
         findViewById<Button>(R.id.device_list_rescan)?.setOnClickListener { rescan() }
         findViewById<Button>(R.id.device_list_diag)?.setOnClickListener {
