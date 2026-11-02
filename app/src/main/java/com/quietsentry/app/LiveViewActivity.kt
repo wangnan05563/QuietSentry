@@ -4,7 +4,11 @@ import android.Manifest
 import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -154,6 +158,7 @@ class LiveViewActivity : AppCompatActivity() {
             LiveStreamer.State.CONNECTING -> {
                 statusText.text = ""
                 counterText.setText(R.string.live_state_connecting)
+                showFallbackSnapshot()
             }
             LiveStreamer.State.CONNECTED -> {
                 statusText.text = ""
@@ -162,6 +167,7 @@ class LiveViewActivity : AppCompatActivity() {
             LiveStreamer.State.RETRY -> {
                 statusText.setText(R.string.live_status_retry)
                 counterText.text = ""
+                showFallbackSnapshot()
             }
             LiveStreamer.State.UNAUTHORIZED -> {
                 statusText.setText(R.string.live_status_unauthorized)
@@ -174,8 +180,36 @@ class LiveViewActivity : AppCompatActivity() {
             LiveStreamer.State.OFFLINE -> {
                 statusText.setText(R.string.live_status_offline)
                 counterText.text = ""
+                showFallbackSnapshot()
             }
         }
+    }
+
+    /** 兜底快照节流：重连循环每 3 秒就会触发一次状态回调，不节流会一直打快照请求 */
+    private var lastFallbackAtMs = 0L
+
+    /**
+     * 首帧前的防白屏兜底（PRD 3.2）：把最近快照铺进画面并标注最后在线时间。
+     * 只覆盖与直播帧同一个 ImageView，首帧到达后 onFrame 自然把它替换掉，无需显式清理。
+     */
+    private fun showFallbackSnapshot() {
+        val now = System.currentTimeMillis()
+        if (now - lastFallbackAtMs < FALLBACK_THROTTLE_MS) return
+        lastFallbackAtMs = now
+        val host = device.host
+        val port = device.port
+        val token = device.token
+        Thread {
+            val result = DeviceHttp.snapshot(host, port, token) ?: return@Thread
+            val bitmap = BitmapFactory.decodeByteArray(result.jpeg, 0, result.jpeg.size) ?: return@Thread
+            onUi {
+                image.setImageBitmap(bitmap)
+                if (result.atMs > 0) {
+                    val time = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(result.atMs))
+                    statusText.text = getString(R.string.live_last_seen, time)
+                }
+            }
+        }.start()
     }
 
     /**
@@ -312,5 +346,7 @@ class LiveViewActivity : AppCompatActivity() {
         private const val QUALITY_MAIN = "main"
         // 服务端 MAX_VIEWERS 固定为 5，这里只用于把 429 翻译成人话
         private const val MAX_VIEWERS = 5
+        // 兜底快照节流窗口：比重连间隔长一个量级，离线期间不至于每轮重连都拉一次图
+        private const val FALLBACK_THROTTLE_MS = 10_000L
     }
 }

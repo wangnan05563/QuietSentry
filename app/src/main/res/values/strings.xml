@@ -243,6 +243,7 @@
     <string name="live_status_unauthorized">授权已失效，请重新配对</string>
     <string name="live_status_busy">观看人数已满（最多 %1$d 人）</string>
     <string name="live_status_retry">画面中断，正在重连…</string>
+    <string name="live_last_seen">最近画面 · 最后在线 %1$s</string>
     <string name="live_snapshot_saved">截图已保存到相册</string>
     <string name="live_snapshot_failed">截图失败</string>
     <string name="live_no_device">设备不存在或已被移除</string>

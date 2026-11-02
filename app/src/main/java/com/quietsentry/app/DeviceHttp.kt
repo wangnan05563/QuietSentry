@@ -128,6 +128,35 @@ object DeviceHttp {
     /** 威慑操作的结果：冷却与夜间禁用必须能被区分，界面才能说清“为什么没响” */
     data class ControlResult(val ok: Boolean, val error: String = "", val retryAfterSec: Int = 0)
 
+    /**
+     * 快照兜底（PRD 3.2 防白屏）：首帧未到或断流时观看端先展示最近画面。
+     * 时间戳取自服务端 X-Timestamp——缓存帧是拍摄时刻、事件缩略图是文件时间，
+     * 两者都能当“最后在线”展示；缺失时返回 0，界面退化为只显示画面不标时间。
+     */
+    data class SnapshotResult(val jpeg: ByteArray, val atMs: Long)
+
+    fun snapshot(host: String, port: Int, token: String): SnapshotResult? = runCatching {
+        val factory = TlsTrust.factoryFor(host, port)
+        val scheme = if (factory != null) "https" else "http"
+        val connection = URL("$scheme://$host:$port/api/snapshot").openConnection() as HttpURLConnection
+        if (factory != null && connection is HttpsURLConnection) {
+            connection.sslSocketFactory = factory
+            connection.hostnameVerifier = HostnameVerifier { _, _ -> true }
+        }
+        connection.connectTimeout = TIMEOUT_MS
+        connection.readTimeout = TIMEOUT_MS
+        connection.setRequestProperty("X-Auth-Token", token)
+        try {
+            if (connection.responseCode !in 200..299) return@runCatching null
+            SnapshotResult(
+                connection.inputStream.use { it.readBytes() },
+                connection.getHeaderField("X-Timestamp")?.toLongOrNull() ?: 0L,
+            )
+        } finally {
+            connection.disconnect()
+        }
+    }.getOrNull()
+
     fun siren(host: String, port: Int, token: String): ControlResult =
         trigger(host, port, "/api/siren", token)
 
