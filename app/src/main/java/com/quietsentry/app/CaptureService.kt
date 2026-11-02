@@ -273,9 +273,11 @@ class CaptureService : LifecycleService() {
             MotionDetector.ALL_GRID,
             thumbnailDir,
             human
-        ) { confidence, thumbnail, person ->
+        ) { confidence, thumbnail, person, boxes ->
             // 人形确认命中才升级事件类型：模型不可用时 person 恒为 false，口径自动退回普通运动
             if (person) {
+                // 框同步发布给直播流（T04053）：观看端实时页据帧头画半透明框
+                PersonBoxes.publish(boxes)
                 onDetected(EventType.PERSON, R.string.detection_person, confidence, thumbnail)
             } else {
                 onDetected(EventType.MOTION, R.string.detection_motion, confidence, thumbnail)

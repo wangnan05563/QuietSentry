@@ -33,6 +33,12 @@ class LiveStreamer(
          * 默认空实现：不关心次数的调用方（未来接入的面板）不必被迫实现。
          */
         fun onRetryWait(attempt: Int) {}
+
+        /**
+         * 人形框随帧头下发（T04053）：只在运动触发帧产生，回调频率与检测频率一致；
+         * 默认空实现，不需要叠加框的调用方不受影响。
+         */
+        fun onPersonBoxes(boxes: List<FloatArray>) {}
     }
 
     private val io = Executors.newSingleThreadExecutor()
@@ -103,6 +109,8 @@ class LiveStreamer(
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: continue
                 latest = bitmap
                 listener.onFrame(bitmap)
+                // 框与帧同发：无框帧不回调，避免观看端把“没有新框”误当“人已离开”
+                if (stream.personBoxes.isNotEmpty()) listener.onPersonBoxes(stream.personBoxes)
             }
             stream.close()
             client = null

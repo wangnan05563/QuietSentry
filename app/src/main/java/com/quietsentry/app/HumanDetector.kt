@@ -48,8 +48,14 @@ class HumanDetector private constructor(
     private val count = FloatArray(1)
 
     /** 返回是否检测到人形；异常按“未检测到”处理，避免推理失败冒泡到相机分析线程 */
-    fun detect(bitmap: Bitmap): Boolean {
-        val input = byteInput ?: floatInput ?: return false
+    fun detect(bitmap: Bitmap): Boolean = detectBoxes(bitmap).isNotEmpty()
+
+    /**
+     * 推理并返回全部命中阈值的人形框（T04053）：坐标按帧宽高归一化为 [l, t, r, b]，
+     * 调用方按自己的画布尺寸换算像素。异常返回空列表，语义与“没有人形”一致。
+     */
+    fun detectBoxes(bitmap: Bitmap): List<FloatArray> {
+        val input = byteInput ?: floatInput ?: return emptyList()
         return runCatching {
             val scaled = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
             scaled.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
@@ -78,12 +84,12 @@ class HumanDetector private constructor(
 
             interpreter.runForMultipleInputsOutputs(arrayOf(input), outputs())
             val detected = count[0].toInt().coerceIn(0, MAX_DETECTIONS)
-            (0 until detected).any {
-                classes[0][it] == PERSON_CLASS && scores[0][it] >= THRESHOLD
-            }
+            (0 until detected)
+                .filter { classes[0][it] == PERSON_CLASS && scores[0][it] >= THRESHOLD }
+                .map { boxes[0][it].clone() }
         }.getOrElse {
             Log.w(TAG, "human detection failed", it)
-            false
+            emptyList()
         }
     }
 

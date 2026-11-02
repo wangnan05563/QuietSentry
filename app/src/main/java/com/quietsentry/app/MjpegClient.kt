@@ -30,6 +30,10 @@ class MjpegClient(
     var failure: Failure = Failure.NONE
         private set
 
+    /** 最近一帧携带的人形框（T04053）：随帧头下发，无框帧保持上一批不变 */
+    var personBoxes: List<FloatArray> = emptyList()
+        private set
+
     fun open(): Boolean = runCatching {
         val factory = TlsTrust.factoryFor(host, port)
         val scheme = if (factory != null) "https" else "http"
@@ -71,6 +75,10 @@ class MjpegClient(
                 while (true) {
                     val rest = readLine(source) ?: return null
                     if (rest.isEmpty()) break
+                    val lowerRest = rest.lowercase()
+                    if (lowerRest.startsWith(HEADER_PERSON_BOXES)) {
+                        parsePersonBoxes(lowerRest.substring(HEADER_PERSON_BOXES.length))
+                    }
                 }
             }
         }
@@ -90,6 +98,17 @@ class MjpegClient(
         connection = null
     }
 
+    /**
+     * 解析 "l,t,r,b|l,t,r,b" 归一化框串；格式异常整批丢弃而不是留半批——
+     * 半批框画在画面上比没有框更误导。
+     */
+    private fun parsePersonBoxes(payload: String) {
+        personBoxes = payload.trim().split('|').mapNotNull { boxText ->
+            val values = boxText.split(',').mapNotNull { it.trim().toFloatOrNull() }
+            if (values.size == 4) floatArrayOf(values[0], values[1], values[2], values[3]) else null
+        }
+    }
+
     private fun readLine(source: InputStream): String? {
         val builder = StringBuilder()
         while (true) {
@@ -107,5 +126,6 @@ class MjpegClient(
         const val CONNECT_TIMEOUT_MS = 3_000
         const val READ_TIMEOUT_MS = 20_000
         const val HEADER_LENGTH = "content-length:"
+        const val HEADER_PERSON_BOXES = "x-person-boxes:"
     }
 }

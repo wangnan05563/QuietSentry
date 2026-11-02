@@ -44,6 +44,7 @@ class LiveViewActivity : AppCompatActivity() {
     private lateinit var talkButton: Button
     private lateinit var sirenButton: Button
     private lateinit var torchButton: Button
+    private lateinit var personBoxes: PersonBoxOverlay
 
     private lateinit var device: DeviceRegistry.Device
     private lateinit var streamer: LiveStreamer
@@ -159,12 +160,20 @@ class LiveViewActivity : AppCompatActivity() {
             insets
         }
 
+        personBoxes = findViewById(R.id.live_person_boxes)
         streamer = LiveStreamer(
             device.host, device.port, device.token,
             object : LiveStreamer.Listener {
                 override fun onState(state: LiveStreamer.State) = onUi { renderState(state) }
 
                 override fun onFrame(frame: Bitmap) = onUi { image.setImageBitmap(frame) }
+
+                // 框与帧同源：帧尺寸随框一起传给叠加层，letterbox 换算才不会错位
+                override fun onPersonBoxes(boxes: List<FloatArray>) = onUi {
+                    image.drawable?.let { drawable ->
+                        personBoxes.showBoxes(boxes, drawable.intrinsicWidth, drawable.intrinsicHeight)
+                    }
+                }
 
                 // 重连次数跟在“信号中断”后面显示：只报状态不报进度，用户会以为卡死了
                 override fun onRetryWait(attempt: Int) = onUi {
@@ -216,6 +225,8 @@ class LiveViewActivity : AppCompatActivity() {
     }
 
     private fun renderState(state: LiveStreamer.State) {
+        // 断流状态清掉残留框：框只对正在播的流有意义；切换过渡期画面还在，框随画面保留
+        if (state != LiveStreamer.State.CONNECTED && !switchingQuality) personBoxes.clearBoxes()
         when (state) {
             LiveStreamer.State.CONNECTING -> {
                 statusText.text = ""

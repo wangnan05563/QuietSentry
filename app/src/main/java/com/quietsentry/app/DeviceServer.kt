@@ -454,11 +454,20 @@ class DeviceServer(
     }
 
     private fun writeFrame(out: OutputStream, frame: LanFrameHub.Frame) {
-        val head = "--$BOUNDARY\r\n" +
-            "Content-Type: image/jpeg\r\n" +
-            "Content-Length: ${frame.jpeg.size}\r\n" +
-            "X-Timestamp: ${frame.atMs}\r\n\r\n"
-        out.write(head.toByteArray())
+        val head = StringBuilder("--$BOUNDARY\r\n")
+            .append("Content-Type: image/jpeg\r\n")
+            .append("Content-Length: ${frame.jpeg.size}\r\n")
+            .append("X-Timestamp: ${frame.atMs}\r\n")
+        // 人形框随帧头捎带（T04053）：检测只在运动触发帧发生，框是稀疏的；
+        // 只在新鲜窗口内下发，观看端据此画半透明框，画面本身保持干净
+        PersonBoxes.recent(PERSON_BOX_FRESH_MS)?.let { result ->
+            val encoded = result.boxes.joinToString("|") { box ->
+                box.joinToString(",") { value -> "%.4f".format(value) }
+            }
+            head.append("X-Person-Boxes: ").append(encoded).append("\r\n")
+        }
+        head.append("\r\n")
+        out.write(head.toString().toByteArray())
         out.write(frame.jpeg)
         out.write("\r\n".toByteArray())
     }
@@ -1054,6 +1063,9 @@ class DeviceServer(
 
         /** 自动画质降级阈值：单帧写入超过该耗时即认为链路跟不上主码流 */
         private const val DEGRADE_WRITE_MS = 300L
+
+        /** 人形框的新鲜窗口：推理按事件触发，3 秒外的框已不代表画面里的人（T04053） */
+        private const val PERSON_BOX_FRESH_MS = 3_000L
 
         private const val DEFAULT_EVENT_LIMIT = 50
         private const val MAX_EVENT_LIMIT = 200

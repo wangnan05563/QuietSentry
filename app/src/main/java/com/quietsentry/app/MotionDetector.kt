@@ -21,7 +21,7 @@ class MotionDetector(
     private val gridMask: BooleanArray,
     private val thumbnailDir: File?,
     private val humanDetector: HumanDetector?,
-    private val onMotion: (confidence: Int, thumbnail: File?, person: Boolean) -> Unit,
+    private val onMotion: (confidence: Int, thumbnail: File?, person: Boolean, boxes: List<FloatArray>) -> Unit,
 ) : ImageAnalysis.Analyzer {
 
     // 灵敏度 1（迟钝）到 5（灵敏）映射为“需要多少比例的检测块发生变化”
@@ -56,11 +56,13 @@ class MotionDetector(
                 val confidence = ((maskedChangedRatio / minChangedRatio) * 50).toInt().coerceIn(1, 100)
                 // 缩略图与推理必须在 image.close() 之前取：关闭后 ImageProxy 的画面缓冲会失效
                 val bitmap = image.toBitmap()
-                // 人形确认只发生在事件触发帧：逐帧推理会让值守变成持续跑模型
-                val person = humanDetector?.detect(bitmap) ?: false
+                // 人形确认只发生在事件触发帧：逐帧推理会让值守变成持续跑模型。
+                // 框坐标一并带出（T04053）：观看端实时页的半透明框与事件确认同源
+                val boxes = humanDetector?.detectBoxes(bitmap) ?: emptyList()
+                val person = boxes.isNotEmpty()
                 val thumbnail = saveThumbnail(bitmap)
                 bitmap.recycle()
-                onMotion(confidence, thumbnail, person)
+                onMotion(confidence, thumbnail, person, boxes)
             }
         } catch (e: Exception) {
             // 分析器异常不能影响录制：吞掉异常只会丢掉这一次判定，不会中断采集

@@ -11,6 +11,12 @@
         android:contentDescription="@string/live_frame_desc"
         android:scaleType="fitCenter" />
 
+    <!-- 与 live_image 同尺寸同 fitCenter 公式，框才能落在画面内的正确位置（T04053） -->
+    <com.quietsentry.app.PersonBoxOverlay
+        android:id="@+id/live_person_boxes"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
     <TextView
         android:id="@+id/live_status"
         android:layout_width="match_parent"
