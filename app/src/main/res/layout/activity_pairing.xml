@@ -39,7 +39,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:textColor="#99FFFFFF"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <!-- 二维码本身带白底黑码，不加背景色填充，避免留白比例失真影响识别 -->
         <ImageView
@@ -66,7 +66,7 @@
             android:layout_marginTop="4dp"
             android:gravity="center"
             android:textColor="#99FFFFFF"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <Button
             android:id="@+id/pairing_refresh"
@@ -96,7 +96,7 @@
             android:layout_marginTop="24dp"
             android:text="@string/pairing_devices_title"
             android:textColor="@android:color/white"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <LinearLayout
             android:id="@+id/pairing_devices"
@@ -111,7 +111,7 @@
             android:layout_height="wrap_content"
             android:text="@string/pairing_devices_empty"
             android:textColor="#99FFFFFF"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <Button
             android:id="@+id/pairing_recovery"

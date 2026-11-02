@@ -39,7 +39,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:textColor="#99FFFFFF"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <TextView
             android:layout_width="match_parent"
@@ -47,7 +47,7 @@
             android:layout_marginTop="20dp"
             android:text="@string/remote_target_label"
             android:textColor="@android:color/white"
-            android:textSize="15sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <EditText
             android:id="@+id/remote_target"
@@ -72,7 +72,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:textColor="#9E9E9E"
-            android:textSize="14sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <TextView
             android:id="@+id/remote_overlay_result"
@@ -80,7 +80,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:textColor="#9E9E9E"
-            android:textSize="14sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <TextView
             android:id="@+id/remote_result"
@@ -88,7 +88,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:textColor="@android:color/white"
-            android:textSize="15sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <Button
             android:id="@+id/remote_wifi_settings"
@@ -103,7 +103,7 @@
             android:layout_marginTop="24dp"
             android:text="@string/remote_guide_title"
             android:textColor="@android:color/white"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <TextView
             android:id="@+id/remote_guide_tailscale"
@@ -113,7 +113,7 @@
             android:lineSpacingExtra="4dp"
             android:text="@string/remote_guide_tailscale"
             android:textColor="#CCFFFFFF"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <TextView
             android:id="@+id/remote_guide_wireguard"
@@ -123,7 +123,7 @@
             android:lineSpacingExtra="4dp"
             android:text="@string/remote_guide_wireguard"
             android:textColor="#CCFFFFFF"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <TextView
             android:id="@+id/remote_fallback"
@@ -132,6 +132,6 @@
             android:layout_marginTop="20dp"
             android:text="@string/remote_fallback"
             android:textColor="#99FFFFFF"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
     </LinearLayout>
 </ScrollView>

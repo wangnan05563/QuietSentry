@@ -27,7 +27,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textColor="@android:color/white"
-            android:textSize="15sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <TextView
             android:id="@+id/meta_text"
@@ -35,7 +35,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:textColor="#99FFFFFF"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <TextView
             android:id="@+id/flags_text"
@@ -43,7 +43,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:textColor="#FFFFA000"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
     </LinearLayout>
 
 </LinearLayout>

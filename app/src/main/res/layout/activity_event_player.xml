@@ -47,7 +47,7 @@
             android:padding="32dp"
             android:text="@string/player_missing"
             android:textColor="#99FFFFFF"
-            android:textSize="14sp"
+            android:textSize="@dimen/qs_text_status"
             android:visibility="gone" />
     </FrameLayout>
 

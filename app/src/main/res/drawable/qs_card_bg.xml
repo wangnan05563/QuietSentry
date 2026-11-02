@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 卡片底（T04060，PRD 4.6）：与旧纯色 qs_surface 同色，只是补上 20dp 圆角，
+     让黑底上的半透明白卡有分层轮廓 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/qs_surface" />
+    <corners android:radius="@dimen/qs_radius_card" />
+</shape>

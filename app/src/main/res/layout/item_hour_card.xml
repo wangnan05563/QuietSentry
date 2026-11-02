@@ -23,7 +23,7 @@
         android:layout_weight="1"
         android:paddingStart="10dp"
         android:textColor="#FF777777"
-        android:textSize="13sp" />
+        android:textSize="@dimen/qs_text_status" />
 
     <!-- 用文字箭头而不是引入图标库：只有两种状态，一个字符最省 -->
     <TextView
@@ -32,5 +32,5 @@
         android:layout_height="wrap_content"
         android:paddingStart="8dp"
         android:textColor="#FF777777"
-        android:textSize="13sp" />
+        android:textSize="@dimen/qs_text_status" />
 </LinearLayout>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 设备卡选中态底（T04060）：与普通卡片同圆角，只换强调色底，
+     避免用 setBackgroundColor 把选中卡打回方角 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/qs_accent_soft" />
+    <corners android:radius="@dimen/qs_radius_card" />
+</shape>

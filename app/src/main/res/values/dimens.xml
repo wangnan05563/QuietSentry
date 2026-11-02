@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 设计 Token（02-交互与视觉设计 §6.1/6.2，T04025）：
+    <!-- 设计 Token（02-交互与视觉设计 §6.1/6.2，T04025；T04060 按 PRD 4.6 更新数值并全局适配）：
          字号/间距/圆角集中定义，布局一律引用 token，避免散落硬编码 sp/dp；
          间距只用 4/8/12/16/24 五档（PRD 裁决：不用随手数值）。 -->
-    <!-- 字号：标题 20/24 两级，正文 16，辅助 14；等宽数字是字体特性，不在维度资源里表达 -->
+    <!-- 字号（PRD 4.6 三级）：正文 15，状态行 13，辅助说明 12；
+         标题 20/24 两级与页面大标题不在 4.6 范围内维持原值 -->
     <dimen name="qs_text_title">20sp</dimen>
     <dimen name="qs_text_title_large">24sp</dimen>
-    <dimen name="qs_text_body">16sp</dimen>
-    <dimen name="qs_text_caption">14sp</dimen>
+    <dimen name="qs_text_body">15sp</dimen>
+    <dimen name="qs_text_status">13sp</dimen>
+    <dimen name="qs_text_caption">12sp</dimen>
 
     <!-- 间距栅格：五档 -->
     <dimen name="qs_space_4">4dp</dimen>
@@ -16,7 +18,7 @@
     <dimen name="qs_space_16">16dp</dimen>
     <dimen name="qs_space_24">24dp</dimen>
 
-    <!-- 圆角：卡片 12 / 按钮 10，拉开一层级 -->
-    <dimen name="qs_radius_card">12dp</dimen>
+    <!-- 圆角（PRD 4.6）：卡片 20dp 提高暗色下的分层可读性；按钮不在 4.6 范围，维持 10dp -->
+    <dimen name="qs_radius_card">20dp</dimen>
     <dimen name="qs_radius_button">10dp</dimen>
 </resources>

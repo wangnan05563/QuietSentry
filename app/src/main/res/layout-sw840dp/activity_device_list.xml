@@ -61,7 +61,7 @@
                 android:paddingBottom="8dp"
                 android:text="@string/device_list_hint"
                 android:textColor="@color/qs_text_muted"
-                android:textSize="12sp" />
+                android:textSize="@dimen/qs_text_caption" />
 
             <FrameLayout
                 android:layout_width="match_parent"
@@ -88,7 +88,7 @@
                     android:padding="24dp"
                     android:text="@string/device_list_empty"
                     android:textColor="@color/qs_text_muted"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/qs_text_status"
                     android:visibility="gone" />
             </FrameLayout>
         </LinearLayout>
@@ -117,7 +117,7 @@
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:textColor="@color/qs_text"
-                    android:textSize="16sp" />
+                    android:textSize="@dimen/qs_text_body" />
 
                 <Button
                     android:id="@+id/device_side_expand"
@@ -130,7 +130,7 @@
                     android:paddingEnd="8dp"
                     android:text="@string/device_side_expand"
                     android:textColor="@color/qs_text_muted"
-                    android:textSize="13sp"
+                    android:textSize="@dimen/qs_text_status"
                     android:visibility="gone" />
 
                 <Button
@@ -161,7 +161,7 @@
                     android:padding="24dp"
                     android:text="@string/device_preview_hint"
                     android:textColor="@color/qs_text_muted"
-                    android:textSize="14sp" />
+                    android:textSize="@dimen/qs_text_status" />
             </FrameLayout>
         </LinearLayout>
 
@@ -188,7 +188,7 @@
                     android:layout_weight="1"
                     android:text="@string/device_side_title"
                     android:textColor="@color/qs_text"
-                    android:textSize="14sp" />
+                    android:textSize="@dimen/qs_text_status" />
 
                 <Button
                     android:id="@+id/device_side_collapse"
@@ -199,7 +199,7 @@
                     android:minWidth="0dp"
                     android:text="@string/device_side_collapse"
                     android:textColor="@color/qs_text_muted"
-                    android:textSize="13sp" />
+                    android:textSize="@dimen/qs_text_status" />
             </LinearLayout>
 
             <FrameLayout
@@ -227,7 +227,7 @@
                     android:padding="16dp"
                     android:text="@string/device_side_empty"
                     android:textColor="@color/qs_text_muted"
-                    android:textSize="13sp"
+                    android:textSize="@dimen/qs_text_status"
                     android:visibility="gone" />
             </FrameLayout>
         </LinearLayout>

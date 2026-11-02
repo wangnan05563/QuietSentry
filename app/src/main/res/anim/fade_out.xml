@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 页面退出动效（T04060，PRD 4.6）：120ms 纯淡出。
+     退出不做位移：退出画面即将消失，位移只会让下一页的进入显得拖沓 -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="120"
+    android:interpolator="@android:interpolator/accelerate_quad">
+    <alpha android:fromAlpha="1" android:toAlpha="0" />
+</set>

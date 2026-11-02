@@ -86,7 +86,7 @@
             android:padding="32dp"
             android:text="@string/timeline_empty"
             android:textColor="#99FFFFFF"
-            android:textSize="14sp"
+            android:textSize="@dimen/qs_text_status"
             android:visibility="gone" />
 
         <!-- 删除撤销条（PRD 2.7）：贴底浮层，5 秒后自动消失（T04055） -->
@@ -111,7 +111,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:textColor="@android:color/white"
-                android:textSize="14sp" />
+                android:textSize="@dimen/qs_text_status" />
 
             <Button
                 android:id="@+id/undo_button"

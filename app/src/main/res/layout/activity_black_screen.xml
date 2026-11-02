@@ -13,6 +13,6 @@
         android:gravity="center"
         android:padding="12dp"
         android:textColor="#66FFFFFF"
-        android:textSize="12sp" />
+        android:textSize="@dimen/qs_text_caption" />
 
 </FrameLayout>

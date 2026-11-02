@@ -27,7 +27,7 @@
             android:layout_marginTop="20dp"
             android:letterSpacing="0.3"
             android:textColor="@color/qs_accent"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <TextView
             android:id="@+id/onboard_title"
@@ -48,7 +48,7 @@
             android:paddingStart="8dp"
             android:paddingEnd="8dp"
             android:textColor="@color/qs_text_muted"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
     </LinearLayout>
 </ScrollView>

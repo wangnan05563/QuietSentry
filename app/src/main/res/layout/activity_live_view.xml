@@ -25,7 +25,7 @@
         android:gravity="center"
         android:padding="24dp"
         android:textColor="@color/qs_text_muted"
-        android:textSize="14sp" />
+        android:textSize="@dimen/qs_text_status" />
 
     <LinearLayout
         android:id="@+id/live_top_bar"
@@ -49,14 +49,14 @@
             android:layout_weight="1"
             android:gravity="center"
             android:textColor="@color/qs_text"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <TextView
             android:id="@+id/live_counter"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/qs_text_muted"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
     </LinearLayout>
 
     <!-- 远程动作竖排（PRD 4.3）：对讲/警笛/手电是画面在演时的“插话”动作，
@@ -127,7 +127,7 @@
                 android:paddingBottom="8dp"
                 android:text="@string/live_quality_auto"
                 android:textColor="@color/live_quality_pill_text"
-                android:textSize="14sp" />
+                android:textSize="@dimen/qs_text_status" />
 
             <TextView
                 android:id="@+id/live_quality_smooth"
@@ -140,7 +140,7 @@
                 android:paddingBottom="8dp"
                 android:text="@string/live_quality_smooth"
                 android:textColor="@color/live_quality_pill_text"
-                android:textSize="14sp" />
+                android:textSize="@dimen/qs_text_status" />
 
             <TextView
                 android:id="@+id/live_quality_hd"
@@ -153,7 +153,7 @@
                 android:paddingBottom="8dp"
                 android:text="@string/live_quality_hd"
                 android:textColor="@color/live_quality_pill_text"
-                android:textSize="14sp" />
+                android:textSize="@dimen/qs_text_status" />
         </LinearLayout>
 
             <Button

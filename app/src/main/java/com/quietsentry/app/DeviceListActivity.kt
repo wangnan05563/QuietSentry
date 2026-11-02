@@ -1,6 +1,7 @@
 package com.quietsentry.app
 
 import android.app.AlertDialog
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -279,11 +280,15 @@ class DeviceListActivity : AppCompatActivity() {
         )
         view.findViewById<TextView>(R.id.device_state).apply {
             text = getString(stateLabel(state.level))
-            setTextColor(stateColor(state.level))
+            animateTextColor(this, stateColor(state.level))
         }
         view.findViewById<TextView>(R.id.device_detail).text = detailText(state, now)
         // 双栏里列表和右侧画面是同一件事的两半，选中卡片必须能一眼看出来
-        if (device.id == previewDeviceId) view.setBackgroundColor(getColor(R.color.qs_accent_soft))
+        // 用带圆角的选中底而不是 setBackgroundColor，否则卡片会被打回方角
+        view.setBackgroundResource(
+            if (device.id == previewDeviceId) R.drawable.qs_card_bg_selected
+            else R.drawable.qs_card_bg
+        )
         view.setOnClickListener { openLive(device) }
         // 管理动作放进长按：卡片的主用途是看画面，点一下就弹菜单会挡住最常见的操作
         view.setOnLongClickListener {
@@ -780,6 +785,20 @@ class DeviceListActivity : AppCompatActivity() {
         DeviceState.Level.LOW_BATTERY, DeviceState.Level.STORAGE -> getColor(R.color.qs_warn)
         DeviceState.Level.GUARDING -> getColor(R.color.qs_ok)
         DeviceState.Level.OFFLINE, DeviceState.Level.IDLE -> getColor(R.color.qs_idle)
+    }
+
+    /**
+     * 状态切换的 120ms 颜色过渡（PRD 4.6）：状态行随 5 秒轮询频繁重绑，
+     * 直接跳色会让整排卡片“闪一下”；从当前色平滑过渡到目标色，同色时不启动动画。
+     */
+    private fun animateTextColor(view: TextView, toColor: Int) {
+        val from = view.currentTextColor
+        if (from == toColor) return
+        ValueAnimator.ofArgb(from, toColor).apply {
+            duration = 120
+            addUpdateListener { view.setTextColor(it.animatedValue as Int) }
+            start()
+        }
     }
 
     private fun relativeTime(at: Long, now: Long): String {

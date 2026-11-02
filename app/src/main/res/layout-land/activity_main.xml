@@ -33,7 +33,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textColor="@android:color/white"
-                android:textSize="13sp" />
+                android:textSize="@dimen/qs_text_status" />
 
             <Button
                 android:id="@+id/start_button"

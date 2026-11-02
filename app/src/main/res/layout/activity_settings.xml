@@ -39,7 +39,7 @@
             android:layout_marginTop="20dp"
             android:text="@string/settings_section_alert"
             android:textColor="@color/qs_text"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/settings_quiet_switch"
@@ -48,7 +48,7 @@
             android:layout_marginTop="10dp"
             android:text="@string/settings_quiet_switch"
             android:textColor="@color/qs_text"
-            android:textSize="15sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -76,7 +76,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:textColor="@color/qs_text_muted"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <TextView
             android:layout_width="match_parent"
@@ -84,7 +84,7 @@
             android:layout_marginTop="20dp"
             android:text="@string/settings_section_plan"
             android:textColor="@color/qs_text"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/settings_plan_switch"
@@ -93,7 +93,7 @@
             android:layout_marginTop="10dp"
             android:text="@string/settings_plan_switch"
             android:textColor="@color/qs_text"
-            android:textSize="15sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -121,7 +121,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:textColor="@color/qs_text_muted"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <TextView
             android:layout_width="match_parent"
@@ -129,7 +129,7 @@
             android:layout_marginTop="20dp"
             android:text="@string/settings_section_level"
             android:textColor="@color/qs_text"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <RadioGroup
             android:id="@+id/settings_level_group"
@@ -166,7 +166,7 @@
             android:layout_marginTop="6dp"
             android:text="@string/settings_level_hint"
             android:textColor="@color/qs_text_muted"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <TextView
             android:layout_width="match_parent"
@@ -174,7 +174,7 @@
             android:layout_marginTop="20dp"
             android:text="@string/settings_section_privacy"
             android:textColor="@color/qs_text"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/settings_pin_switch"
@@ -183,7 +183,7 @@
             android:layout_marginTop="10dp"
             android:text="@string/settings_pin_switch"
             android:textColor="@color/qs_text"
-            android:textSize="15sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <Button
             android:id="@+id/settings_pin_change"
@@ -198,7 +198,7 @@
             android:layout_marginTop="6dp"
             android:text="@string/settings_pin_hint"
             android:textColor="@color/qs_text_muted"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <Button
             android:id="@+id/settings_mask"
@@ -212,7 +212,7 @@
             android:layout_marginTop="6dp"
             android:text="@string/settings_mask_hint"
             android:textColor="@color/qs_text_muted"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <Button
             android:id="@+id/settings_audit_open"
@@ -227,7 +227,7 @@
             android:layout_marginTop="6dp"
             android:text="@string/settings_audit_hint"
             android:textColor="@color/qs_text_muted"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <TextView
             android:layout_width="match_parent"
@@ -235,7 +235,7 @@
             android:layout_marginTop="20dp"
             android:text="@string/settings_section_integration"
             android:textColor="@color/qs_text"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/settings_integration_switch"
@@ -244,7 +244,7 @@
             android:layout_marginTop="10dp"
             android:text="@string/settings_integration_switch"
             android:textColor="@color/qs_text"
-            android:textSize="15sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <TextView
             android:id="@+id/settings_integration_hint"
@@ -253,7 +253,7 @@
             android:layout_marginTop="6dp"
             android:text="@string/settings_integration_hint"
             android:textColor="@color/qs_text_muted"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <TextView
             android:id="@+id/settings_integration_address"
@@ -262,7 +262,7 @@
             android:layout_marginTop="8dp"
             android:textColor="@color/qs_text_muted"
             android:textIsSelectable="true"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <Button
             android:id="@+id/settings_integration_token"
@@ -284,7 +284,7 @@
             android:layout_marginTop="20dp"
             android:text="@string/settings_section_power"
             android:textColor="@color/qs_text"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <!-- T04033：仅充电时值守此前只有默认值、无 UI 开关，用户改不了也看不到当前取值 -->
         <androidx.appcompat.widget.SwitchCompat
@@ -294,7 +294,7 @@
             android:layout_marginTop="10dp"
             android:text="@string/settings_charge_only_switch"
             android:textColor="@color/qs_text"
-            android:textSize="15sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <TextView
             android:layout_width="match_parent"
@@ -302,7 +302,7 @@
             android:layout_marginTop="6dp"
             android:text="@string/settings_charge_only_hint"
             android:textColor="@color/qs_text_muted"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <!-- 黑屏拍照震动反馈（T04023）：黑屏无快门动画，震动是唯一确认，但允许关闭 -->
         <androidx.appcompat.widget.SwitchCompat
@@ -312,7 +312,7 @@
             android:layout_marginTop="10dp"
             android:text="@string/settings_shutter_switch"
             android:textColor="@color/qs_text"
-            android:textSize="15sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <TextView
             android:layout_width="match_parent"
@@ -320,7 +320,7 @@
             android:layout_marginTop="6dp"
             android:text="@string/settings_shutter_hint"
             android:textColor="@color/qs_text_muted"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <!-- 音量键快门（T04034）：与系统音量互斥，开启后黑屏页内音量键不再调音量 -->
         <androidx.appcompat.widget.SwitchCompat
@@ -330,7 +330,7 @@
             android:layout_marginTop="10dp"
             android:text="@string/settings_volume_shutter_switch"
             android:textColor="@color/qs_text"
-            android:textSize="15sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <TextView
             android:layout_width="match_parent"
@@ -338,7 +338,7 @@
             android:layout_marginTop="6dp"
             android:text="@string/settings_volume_shutter_hint"
             android:textColor="@color/qs_text_muted"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <TextView
             android:layout_width="match_parent"
@@ -346,7 +346,7 @@
             android:layout_marginTop="20dp"
             android:text="@string/settings_section_health"
             android:textColor="@color/qs_text"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <Button
             android:id="@+id/settings_diag_run"
@@ -361,7 +361,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:textColor="@color/qs_text_muted"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <LinearLayout
             android:id="@+id/settings_diag_result"
@@ -383,7 +383,7 @@
             android:layout_marginTop="20dp"
             android:text="@string/settings_section_update"
             android:textColor="@color/qs_text"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <TextView
             android:id="@+id/settings_update_version"
@@ -391,7 +391,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:textColor="@color/qs_text_muted"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <Button
             android:id="@+id/settings_update_check"
@@ -406,7 +406,7 @@
             android:layout_marginTop="6dp"
             android:text="@string/settings_update_hint"
             android:textColor="@color/qs_text_muted"
-            android:textSize="12sp" />
+            android:textSize="@dimen/qs_text_caption" />
 
         <TextView
             android:layout_width="match_parent"
@@ -414,7 +414,7 @@
             android:layout_marginTop="20dp"
             android:text="@string/settings_section_start"
             android:textColor="@color/qs_text"
-            android:textSize="16sp" />
+            android:textSize="@dimen/qs_text_body" />
 
         <TextView
             android:layout_width="match_parent"
@@ -423,7 +423,7 @@
             android:lineSpacingExtra="4dp"
             android:text="@string/settings_quick_steps"
             android:textColor="@color/qs_text_muted"
-            android:textSize="13sp" />
+            android:textSize="@dimen/qs_text_status" />
 
         <Button
             android:id="@+id/settings_quick_pairing"
