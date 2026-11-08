@@ -11,7 +11,7 @@
         android:id="@+id/thumb_image"
         android:layout_width="96dp"
         android:layout_height="72dp"
-        android:background="#22FFFFFF"
+        android:background="@color/qs_inline_surface_13"
         android:contentDescription="@string/event_thumb_desc"
         android:scaleType="centerCrop" />
 
@@ -34,7 +34,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
 
         <TextView
@@ -42,7 +42,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:textColor="#FFFFA000"
+            android:textColor="@color/qs_inline_amber"
             android:textSize="@dimen/qs_text_caption" />
     </LinearLayout>
 

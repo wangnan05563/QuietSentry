@@ -16,7 +16,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:background="#C62828"
+        android:background="@color/qs_inline_danger"
         android:gravity="center"
         android:padding="10dp"
         android:text="@string/banner_notification_permission"
@@ -30,7 +30,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:background="#99000000"
+        android:background="@color/qs_overlay"
         android:orientation="vertical"
         android:padding="12dp">
 
@@ -46,7 +46,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:background="#33000000"
+            android:background="@color/qs_inline_scrim_20"
             android:clickable="true"
             android:ellipsize="end"
             android:focusable="true"

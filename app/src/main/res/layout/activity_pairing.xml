@@ -38,7 +38,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status" />
 
         <!-- 二维码本身带白底黑码，不加背景色填充，避免留白比例失真影响识别 -->
@@ -65,7 +65,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:gravity="center"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
 
         <Button
@@ -110,7 +110,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/pairing_devices_empty"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status" />
 
         <Button

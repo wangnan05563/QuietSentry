@@ -68,7 +68,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:textColor="#B3FFFFFF"
+            android:textColor="@color/qs_inline_text_70"
             android:textSize="@dimen/qs_text_caption" />
     </LinearLayout>
 

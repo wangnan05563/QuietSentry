@@ -24,4 +24,19 @@
          曾补的 qs_color_* 设计令牌经全仓检索 0 引用，已于本提交移除，避免双套并存造成取色歧义。
          主色 = qs_accent #FF00BFA6（青色，值守场景不刺眼）；如需改用更深的 #FF0F766E 备选色，
          属独立设计决策，不在本次机械收敛范围内。 -->
+    <!-- 布局内联色（T04778 / UI-02 精确匹配别名）：取值与历史硬编码完全一致，仅做 token 化、零视觉变更；
+         语义归并（是否并入 qs_* 状态/文本语义令牌）留作设计评审，不在本次机械收敛范围。 -->
+    <color name="qs_inline_text_87">#DDFFFFFF</color>
+    <color name="qs_inline_text_80">#CCFFFFFF</color>
+    <color name="qs_inline_text_70">#B3FFFFFF</color>
+    <color name="qs_inline_surface_13">#22FFFFFF</color>
+    <color name="qs_inline_warn_15">#26D97706</color>
+    <color name="qs_inline_warn">#FFD97706</color>
+    <color name="qs_inline_danger_93">#EE262626</color>
+    <color name="qs_inline_danger">#FFC62828</color>
+    <color name="qs_inline_scrim_20">#33000000</color>
+    <color name="qs_inline_scrim_80">#CC000000</color>
+    <color name="qs_inline_gray_47">#FF777777</color>
+    <color name="qs_inline_amber">#FFFFA000</color>
+
 </resources>

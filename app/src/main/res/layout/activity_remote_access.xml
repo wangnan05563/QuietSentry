@@ -38,7 +38,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status" />
 
         <TextView
@@ -57,7 +57,7 @@
             android:hint="@string/remote_target_hint"
             android:inputType="textNoSuggestions"
             android:textColor="@android:color/white"
-            android:textColorHint="#66FFFFFF" />
+            android:textColorHint="@color/qs_text_hint" />
 
         <Button
             android:id="@+id/remote_probe"
@@ -71,7 +71,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:textColor="#9E9E9E"
+            android:textColor="@color/qs_idle"
             android:textSize="@dimen/qs_text_status" />
 
         <TextView
@@ -79,7 +79,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:textColor="#9E9E9E"
+            android:textColor="@color/qs_idle"
             android:textSize="@dimen/qs_text_status" />
 
         <TextView
@@ -112,7 +112,7 @@
             android:layout_marginTop="8dp"
             android:lineSpacingExtra="4dp"
             android:text="@string/remote_guide_tailscale"
-            android:textColor="#CCFFFFFF"
+            android:textColor="@color/qs_inline_text_80"
             android:textSize="@dimen/qs_text_status" />
 
         <TextView
@@ -122,7 +122,7 @@
             android:layout_marginTop="16dp"
             android:lineSpacingExtra="4dp"
             android:text="@string/remote_guide_wireguard"
-            android:textColor="#CCFFFFFF"
+            android:textColor="@color/qs_inline_text_80"
             android:textSize="@dimen/qs_text_status" />
 
         <TextView
@@ -131,7 +131,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="@string/remote_fallback"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status" />
     </LinearLayout>
 </ScrollView>

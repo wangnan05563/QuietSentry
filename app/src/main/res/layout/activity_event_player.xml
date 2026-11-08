@@ -46,7 +46,7 @@
             android:gravity="center"
             android:padding="32dp"
             android:text="@string/player_missing"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status"
             android:visibility="gone" />
     </FrameLayout>

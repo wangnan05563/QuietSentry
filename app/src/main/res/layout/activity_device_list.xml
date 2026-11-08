@@ -42,7 +42,7 @@
         android:paddingEnd="12dp"
         android:paddingBottom="8dp"
         android:text="@string/device_list_hint"
-        android:textColor="#99FFFFFF"
+        android:textColor="@color/qs_text_muted"
         android:textSize="@dimen/qs_text_caption" />
 
     <!-- 全部离线时的分流提示（PRD 07 §4.2）：与“从未添加”空态区分开，
@@ -51,7 +51,7 @@
         android:id="@+id/device_list_offline_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#26D97706"
+        android:background="@color/qs_inline_warn_15"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="12dp"
@@ -66,7 +66,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/device_offline_banner"
-            android:textColor="#FFD97706"
+            android:textColor="@color/qs_inline_warn"
             android:textSize="@dimen/qs_text_status" />
 
         <Button
@@ -118,7 +118,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:text="@string/device_list_empty"
-                android:textColor="#99FFFFFF"
+                android:textColor="@color/qs_text_muted"
                 android:textSize="@dimen/qs_text_status" />
 
             <Button

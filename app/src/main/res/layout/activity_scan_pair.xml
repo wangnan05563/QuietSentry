@@ -23,7 +23,7 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:text="@string/scan_pair_hint"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status" />
 
         <Button

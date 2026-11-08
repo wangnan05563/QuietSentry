@@ -85,7 +85,7 @@
             android:gravity="center"
             android:padding="32dp"
             android:text="@string/timeline_empty"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status"
             android:visibility="gone" />
 
@@ -96,7 +96,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
             android:layout_margin="12dp"
-            android:background="#EE262626"
+            android:background="@color/qs_inline_danger_93"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingStart="16dp"
