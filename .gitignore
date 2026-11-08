@@ -12,6 +12,8 @@ keystore.properties
 .kotlin/
 # 验证采样输出（CSV/日志/摘要），属于运行产物而非源码
 verify-output/
+# 最终构建产物（APK/AAB/build-info.json）统一放这里；整目录可删，脚本会自动重建
+release/
 # Python 字节码缓存（脚本自检时会生成）
 __pycache__/
 *.pyc

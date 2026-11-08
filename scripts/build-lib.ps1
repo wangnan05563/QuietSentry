@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 
 $script:ProjectRoot = Split-Path -Parent $PSScriptRoot
 $script:PackageJson = Join-Path $script:ProjectRoot 'package.json'
+$script:ReleaseDir = Join-Path $script:ProjectRoot 'release'
 
 function Write-Step([string]$Message) {
     Write-Host ""
@@ -277,8 +278,9 @@ function Invoke-GradleTask {
     }
 }
 
-function Find-Apk {
+function Find-GradleApk {
     param([ValidateSet('debug', 'release')][string]$Variant = 'debug')
+    # Gradle 原始产物：只供构建/发布脚本复制到 release/，不作为安装或发布入口
     $dir = Join-Path $script:ProjectRoot "app\build\outputs\apk\$Variant"
     if (-not (Test-Path $dir)) { return $null }
     # release 未签名时文件名带 -unsigned，因此按“最新产物”取，而不是拼固定文件名
@@ -286,6 +288,99 @@ function Find-Apk {
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
     if ($apk) { return $apk.FullName }
+    return $null
+}
+
+function Find-GradleBundle {
+    $dir = Join-Path $script:ProjectRoot 'app\build\outputs\bundle\release'
+    if (-not (Test-Path $dir)) { return $null }
+    $aab = Get-ChildItem $dir -Filter '*.aab' -File |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($aab) { return $aab.FullName }
+    return $null
+}
+
+# ---------- release 产物目录（T04714） ----------
+# 最终产物统一落在项目根 release/；Gradle 中间产物仍由 app/build 管理（已被忽略）。
+# 该目录可整体删除：下一次执行构建 / 发布入口会重建，不需要任何手工准备。
+function Get-ReleaseDir {
+    return $script:ReleaseDir
+}
+
+function Reset-ReleaseDir {
+    $dir = Get-ReleaseDir
+    if (-not (Test-Path -LiteralPath $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    } else {
+        Get-ChildItem -LiteralPath $dir -Force | ForEach-Object {
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force
+        }
+    }
+    return $dir
+}
+
+function New-ArtifactName {
+    param(
+        [Parameter(Mandatory)][string]$VersionName,
+        [string]$Variant = '',
+        [Parameter(Mandatory)][string]$Extension
+    )
+    $safe = $VersionName -replace '[\\/:*?"<>|]', '-'
+    $suffix = if ($Variant) { "-$Variant" } else { '' }
+    return "QuietSentry-$safe$suffix.$Extension"
+}
+
+function Publish-Artifact {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+    if (-not (Test-Path -LiteralPath $Path)) { throw "产物不存在：$Path" }
+    $dir = Get-ReleaseDir
+    if (-not (Test-Path -LiteralPath $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    $target = Join-Path $dir $Name
+    Copy-Item -LiteralPath $Path -Destination $target -Force
+    return $target
+}
+
+function Write-ReleaseManifest {
+    param([Parameter(Mandatory)][hashtable]$Data)
+    $dir = Get-ReleaseDir
+    if (-not (Test-Path -LiteralPath $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    $json = $Data | ConvertTo-Json -Depth 5
+    $file = Join-Path $dir 'build-info.json'
+    [System.IO.File]::WriteAllText($file, $json, (New-Object System.Text.UTF8Encoding($false)))
+    return $file
+}
+
+function Find-Apk {
+    param([ValidateSet('debug', 'release')][string]$Variant = 'debug')
+    # 安装 / 发布入口只认 release/，避免把 Gradle 中间目录里的旧包推上设备
+    $dir = Get-ReleaseDir
+    if (-not (Test-Path -LiteralPath $dir)) { return $null }
+    $files = @(Get-ChildItem -LiteralPath $dir -Filter '*.apk' -File |
+        Sort-Object LastWriteTime -Descending)
+    if ($files.Count -eq 0) { return $null }
+    $pattern = '-{0}\.apk$' -f $Variant
+    $match = $files | Where-Object { $_.Name -match $pattern } | Select-Object -First 1
+    if ($match) { return $match.FullName }
+    # 兼容手工放入的单个 APK；多文件且无法判定 variant 时不猜测
+    if ($files.Count -eq 1) { return $files[0].FullName }
+    return $null
+}
+
+function Find-Bundle {
+    $dir = Get-ReleaseDir
+    if (-not (Test-Path -LiteralPath $dir)) { return $null }
+    $aab = Get-ChildItem -LiteralPath $dir -Filter '*.aab' -File |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($aab) { return $aab.FullName }
     return $null
 }
 

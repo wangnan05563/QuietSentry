@@ -64,22 +64,45 @@ try {
     Write-Ok "发布密钥 $($props['storeFile'])（alias $($props['keyAlias'])）"
 
     if ($SkipBuild) {
+        # 复用上一轮 release/ 里的产物，不清空目录
         $meta = Get-Content $script:PackageJson -Raw | ConvertFrom-Json
         $versionName = [string]$meta.version
         $tag = "v$versionName"
         Write-Note "跳过构建，按当前版本 $versionName 发布"
+        $apk = Find-Apk -Variant 'release'
+        $aab = Find-Bundle
     } else {
+        $releaseDir = Reset-ReleaseDir
+        Write-Ok "产物目录 $releaseDir（已清空旧产物）"
         $meta = Step-BuildPatch
-        $tag = "v$($meta.VersionName)"
-        Write-Ok "版本 $($meta.VersionName)（versionCode $($meta.BuildNumber)）"
+        $versionName = [string]$meta.VersionName
+        $tag = "v$versionName"
+        Write-Ok "版本 $versionName（versionCode $($meta.BuildNumber)）"
         Write-Step '构建 release APK 与 AAB'
         Invoke-GradleTask -Tasks @('clean', 'assembleRelease', 'bundleRelease')
+
+        $sourceApk = Find-GradleApk -Variant 'release'
+        if (-not $sourceApk) { throw '未找到 Gradle 生成的 release APK' }
+        $sourceAab = Find-GradleBundle
+        if (-not $sourceAab) { throw '未找到 Gradle 生成的 release AAB' }
+        $apkName = New-ArtifactName -VersionName $versionName -Variant 'release' -Extension 'apk'
+        $aabName = New-ArtifactName -VersionName $versionName -Extension 'aab'
+        $apk = Publish-Artifact -Path $sourceApk -Name $apkName
+        $aab = Publish-Artifact -Path $sourceAab -Name $aabName
+        Write-ReleaseManifest -Data @{
+            product     = 'QuietSentry'
+            versionName = $versionName
+            variant     = 'release'
+            builtAt     = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+            artifacts   = @(
+                @{ file = $apkName; source = $sourceApk },
+                @{ file = $aabName; source = $sourceAab }
+            )
+        } | Out-Null
     }
 
-    $apk = Find-Apk -Variant 'release'
-    if (-not $apk) { throw '未找到 release APK' }
-    $aab = Join-Path $script:ProjectRoot 'app\build\outputs\bundle\release\app-release.aab'
-    if (-not (Test-Path $aab)) { throw '未找到 release AAB' }
+    if (-not $apk) { throw "未找到 release APK，请先构建或去掉 -SkipBuild（产物目录：$(Get-ReleaseDir)）" }
+    if (-not $aab) { throw "未找到 release AAB，请先构建或去掉 -SkipBuild（产物目录：$(Get-ReleaseDir)）" }
 
     Write-Step '校验 APK 签名'
     $signer = Get-ApkSigner
