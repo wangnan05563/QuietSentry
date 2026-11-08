@@ -12,6 +12,8 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, "assets", "brand")
 RES = os.path.join(ROOT, "app", "src", "main", "res")
+# 字体随系统安装位置变化，从环境变量推导，避免把本机盘符写进脚本
+FONT_DIR = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts")
 
 INK = (5, 16, 14, 255)
 TEAL = (0, 191, 166, 255)
@@ -147,10 +149,10 @@ def render_social_preview():
     draw_mark(canvas, 128, 176, 132)
 
     d = ImageDraw.Draw(canvas)
-    bold = font(os.path.join("C:\\Windows\\Fonts", "msyhbd.ttc"), 64)
-    regular = font(os.path.join("C:\\Windows\\Fonts", "msyh.ttc"), 30)
-    small = font(os.path.join("C:\\Windows\\Fonts", "msyh.ttc"), 25)
-    label = font(os.path.join("C:\\Windows\\Fonts", "segoeb.ttf"), 26)
+    bold = font(os.path.join(FONT_DIR, "msyhbd.ttc"), 64)
+    regular = font(os.path.join(FONT_DIR, "msyh.ttc"), 30)
+    small = font(os.path.join(FONT_DIR, "msyh.ttc"), 25)
+    label = font(os.path.join(FONT_DIR, "segoeb.ttf"), 26)
 
     text(d, (232, 132), "静哨  QuietSentry", bold, WHITE)
     text(d, (234, 216), "把闲置 Android 设备变成一台私有摄像头", regular, (190, 210, 205, 255))
@@ -174,16 +176,16 @@ def render_social_preview():
     idraw.ellipse((cx2 - 20, cy2 - 20, cx2 + 20, cy2 + 20), fill=(0, 191, 166, 170))
     idraw.ellipse((iw * 0.08, ih * 0.08, iw * 0.14, ih * 0.14), fill=(76, 217, 100, 255))
     idraw.text((iw * 0.18, ih * 0.055), "值守中",
-               font=font(os.path.join("C:\\Windows\\Fonts", "msyh.ttc"), 18),
+               font=font(os.path.join(FONT_DIR, "msyh.ttc"), 18),
                fill=WHITE)
     canvas.paste(inner, (px + 12, py + 14), inner)
 
     # 底部状态条用深色半透明：青色实底会把“事件提醒”误读成可点击按钮
     d.rounded_rectangle((px, py + ph - 82, px + pw, py + ph), radius=20, fill=(3, 20, 17, 235))
     d.rectangle((px + 1, py + ph - 82, px + 4, py + ph), fill=TEAL)
-    small_label = font(os.path.join("C:\\Windows\\Fonts", "msyh.ttc"), 19)
+    small_label = font(os.path.join(FONT_DIR, "msyh.ttc"), 19)
     text(d, (px + 24, py + ph - 66), "侦测到移动", small_label, (225, 245, 240, 255))
-    text(d, (px + 24, py + ph - 38), "已保存到本机", font(os.path.join("C:\\Windows\\Fonts", "msyh.ttc"), 17),
+    text(d, (px + 24, py + ph - 38), "已保存到本机", font(os.path.join(FONT_DIR, "msyh.ttc"), 17),
          (120, 170, 160, 255))
 
     # 底部细线让 1280x640 的裁切边界更明确
