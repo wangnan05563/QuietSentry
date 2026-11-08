@@ -20,13 +20,8 @@
     <!-- 启动图标背景：与品牌深底一致，自适应图标只暴露这一种颜色，避免各启动器取到白色 -->
     <color name="qs_icon_bg">#FF05100E</color>
 
-    <!-- 设计 Token（02-交互与视觉设计 §6.1/6.2，T04025）：
-         与上面 MVP 旧令牌并存，W09 统一替换后才移除旧值；
-         按PRD 命名 qs_color_*，供新页面（状态卡/观看端）直接引用，避免随手取色。 -->
-    <color name="qs_color_primary">#FF0F766E</color>
-    <color name="qs_color_ok">#FF16A34A</color>
-    <color name="qs_color_warn">#FFD97706</color>
-    <color name="qs_color_error">#FFDC2626</color>
-    <color name="qs_color_bg_base">#FF0B0F10</color>
-    <color name="qs_color_bg_surface">#FF151B1D</color>
+    <!-- 设计令牌的唯一来源即上方 qs_* 一套（PRD FR-16 设计系统，T04776 / UI-01 收敛结论）：
+         曾补的 qs_color_* 设计令牌经全仓检索 0 引用，已于本提交移除，避免双套并存造成取色歧义。
+         主色 = qs_accent #FF00BFA6（青色，值守场景不刺眼）；如需改用更深的 #FF0F766E 备选色，
+         属独立设计决策，不在本次机械收敛范围内。 -->
 </resources>

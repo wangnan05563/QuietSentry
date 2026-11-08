@@ -156,7 +156,7 @@ AlfredCamera 采用摄像头端 / 观看端双 App 角色与扫码配对，并�
 
 | 编号 | 缺口 | 可核查证据 |
 | --- | --- | --- |
-| G1 | 双套色彩令牌并存，文档与代码数值不一致 | `colors.xml` 同时存在 MVP 旧令牌 `qs_*`（如 `qs_accent #FF00BFA6`）与设计令牌 `qs_color_*`（如 `qs_color_primary #FF0F766E`），注释写明「W09 统一替换后才移除旧值」；`docs/02 §6.1` 记卡片 12dp / 正文 14–16sp，而 `dimens.xml` 已是 20dp / 15sp |
+| G1 | 双套色彩令牌并存（**T04776 / UI-01 已收敛**） | 原 `colors.xml` 并存 MVP 旧令牌 `qs_*`（如 `qs_accent #FF00BFA6`）与设计令牌 `qs_color_*`（如 `qs_color_primary #FF0F766E`），注释写「W09 统一替换后才移除旧值」；经全仓检索 `qs_color_*` **0 引用**，确为死令牌。本提交已移除 `qs_color_*`、确立 `qs_*` 为唯一来源，主色保留线上 `#00BFA6`（`#0F766E` 备选留作独立设计决策）；`docs/02 §6.1` 卡片 12dp / 正文 14–16sp 与 `dimens.xml` 20dp / 15sp 不一致为历史描述，以 `dimens.xml` 现状为准 |
 | G2 | 布局仍有硬编码色值与尺寸 | `activity_consent.xml`、`activity_device_list.xml`、`activity_black_screen.xml` 等仍写 `#99FFFFFF`、`#DDFFFFFF`、`24dp`、`12dp`，未全部引用 token |
 | G3 | 空态主次层级靠原生控件与排列顺序表达 | `activity_device_list.xml:124–143` 三个 `Button` 无统一主 / 次按钮样式，三步说明压缩在单个 `TextView` |
 | G4 | 多设备总览未实现 | 全仓检索 `grid / 网格 / multi-view` 仅命中 `MotionDetector` 的检测网格掩码，无多画面网格布局或代码；`docs/07 §5` 曾列 P1 但未见落地提交 |
@@ -182,8 +182,8 @@ AlfredCamera 采用摄像头端 / 观看端双 App 角色与扫码配对，并�
 
 #### 4.2.1 色彩规范（UI-01）
 
-- **现状**：`colors.xml` 内 `qs_*` 与 `qs_color_*` 两套并存；`docs/02 §6.1` 的色值表与代码新令牌不一致（G1）。
-- **需求**：以单一色彩令牌集为唯一来源，移除或别名化旧令牌；状态色（`ok / warn / danger / idle`）只用于状态表达，不作为按钮底色；主色最终取值需设计评审裁决（现有 `qs_accent #FF00BFA6` 与 `qs_color_primary #FF0F766E` 二选一），裁决结果同步回写 `colors.xml`、`docs/02 §6.1` 与本文件。
+- **现状**：`colors.xml` 曾并存 `qs_*`（线上令牌，被全代码引用）与 `qs_color_*`（设计令牌，经检索 0 引用，死令牌）；二者主色与状态色取值均不同（G1）。T04776 / UI-01 已移除 `qs_color_*`、确立 `qs_*` 为唯一来源。
+- **需求（已落地）**：以 `qs_*` 单一色彩令牌集为唯一来源，移除死令牌 `qs_color_*`；状态色（`ok / warn / danger / idle`）只用于状态表达，不作为按钮底色；主色取线上值 `qs_accent #FF00BFA6`（青色，值守场景不刺眼），`qs_color_primary #FF0F766E` 备选未采用、留作独立设计决策。结论已同步回写 `colors.xml`（注释）与 `docs/02 §6.1`。
 - **约束**：不引入新色系；正文 / 状态文字对比度 ≥ 4.5:1；状态不得只靠颜色区分（沿用 `docs/02 §6.1` 的「图标 + 文字」规则）。
 
 #### 4.2.2 布局调整（UI-02）
@@ -265,7 +265,7 @@ AlfredCamera 采用摄像头端 / 观看端双 App 角色与扫码配对，并�
 - **不做**：检测算法 / 模型重构、服务端与网络架构变更、账号体系、云存储、订阅、远程中继、多语言翻译、新增系统权限。
 - **不改**：`PRD-QuietSentry.md` 已冻结的产品边界；`docs/07` 已交付的实施方案批次。
 - **不承诺**：本文件不给出下载量、星标数、竞品用户量等未核实数据；不把设计判断写成竞品公开事实。
-- **待裁决**：UI-01 的主色取值（`qs_accent` 与 `qs_color_primary` 二选一）需设计评审决定，本文件不预设结论。
+- **主色裁决（已收口）**：经检索 `qs_color_primary #FF0F766E` 全仓 0 引用（死令牌），而 `qs_accent #FF00BFA6` 为线上实际主色。T04776 / UI-01 收敛结论为**保留 `qs_accent #FF00BFA6`** 作为主色、`qs_color_*` 系列已移除。若产品后续希望改用更深的 `#0F766E` 青绿，属独立视觉重做决策，须另行评审，不在本次机械收敛范围。
 
 ---
 
