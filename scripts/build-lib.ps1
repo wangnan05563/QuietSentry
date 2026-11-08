@@ -26,9 +26,9 @@ function Resolve-JavaHome {
     if ($env:JAVA_HOME -and (Test-Path (Join-Path $env:JAVA_HOME 'bin\java.exe'))) {
         return $env:JAVA_HOME
     }
-    # 本机把 JDK 放在 D:\android\jdk17 下，版本目录会随升级变化，因此按“含 bin\java.exe”扫描
-    if (Test-Path 'D:\android\jdk17') {
-        $roots = @('D:\android\jdk17') + (Get-ChildItem 'D:\android\jdk17' -Directory | ForEach-Object { $_.FullName })
+    # 本机把 JDK 放在 E:\Android\jdk17 下，版本目录会随升级变化，因此按“含 bin\java.exe”扫描
+    if (Test-Path 'E:\Android\jdk17') {
+        $roots = @('E:\Android\jdk17') + (Get-ChildItem 'E:\Android\jdk17' -Directory | ForEach-Object { $_.FullName })
         foreach ($root in $roots) {
             if (Test-Path (Join-Path $root 'bin\java.exe')) { return $root }
         }
@@ -48,13 +48,13 @@ function Resolve-AndroidSdk {
     if (Test-Path $localProps) {
         $line = Get-Content $localProps | Where-Object { $_ -match '^sdk\.dir=' } | Select-Object -First 1
         if ($line) {
-            # local.properties 里的冒号与反斜杠都是 Java Properties 转义形式（D\:\\android\\sdk）
+            # local.properties 里的冒号与反斜杠都是 Java Properties 转义形式（E\:\\Android\\sdk）
             $path = $line -replace '^sdk\.dir=', ''
             $path = $path.Replace('\\', '\').Replace('\:', ':')
             if (Test-Path $path) { return $path }
         }
     }
-    if (Test-Path 'D:\android\sdk') { return 'D:\android\sdk' }
+    if (Test-Path 'E:\Android\sdk') { return 'E:\Android\sdk' }
     return $null
 }
 
@@ -63,8 +63,8 @@ function Resolve-Gradle {
     if (Test-Path $wrapper) { return $wrapper }
     $cmd = Get-Command gradle -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
-    # 本机没有全局 gradle，发行版解压在 D:\android\gradle-* 下
-    $candidates = Get-ChildItem 'D:\android' -Directory -Filter 'gradle-*' -ErrorAction SilentlyContinue |
+    # 本机没有全局 gradle，发行版解压在 E:\Android\gradle-* 下
+    $candidates = Get-ChildItem 'E:\Android' -Directory -Filter 'gradle-*' -ErrorAction SilentlyContinue |
         Sort-Object Name -Descending |
         ForEach-Object { Join-Path $_.FullName 'bin\gradle.bat' }
     foreach ($candidate in $candidates) {
@@ -163,7 +163,7 @@ function Assert-BuildDependencies {
 
     $gradle = Resolve-Gradle
     if (-not $gradle) {
-        $failures += '未找到 Gradle（本项目也没有 gradlew）。请把 gradle 加入 PATH 或放在 D:\android\gradle-*。'
+        $failures += '未找到 Gradle（本项目也没有 gradlew）。请把 gradle 加入 PATH 或放在 E:\Android\gradle-*。'
     } else {
         Write-Ok "Gradle ($gradle)"
     }
