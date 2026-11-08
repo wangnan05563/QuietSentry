@@ -37,7 +37,7 @@
 | [lenscast](https://github.com/raulshma/lenscast) | 局域网 WiFi 相机 | 浏览器观看页的参数分组、网络质量分级、快捷磁贴 |
 | [Retired-Sentinel](https://github.com/Feebami/Retired-Sentinel-App) | 端侧 AI 安防 | 检测框叠加、事件通知的“人/非人”区分 |
 | [HomeSentry](https://github.com/obrassard/HomeSentry) | 分布式多机位 | 多机位网格、单机位聚焦、Web 控制台布局 |
-| [android-ip-camera](https://github.com/Tea-n-Tech/android-ip-camera) | 局域网推流 | 极简首屏与最小配置路径 |
+| [android-ip-camera](https://github.com/DigitallyRefined/android-ip-camera) | 局域网推流 | 极简首屏与最小配置路径 |
 | AlfredCamera（商业参照） | 双端 App | 扫码配对流程、App Lock、Trust Circle 的人情化表达 |
 
 对标只看**界面与流程**，不复制其架构。竞品的功能事实已在主 PRD §2 记录，本文不重复罗列。
