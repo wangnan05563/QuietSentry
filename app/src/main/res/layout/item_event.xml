@@ -1,49 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 事件行（PRD 2.6）：缩略图 + 标题/元信息/标志。
+     B 单：根套 DeviceCard 组件统一卡片语言（comp_shape_card 背景 + qs_space_12 padding，
+     与设备卡/状态卡一致）；外层 FrameLayout 承载 selectableItemBackground 波纹，
+     内层 LinearLayout 承载卡片底，二者分离使波纹叠加在卡片之上而不冲掉底色。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?android:attr/selectableItemBackground"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:padding="@dimen/qs_space_12">
-
-    <ImageView
-        android:id="@+id/thumb_image"
-        android:layout_width="96dp"
-        android:layout_height="72dp"
-        android:background="@color/qs_inline_surface_13"
-        android:contentDescription="@string/event_thumb_desc"
-        android:scaleType="centerCrop" />
+    android:background="?android:attr/selectableItemBackground">
 
     <LinearLayout
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="@dimen/qs_space_12"
-        android:layout_weight="1"
-        android:orientation="vertical">
+        android:background="@drawable/comp_shape_card"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="@dimen/qs_space_12">
 
-        <TextView
-            android:id="@+id/title_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="@android:color/white"
-            android:textSize="@dimen/qs_text_body" />
+        <ImageView
+            android:id="@+id/thumb_image"
+            android:layout_width="96dp"
+            android:layout_height="72dp"
+            android:background="@color/qs_inline_surface_13"
+            android:contentDescription="@string/event_thumb_desc"
+            android:scaleType="centerCrop" />
 
-        <TextView
-            android:id="@+id/meta_text"
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_4"
-            android:textColor="@color/qs_text_muted"
-            android:textSize="@dimen/qs_text_caption" />
+            android:layout_marginStart="@dimen/qs_space_12"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/flags_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_2"
-            android:textColor="@color/qs_inline_amber"
-            android:textSize="@dimen/qs_text_caption" />
+            <TextView
+                android:id="@+id/title_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/qs_text"
+                android:textSize="@dimen/qs_text_body" />
+
+            <TextView
+                android:id="@+id/meta_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/qs_space_4"
+                android:textColor="@color/qs_text_muted"
+                android:textSize="@dimen/qs_text_caption" />
+
+            <TextView
+                android:id="@+id/flags_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/qs_space_2"
+                android:textColor="@color/qs_inline_amber"
+                android:textSize="@dimen/qs_text_caption" />
+        </LinearLayout>
     </LinearLayout>
-
-</LinearLayout>
+</FrameLayout>

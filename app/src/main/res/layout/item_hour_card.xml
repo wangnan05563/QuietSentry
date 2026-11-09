@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 小时卡（PRD 2.6）：首张缩略图 + 条数，点击可折叠/展开该小时（T04054） -->
+<!-- 小时卡（PRD 2.6）：首张缩略图 + 条数，点击可折叠/展开该小时（T04054）。
+     B 单：根套卡片背景（comp_shape_card，与设备卡/事件卡同形同色）统一时间轴视觉语言。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@drawable/comp_shape_card"
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:paddingStart="@dimen/qs_space_12"
@@ -14,6 +16,7 @@
         android:id="@+id/hour_thumb"
         android:layout_width="@dimen/qs_size_icon"
         android:layout_height="42dp"
+        android:background="@color/qs_inline_surface_13"
         android:contentDescription="@string/hour_thumb_desc"
         android:scaleType="centerCrop" />
 

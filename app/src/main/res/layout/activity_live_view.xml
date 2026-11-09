@@ -36,10 +36,12 @@
         android:orientation="horizontal"
         android:padding="@dimen/qs_space_8">
 
+        <!-- 顶部主操作（返回）走组件：PrimaryButton 提供 48dp 触控高度 + 主操作青色强调（§3.x / docs/10）-->
         <Button
             android:id="@+id/live_back"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            style="@style/Widget.QuietSentry.PrimaryButton"
             android:text="@string/live_close" />
 
         <TextView
@@ -61,34 +63,39 @@
 
     <!-- 远程动作竖排（PRD 4.3）：对讲/警笛/手电是画面在演时的“插话”动作，
          放右侧不遮挡底部状态条；仍用文字按钮——项目不引图标库，文字比自带 emoji 图标更可预期 -->
-    <LinearLayout
-        android:id="@+id/live_actions"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end|center_vertical"
-        android:orientation="vertical"
-        android:padding="@dimen/qs_space_8">
-
-        <Button
-            android:id="@+id/live_talk"
+        <!-- 画面在演时的「插话」动作（PRD 4.3）：次操作走 SecondaryButton（48dp 触控高度 + 青字描边）；
+             仍用文字按钮——项目不引图标库，文字比自带 emoji 图标更可预期 -->
+        <LinearLayout
+            android:id="@+id/live_actions"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/live_talk" />
+            android:layout_gravity="end|center_vertical"
+            android:orientation="vertical"
+            android:padding="@dimen/qs_space_8">
 
-        <Button
-            android:id="@+id/live_siren"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_8"
-            android:text="@string/live_siren" />
+            <Button
+                android:id="@+id/live_talk"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                style="@style/Widget.QuietSentry.SecondaryButton"
+                android:text="@string/live_talk" />
 
-        <Button
-            android:id="@+id/live_torch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_8"
-            android:text="@string/live_torch" />
-    </LinearLayout>
+            <Button
+                android:id="@+id/live_siren"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/qs_space_8"
+                style="@style/Widget.QuietSentry.SecondaryButton"
+                android:text="@string/live_siren" />
+
+            <Button
+                android:id="@+id/live_torch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/qs_space_8"
+                style="@style/Widget.QuietSentry.SecondaryButton"
+                android:text="@string/live_torch" />
+        </LinearLayout>
 
     <LinearLayout
         android:id="@+id/live_bottom_bar"
@@ -162,6 +169,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="@dimen/qs_space_8"
                 android:layout_weight="1"
+                style="@style/Widget.QuietSentry.SecondaryButton"
                 android:text="@string/live_snapshot" />
 
             <Button
@@ -169,6 +177,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                style="@style/Widget.QuietSentry.SecondaryButton"
                 android:text="@string/live_pause" />
         </LinearLayout>
     </LinearLayout>

@@ -2,7 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/black">
+    android:background="@color/qs_bg">
 
     <androidx.camera.view.PreviewView
         android:id="@+id/scan_preview"
@@ -31,6 +31,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/qs_space_12"
+            style="@style/Widget.QuietSentry.SecondaryButton"
             android:text="@string/scan_pair_back" />
     </LinearLayout>
 </FrameLayout>
