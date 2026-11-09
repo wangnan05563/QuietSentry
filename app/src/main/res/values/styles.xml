@@ -4,6 +4,11 @@
          父级沿用 AppCompat（应用主题为 Theme.AppCompat.NoActionBar，非 Material Components），
          不引入 Material 父样式以免主题不兼容。 -->
 
+    <!-- 组件家族根样式：点分命名的 style 若未显式声明 parent，aapt2 会按前缀隐式
+         继承 Widget.QuietSentry；缺这个基类会导致资源链接失败（T04782 构建实测）。
+         parent="" 表示不继承任何样式，供 StatusCard / ErrorBanner 等隐式继承。 -->
+    <style name="Widget.QuietSentry" parent="" />
+
     <style name="Widget.QuietSentry.PrimaryButton" parent="Widget.AppCompat.Button">
         <item name="android:background">@drawable/comp_btn_primary_bg</item>
         <item name="android:backgroundTint">@color/comp_btn_primary_tint</item>
