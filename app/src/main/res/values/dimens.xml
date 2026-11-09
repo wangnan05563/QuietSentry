@@ -48,5 +48,14 @@
          3. 一次性固有组件尺寸：layout_width/height 220/240/280/300dp（对话框）、
             88/96/72/42dp 等；minWidth/minHeight 56dp
          4. 动画位移 android:fromYDelta/fromXDelta 等
+
+         第二遍核验（T04893 后实扫 res/**/*.xml）：
+         T04884 + T04889 已收敛全部可复用尺寸（minWidth 56dp→qs_size_icon 等）。
+         剩余裸 dp/sp 仅 61 处，全属上述 1–4 类：
+           - 0dp（weight/divider/min，结构性）
+           - drawable 描边 1dp（comp_shape_stroke_* 各 1 处，共 3）
+           - 宽屏双栏侧栏 300dp（layout-sw600dp/sw840dp，一次性布局尺寸）
+         无重复 ≥2 次的一次性尺寸需要新增 Token，再硬抽反而制造噪音。
+         结论：尺寸 Token 收敛已收口，无需第三遍。
          ============================================================ -->
 </resources>
