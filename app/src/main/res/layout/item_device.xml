@@ -73,9 +73,23 @@
             android:textSize="@dimen/qs_text_caption" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/device_state"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textSize="@dimen/qs_text_status" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <View
+            android:id="@+id/device_state_dot"
+            android:layout_width="@dimen/qs_size_dot"
+            android:layout_height="@dimen/qs_size_dot"
+            android:layout_marginEnd="@dimen/qs_space_6"
+            android:background="@drawable/comp_shape_dot" />
+
+        <TextView
+            android:id="@+id/device_state"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="@dimen/qs_text_status" />
+    </LinearLayout>
 </LinearLayout>

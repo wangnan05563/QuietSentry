@@ -38,6 +38,8 @@
     <dimen name="qs_size_button">48dp</dimen>
     <!-- 图标按钮/缩略图标准尺寸（T04884 补） -->
     <dimen name="qs_size_icon">56dp</dimen>
+    <!-- 状态色点直径（docs/10 §3.4）：8dp 圆点复用 DeviceState 状态色 -->
+    <dimen name="qs_size_dot">8dp</dimen>
 
     <!-- ============================================================
          豁免清单（不 token 化，结构性/固有尺寸，T04884 登记）：

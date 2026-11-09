@@ -281,9 +281,15 @@ class DeviceListActivity : AppCompatActivity() {
             room,
             getString(stateLabel(state.level))
         )
+        val stateLabelRes = stateLabel(state.level)
         view.findViewById<TextView>(R.id.device_state).apply {
-            text = getString(stateLabel(state.level))
+            text = getString(stateLabelRes)
             animateTextColor(this, stateColor(state.level))
+        }
+        // §3.4 状态色点：复用 DeviceState 状态色，contentDescription 描述状态语义（不单靠颜色）
+        view.findViewById<View>(R.id.device_state_dot).apply {
+            contentDescription = getString(stateLabelRes)
+            background?.setTint(stateColor(state.level))
         }
         view.findViewById<TextView>(R.id.device_detail).text = detailText(state, now)
         // 双栏里列表和右侧画面是同一件事的两半，选中卡片必须能一眼看出来
