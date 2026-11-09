@@ -31,6 +31,7 @@
 
         <Button
             android:id="@+id/deleted_button"
+            style="@style/Widget.QuietSentry.SecondaryButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/timeline_deleted" />
@@ -92,11 +93,11 @@
         <!-- 删除撤销条（PRD 2.7）：贴底浮层，5 秒后自动消失（T04055） -->
         <LinearLayout
             android:id="@+id/undo_bar"
+            style="@style/Widget.QuietSentry.ErrorBanner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
             android:layout_margin="12dp"
-            android:background="@color/qs_inline_danger_93"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingStart="16dp"
@@ -115,6 +116,7 @@
 
             <Button
                 android:id="@+id/undo_button"
+                style="@style/Widget.QuietSentry.SecondaryButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/timeline_undo" />
