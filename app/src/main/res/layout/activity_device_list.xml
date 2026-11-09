@@ -66,6 +66,9 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:layout_marginEnd="@dimen/qs_space_8"
+            android:ellipsize="end"
+            android:maxLines="2"
             android:text="@string/device_offline_banner"
             android:textColor="@color/qs_inline_warn"
             android:textSize="@dimen/qs_text_status" />
