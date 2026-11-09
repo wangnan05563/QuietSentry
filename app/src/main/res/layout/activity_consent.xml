@@ -5,7 +5,7 @@
     android:background="@android:color/black"
     android:fitsSystemWindows="true"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="@dimen/qs_space_24">
 
     <TextView
         android:layout_width="match_parent"
@@ -19,7 +19,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="24dp">
+        android:layout_marginTop="@dimen/qs_space_24">
 
         <ScrollView
             android:layout_width="match_parent"
@@ -35,14 +35,14 @@
                     android:layout_height="wrap_content"
                     android:text="@string/consent_page1_title"
                     android:textColor="@android:color/white"
-                    android:textSize="24sp"
+                    android:textSize="@dimen/qs_text_title_large"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:lineSpacingExtra="6dp"
+                    android:layout_marginTop="@dimen/qs_space_16"
+                    android:lineSpacingExtra="@dimen/qs_space_6"
                     android:text="@string/consent_page1_body"
                     android:textColor="@color/qs_inline_text_87"
                     android:textSize="@dimen/qs_text_body" />
@@ -63,14 +63,14 @@
                     android:layout_height="wrap_content"
                     android:text="@string/consent_page2_title"
                     android:textColor="@android:color/white"
-                    android:textSize="24sp"
+                    android:textSize="@dimen/qs_text_title_large"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:lineSpacingExtra="6dp"
+                    android:layout_marginTop="@dimen/qs_space_16"
+                    android:lineSpacingExtra="@dimen/qs_space_6"
                     android:text="@string/consent_page2_body"
                     android:textColor="@color/qs_inline_text_87"
                     android:textSize="@dimen/qs_text_body" />
@@ -91,14 +91,14 @@
                     android:layout_height="wrap_content"
                     android:text="@string/consent_page3_title"
                     android:textColor="@android:color/white"
-                    android:textSize="24sp"
+                    android:textSize="@dimen/qs_text_title_large"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:lineSpacingExtra="6dp"
+                    android:layout_marginTop="@dimen/qs_space_16"
+                    android:lineSpacingExtra="@dimen/qs_space_6"
                     android:text="@string/consent_page3_body"
                     android:textColor="@color/qs_inline_text_87"
                     android:textSize="@dimen/qs_text_body" />
@@ -110,7 +110,7 @@
         android:id="@+id/consent_progress"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="@dimen/qs_space_16"
         android:gravity="center"
         android:textColor="@color/qs_text_hint"
         android:textSize="@dimen/qs_text_caption" />
@@ -119,7 +119,7 @@
         android:id="@+id/consent_checkbox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="@dimen/qs_space_8"
         android:text="@string/consent_checkbox"
         android:textColor="@android:color/white"
         android:visibility="gone" />
@@ -128,7 +128,7 @@
         android:id="@+id/consent_action"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="@dimen/qs_space_12"
         android:text="@string/consent_next" />
 
 </LinearLayout>

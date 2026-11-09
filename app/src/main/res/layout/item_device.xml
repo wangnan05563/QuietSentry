@@ -9,7 +9,7 @@
     android:focusable="true"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="12dp">
+    android:padding="@dimen/qs_space_12">
 
     <!-- 封面 = 最近快照缩略图（T04046），拉取失败或离线从未拍到时回退设备名首字 -->
     <FrameLayout
@@ -18,8 +18,8 @@
 
         <ImageView
             android:id="@+id/device_thumb"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
+            android:layout_width="@dimen/qs_size_icon"
+            android:layout_height="@dimen/qs_size_icon"
             android:importantForAccessibility="no"
             android:scaleType="centerCrop"
             android:visibility="gone" />
@@ -33,8 +33,8 @@
             android:gravity="center"
             android:minWidth="56dp"
             android:minHeight="56dp"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
+            android:paddingStart="@dimen/qs_space_8"
+            android:paddingEnd="@dimen/qs_space_8"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_title" />
     </FrameLayout>
@@ -44,8 +44,8 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:orientation="vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="8dp">
+        android:paddingStart="@dimen/qs_space_12"
+        android:paddingEnd="@dimen/qs_space_8">
 
         <TextView
             android:id="@+id/device_name"
@@ -60,7 +60,7 @@
             android:id="@+id/device_meta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="@dimen/qs_space_2"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
 
@@ -68,7 +68,7 @@
             android:id="@+id/device_detail"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:textColor="@color/qs_inline_text_70"
             android:textSize="@dimen/qs_text_caption" />
     </LinearLayout>

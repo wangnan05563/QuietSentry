@@ -26,7 +26,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="12dp">
+            android:padding="@dimen/qs_space_12">
 
             <TextView
                 android:id="@+id/status_text"
@@ -39,14 +39,14 @@
                 android:id="@+id/start_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/qs_space_8"
                 android:text="@string/start_guard" />
 
             <Button
                 android:id="@+id/stop_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/qs_space_8"
                 android:text="@string/stop_guard" />
 
             <!-- 横屏曾是唯一漏掉连续记录的布局：MainActivity 对它无条件 setOnClickListener，
@@ -55,50 +55,50 @@
                 android:id="@+id/record_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/qs_space_8"
                 android:text="@string/record_mode_entry" />
 
             <Button
                 android:id="@+id/black_mode_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/qs_space_8"
                 android:text="@string/black_mode_entry" />
 
             <Button
                 android:id="@+id/timeline_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/qs_space_8"
                 android:text="@string/timeline_entry" />
 
             <Button
                 android:id="@+id/pairing_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/qs_space_8"
                 android:text="@string/pairing_entry" />
 
             <Button
                 android:id="@+id/device_list_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/qs_space_8"
                 android:text="@string/device_list_entry" />
 
             <Button
                 android:id="@+id/remote_access_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/qs_space_8"
                 android:text="@string/remote_entry" />
 
             <Button
                 android:id="@+id/settings_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp"
+                android:layout_marginTop="@dimen/qs_space_8"
+                android:layout_marginBottom="@dimen/qs_space_8"
                 android:text="@string/settings_entry" />
         </LinearLayout>
     </ScrollView>

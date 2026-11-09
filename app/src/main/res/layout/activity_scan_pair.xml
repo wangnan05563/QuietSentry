@@ -15,7 +15,7 @@
         android:layout_gravity="bottom"
         android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="@dimen/qs_space_16">
 
         <TextView
             android:id="@+id/scan_pair_hint"
@@ -30,7 +30,7 @@
             android:id="@+id/scan_pair_back"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/qs_space_12"
             android:text="@string/scan_pair_back" />
     </LinearLayout>
 </FrameLayout>

@@ -7,10 +7,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingStart="8dp"
-    android:paddingTop="6dp"
-    android:paddingEnd="8dp"
-    android:paddingBottom="6dp">
+    android:paddingStart="@dimen/qs_space_8"
+    android:paddingTop="@dimen/qs_space_6"
+    android:paddingEnd="@dimen/qs_space_8"
+    android:paddingBottom="@dimen/qs_space_6">
 
     <TextView
         android:id="@+id/side_event_type"
@@ -23,7 +23,7 @@
         android:id="@+id/side_event_time"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="@dimen/qs_space_2"
         android:textColor="@color/qs_text_muted"
         android:textSize="@dimen/qs_text_caption" />
 </LinearLayout>

@@ -5,14 +5,14 @@
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingStart="12dp"
-    android:paddingTop="6dp"
-    android:paddingEnd="12dp"
-    android:paddingBottom="2dp">
+    android:paddingStart="@dimen/qs_space_12"
+    android:paddingTop="@dimen/qs_space_6"
+    android:paddingEnd="@dimen/qs_space_12"
+    android:paddingBottom="@dimen/qs_space_2">
 
     <ImageView
         android:id="@+id/hour_thumb"
-        android:layout_width="56dp"
+        android:layout_width="@dimen/qs_size_icon"
         android:layout_height="42dp"
         android:contentDescription="@string/hour_thumb_desc"
         android:scaleType="centerCrop" />
@@ -22,7 +22,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:paddingStart="10dp"
+        android:paddingStart="@dimen/qs_space_10"
         android:textColor="@color/qs_inline_gray_47"
         android:textSize="@dimen/qs_text_status" />
 
@@ -31,7 +31,7 @@
         android:id="@+id/hour_arrow"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingStart="8dp"
+        android:paddingStart="@dimen/qs_space_8"
         android:textColor="@color/qs_inline_gray_47"
         android:textSize="@dimen/qs_text_status" />
 </LinearLayout>

@@ -5,7 +5,7 @@
     android:background="@color/qs_bg"
     android:fitsSystemWindows="true"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="@dimen/qs_space_24">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -28,7 +28,7 @@
             android:layout_height="wrap_content"
             android:minHeight="0dp"
             android:minWidth="0dp"
-            android:paddingStart="12dp"
+            android:paddingStart="@dimen/qs_space_12"
             android:paddingEnd="0dp"
             android:text="@string/onboard_skip"
             android:textColor="@color/qs_text_muted"
@@ -39,15 +39,15 @@
         android:id="@+id/onboard_flipper"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="@dimen/qs_space_16"
         android:layout_weight="1" />
 
     <LinearLayout
         android:id="@+id/onboard_dots"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginTop="@dimen/qs_space_20"
+        android:layout_marginBottom="@dimen/qs_space_16"
         android:gravity="center"
         android:orientation="horizontal" />
 

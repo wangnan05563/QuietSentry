@@ -1,26 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- 设计 Token（02-交互与视觉设计 §6.1/6.2，T04025；T04060 按 PRD 4.6 更新数值并全局适配）：
-         字号/间距/圆角集中定义，布局一律引用 token，避免散落硬编码 sp/dp；
-         间距只用 4/8/12/16/24 五档（PRD 裁决：不用随手数值）。 -->
-    <!-- 字号（PRD 4.6 三级）：正文 15，状态行 13，辅助说明 12；
-         标题 20/24 两级与页面大标题不在 4.6 范围内维持原值 -->
+         字号/间距/圆角集中定义，布局一律引用 token，避免散落硬编码 sp/dp。
+         T04884 将布局中散落的硬编码 dp/sp 收敛到下方 token；结构性/固有尺寸（见文件尾豁免清单）不 token 化。 -->
+    <!-- 字号（PRD 4.6 三级 + 组件扩展）：正文 15，状态行 13，辅助说明 12；
+         标题 20/24 两级与页面大标题不在 4.6 范围内维持原值；
+         18sp 副标题 / 25sp 展示 / 28sp 大标题为组件级扩展。 -->
     <dimen name="qs_text_title">20sp</dimen>
     <dimen name="qs_text_title_large">24sp</dimen>
+    <dimen name="qs_text_headline">28sp</dimen>
+    <dimen name="qs_text_display">25sp</dimen>
+    <dimen name="qs_text_subtitle">18sp</dimen>
     <dimen name="qs_text_body">15sp</dimen>
     <dimen name="qs_text_status">13sp</dimen>
     <dimen name="qs_text_caption">12sp</dimen>
 
-    <!-- 间距栅格：五档 -->
+    <!-- 间距栅格：PRD 裁决五档 4/8/12/16/24 为基础，实践中补充 2/6/10/20/32/48 以收敛散落硬编码 -->
+    <dimen name="qs_space_2">2dp</dimen>
     <dimen name="qs_space_4">4dp</dimen>
+    <dimen name="qs_space_6">6dp</dimen>
     <dimen name="qs_space_8">8dp</dimen>
+    <dimen name="qs_space_10">10dp</dimen>
     <dimen name="qs_space_12">12dp</dimen>
     <dimen name="qs_space_16">16dp</dimen>
+    <dimen name="qs_space_20">20dp</dimen>
     <dimen name="qs_space_24">24dp</dimen>
+    <dimen name="qs_space_32">32dp</dimen>
+    <dimen name="qs_space_48">48dp</dimen>
 
-    <!-- 圆角（PRD 4.6）：卡片 20dp 提高暗色下的分层可读性；按钮不在 4.6 范围，维持 10dp -->
+    <!-- 圆角（PRD 4.6）：卡片 20dp 提高暗色下的分层可读性；按钮 10dp 维持原值；
+         medium 18dp 用于直播质量药丸等中型圆角 -->
     <dimen name="qs_radius_card">20dp</dimen>
+    <dimen name="qs_radius_medium">18dp</dimen>
     <dimen name="qs_radius_button">10dp</dimen>
+
     <!-- 按钮最小触控高度（UI-03 规范，T04780 补） -->
     <dimen name="qs_size_button">48dp</dimen>
+    <!-- 图标按钮/缩略图标准尺寸（T04884 补） -->
+    <dimen name="qs_size_icon">56dp</dimen>
+
+    <!-- ============================================================
+         豁免清单（不 token 化，结构性/固有尺寸，T04884 登记）：
+         1. layout_width/height="0dp"：weight/divider/minHeight/minWidth 的结构约束
+         2. android:width="1dp"（drawable 描边细线）、vector 固有 108dp
+         3. 一次性固有组件尺寸：layout_width/height 220/240/280/300dp（对话框）、
+            88/96/72/42dp 等；minWidth/minHeight 56dp
+         4. 动画位移 android:fromYDelta/fromXDelta 等
+         ============================================================ -->
 </resources>

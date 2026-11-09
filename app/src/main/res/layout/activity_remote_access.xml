@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="@dimen/qs_space_16">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -30,21 +30,21 @@
                 android:gravity="center"
                 android:text="@string/remote_title"
                 android:textColor="@android:color/white"
-                android:textSize="18sp" />
+                android:textSize="@dimen/qs_text_subtitle" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/remote_network"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/qs_space_12"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/remote_target_label"
             android:textColor="@android:color/white"
             android:textSize="@dimen/qs_text_body" />
@@ -53,7 +53,7 @@
             android:id="@+id/remote_target"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:hint="@string/remote_target_hint"
             android:inputType="textNoSuggestions"
             android:textColor="@android:color/white"
@@ -63,14 +63,14 @@
             android:id="@+id/remote_probe"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/remote_probe" />
 
         <TextView
             android:id="@+id/remote_lan_result"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/qs_space_12"
             android:textColor="@color/qs_idle"
             android:textSize="@dimen/qs_text_status" />
 
@@ -78,7 +78,7 @@
             android:id="@+id/remote_overlay_result"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:textColor="@color/qs_idle"
             android:textSize="@dimen/qs_text_status" />
 
@@ -86,7 +86,7 @@
             android:id="@+id/remote_result"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/qs_space_12"
             android:textColor="@android:color/white"
             android:textSize="@dimen/qs_text_body" />
 
@@ -94,13 +94,13 @@
             android:id="@+id/remote_wifi_settings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/qs_space_16"
             android:text="@string/remote_wifi_settings" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="@dimen/qs_space_24"
             android:text="@string/remote_guide_title"
             android:textColor="@android:color/white"
             android:textSize="@dimen/qs_text_body" />
@@ -109,8 +109,8 @@
             android:id="@+id/remote_guide_tailscale"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:lineSpacingExtra="4dp"
+            android:layout_marginTop="@dimen/qs_space_8"
+            android:lineSpacingExtra="@dimen/qs_space_4"
             android:text="@string/remote_guide_tailscale"
             android:textColor="@color/qs_inline_text_80"
             android:textSize="@dimen/qs_text_status" />
@@ -119,8 +119,8 @@
             android:id="@+id/remote_guide_wireguard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:lineSpacingExtra="4dp"
+            android:layout_marginTop="@dimen/qs_space_16"
+            android:lineSpacingExtra="@dimen/qs_space_4"
             android:text="@string/remote_guide_wireguard"
             android:textColor="@color/qs_inline_text_80"
             android:textSize="@dimen/qs_text_status" />
@@ -129,7 +129,7 @@
             android:id="@+id/remote_fallback"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/remote_fallback"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status" />

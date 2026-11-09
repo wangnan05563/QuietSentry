@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="@dimen/qs_space_16">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -30,14 +30,14 @@
                 android:gravity="center"
                 android:text="@string/pairing_title"
                 android:textColor="@android:color/white"
-                android:textSize="18sp" />
+                android:textSize="@dimen/qs_text_subtitle" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/pairing_hint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/qs_space_12"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status" />
 
@@ -47,23 +47,23 @@
             android:layout_width="240dp"
             android:layout_height="240dp"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/qs_space_16"
             android:contentDescription="@string/pairing_qr_desc" />
 
         <TextView
             android:id="@+id/pairing_code"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/qs_space_12"
             android:gravity="center"
             android:textColor="@android:color/white"
-            android:textSize="28sp" />
+            android:textSize="@dimen/qs_text_headline" />
 
         <TextView
             android:id="@+id/pairing_fingerprint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="@dimen/qs_space_4"
             android:gravity="center"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
@@ -72,28 +72,28 @@
             android:id="@+id/pairing_refresh"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/qs_space_16"
             android:text="@string/pairing_refresh" />
 
         <Button
             android:id="@+id/pairing_invite"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/pairing_invite" />
 
         <Button
             android:id="@+id/pairing_invite_guest"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/pairing_invite_guest" />
 
         <TextView
             android:id="@+id/pairing_devices_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="@dimen/qs_space_24"
             android:text="@string/pairing_devices_title"
             android:textColor="@android:color/white"
             android:textSize="@dimen/qs_text_body" />
@@ -102,7 +102,7 @@
             android:id="@+id/pairing_devices"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:orientation="vertical" />
 
         <TextView
@@ -117,14 +117,14 @@
             android:id="@+id/pairing_recovery"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/qs_space_16"
             android:text="@string/pairing_recovery" />
 
         <Button
             android:id="@+id/pairing_revoke_all"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/pairing_revoke_all" />
     </LinearLayout>
 </ScrollView>

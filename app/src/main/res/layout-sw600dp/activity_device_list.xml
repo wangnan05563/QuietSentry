@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="12dp">
+        android:padding="@dimen/qs_space_12">
 
         <Button
             android:id="@+id/device_list_back"
@@ -30,7 +30,7 @@
             android:gravity="center"
             android:text="@string/device_list_title"
             android:textColor="@android:color/white"
-            android:textSize="18sp" />
+            android:textSize="@dimen/qs_text_subtitle" />
 
         <Button
             android:id="@+id/device_list_add"
@@ -55,9 +55,9 @@
                 android:id="@+id/device_list_hint"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:paddingBottom="8dp"
+                android:paddingStart="@dimen/qs_space_12"
+                android:paddingEnd="@dimen/qs_space_12"
+                android:paddingBottom="@dimen/qs_space_8"
                 android:text="@string/device_list_hint"
                 android:textColor="@color/qs_text_muted"
                 android:textSize="@dimen/qs_text_caption" />
@@ -76,7 +76,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="12dp" />
+                        android:padding="@dimen/qs_space_12" />
                 </ScrollView>
 
                 <TextView
@@ -84,7 +84,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:padding="24dp"
+                    android:padding="@dimen/qs_space_24"
                     android:text="@string/device_list_empty"
                     android:textColor="@color/qs_text_muted"
                     android:textSize="@dimen/qs_text_status"
@@ -104,9 +104,9 @@
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="12dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="8dp">
+                android:paddingStart="@dimen/qs_space_12"
+                android:paddingEnd="@dimen/qs_space_8"
+                android:paddingTop="@dimen/qs_space_8">
 
                 <TextView
                     android:id="@+id/device_preview_title"
@@ -143,7 +143,7 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
                     android:gravity="center"
-                    android:padding="24dp"
+                    android:padding="@dimen/qs_space_24"
                     android:text="@string/device_preview_hint"
                     android:textColor="@color/qs_text_muted"
                     android:textSize="@dimen/qs_text_status" />

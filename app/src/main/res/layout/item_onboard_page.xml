@@ -9,8 +9,8 @@
         android:layout_height="wrap_content"
         android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:paddingTop="24dp"
-        android:paddingBottom="24dp">
+        android:paddingTop="@dimen/qs_space_24"
+        android:paddingBottom="@dimen/qs_space_24">
 
         <!-- 品牌标记作为每页固定头图：三页文案变化，视觉锚点保持一致 -->
         <ImageView
@@ -24,7 +24,7 @@
             android:id="@+id/onboard_index"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:letterSpacing="0.3"
             android:textColor="@color/qs_accent"
             android:textSize="@dimen/qs_text_status" />
@@ -33,20 +33,20 @@
             android:id="@+id/onboard_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="@dimen/qs_space_10"
             android:gravity="center"
             android:textColor="@color/qs_text"
-            android:textSize="25sp"
+            android:textSize="@dimen/qs_text_display"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/onboard_body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/qs_space_16"
             android:lineSpacingExtra="7dp"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
+            android:paddingStart="@dimen/qs_space_8"
+            android:paddingEnd="@dimen/qs_space_8"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_body" />
 

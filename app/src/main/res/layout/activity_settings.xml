@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="@dimen/qs_space_16">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -30,13 +30,13 @@
                 android:gravity="center"
                 android:text="@string/settings_title"
                 android:textColor="@color/qs_text"
-                android:textSize="18sp" />
+                android:textSize="@dimen/qs_text_subtitle" />
         </LinearLayout>
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/settings_section_alert"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -45,7 +45,7 @@
             android:id="@+id/settings_quiet_switch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="@dimen/qs_space_10"
             android:text="@string/settings_quiet_switch"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -53,14 +53,14 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:orientation="horizontal">
 
             <Button
                 android:id="@+id/settings_quiet_start"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="@dimen/qs_space_8"
                 android:layout_weight="1" />
 
             <Button
@@ -74,14 +74,14 @@
             android:id="@+id/settings_quiet_hint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/settings_section_plan"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -90,7 +90,7 @@
             android:id="@+id/settings_plan_switch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="@dimen/qs_space_10"
             android:text="@string/settings_plan_switch"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -98,14 +98,14 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:orientation="horizontal">
 
             <Button
                 android:id="@+id/settings_plan_start"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="@dimen/qs_space_8"
                 android:layout_weight="1" />
 
             <Button
@@ -119,14 +119,14 @@
             android:id="@+id/settings_plan_hint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/settings_section_level"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -135,7 +135,7 @@
             android:id="@+id/settings_level_group"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="@dimen/qs_space_4"
             android:orientation="vertical">
 
             <RadioButton
@@ -163,7 +163,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:text="@string/settings_level_hint"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
@@ -171,7 +171,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/settings_section_privacy"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -180,7 +180,7 @@
             android:id="@+id/settings_pin_switch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="@dimen/qs_space_10"
             android:text="@string/settings_pin_switch"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -189,13 +189,13 @@
             android:id="@+id/settings_pin_change"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/settings_pin_change" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:text="@string/settings_pin_hint"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
@@ -204,12 +204,12 @@
             android:id="@+id/settings_mask"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" />
+            android:layout_marginTop="@dimen/qs_space_8" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:text="@string/settings_mask_hint"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
@@ -218,13 +218,13 @@
             android:id="@+id/settings_audit_open"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/settings_audit_open" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:text="@string/settings_audit_hint"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
@@ -232,7 +232,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/settings_section_integration"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -241,7 +241,7 @@
             android:id="@+id/settings_integration_switch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="@dimen/qs_space_10"
             android:text="@string/settings_integration_switch"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -250,7 +250,7 @@
             android:id="@+id/settings_integration_hint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:text="@string/settings_integration_hint"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
@@ -259,7 +259,7 @@
             android:id="@+id/settings_integration_address"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:textColor="@color/qs_text_muted"
             android:textIsSelectable="true"
             android:textSize="@dimen/qs_text_status" />
@@ -268,20 +268,20 @@
             android:id="@+id/settings_integration_token"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/settings_integration_token" />
 
         <Button
             android:id="@+id/settings_integration_disable"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/settings_integration_disable" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/settings_section_power"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -291,7 +291,7 @@
             android:id="@+id/settings_charge_only_switch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="@dimen/qs_space_10"
             android:text="@string/settings_charge_only_switch"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -299,7 +299,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:text="@string/settings_charge_only_hint"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
@@ -309,7 +309,7 @@
             android:id="@+id/settings_shutter_switch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="@dimen/qs_space_10"
             android:text="@string/settings_shutter_switch"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -317,7 +317,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:text="@string/settings_shutter_hint"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
@@ -327,7 +327,7 @@
             android:id="@+id/settings_volume_shutter_switch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="@dimen/qs_space_10"
             android:text="@string/settings_volume_shutter_switch"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -335,7 +335,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:text="@string/settings_volume_shutter_hint"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
@@ -343,7 +343,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/settings_section_health"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -352,14 +352,14 @@
             android:id="@+id/settings_diag_run"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/settings_diag_run" />
 
         <TextView
             android:id="@+id/settings_diag_summary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status" />
 
@@ -367,20 +367,20 @@
             android:id="@+id/settings_diag_result"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:orientation="vertical" />
 
         <Button
             android:id="@+id/settings_diag_export"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/settings_diag_export" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/settings_section_update"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -389,7 +389,7 @@
             android:id="@+id/settings_update_version"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status" />
 
@@ -397,13 +397,13 @@
             android:id="@+id/settings_update_check"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/settings_update_check" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/qs_space_6"
             android:text="@string/settings_update_hint"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
@@ -411,7 +411,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/settings_section_start"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -419,8 +419,8 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:lineSpacingExtra="4dp"
+            android:layout_marginTop="@dimen/qs_space_6"
+            android:lineSpacingExtra="@dimen/qs_space_4"
             android:text="@string/settings_quick_steps"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status" />
@@ -429,14 +429,14 @@
             android:id="@+id/settings_quick_pairing"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="@dimen/qs_space_10"
             android:text="@string/settings_quick_pairing" />
 
         <Button
             android:id="@+id/settings_quick_devices"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/settings_quick_devices" />
     </LinearLayout>
 </ScrollView>

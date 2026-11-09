@@ -5,7 +5,7 @@
     android:background="?android:attr/selectableItemBackground"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="12dp">
+    android:padding="@dimen/qs_space_12">
 
     <ImageView
         android:id="@+id/thumb_image"
@@ -18,7 +18,7 @@
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
+        android:layout_marginStart="@dimen/qs_space_12"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -33,7 +33,7 @@
             android:id="@+id/meta_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="@dimen/qs_space_4"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
 
@@ -41,7 +41,7 @@
             android:id="@+id/flags_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="@dimen/qs_space_2"
             android:textColor="@color/qs_inline_amber"
             android:textSize="@dimen/qs_text_caption" />
     </LinearLayout>

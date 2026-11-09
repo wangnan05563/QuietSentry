@@ -23,7 +23,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:gravity="center"
-        android:padding="24dp"
+        android:padding="@dimen/qs_space_24"
         android:textColor="@color/qs_text_muted"
         android:textSize="@dimen/qs_text_status" />
 
@@ -34,7 +34,7 @@
         android:background="@color/qs_overlay"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="8dp">
+        android:padding="@dimen/qs_space_8">
 
         <Button
             android:id="@+id/live_back"
@@ -67,7 +67,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="end|center_vertical"
         android:orientation="vertical"
-        android:padding="8dp">
+        android:padding="@dimen/qs_space_8">
 
         <Button
             android:id="@+id/live_talk"
@@ -79,14 +79,14 @@
             android:id="@+id/live_siren"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/live_siren" />
 
         <Button
             android:id="@+id/live_torch"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/live_torch" />
     </LinearLayout>
 
@@ -97,7 +97,7 @@
         android:layout_gravity="bottom"
         android:background="@color/qs_overlay"
         android:orientation="vertical"
-        android:padding="8dp">
+        android:padding="@dimen/qs_space_8">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -110,11 +110,11 @@
             android:id="@+id/live_quality_group"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:layout_marginEnd="@dimen/qs_space_8"
             android:layout_weight="2"
             android:background="@color/qs_overlay"
             android:orientation="horizontal"
-            android:padding="2dp">
+            android:padding="@dimen/qs_space_2">
 
             <TextView
                 android:id="@+id/live_quality_auto"
@@ -123,8 +123,8 @@
                 android:layout_weight="1"
                 android:background="@drawable/live_quality_pill_item"
                 android:gravity="center"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
+                android:paddingTop="@dimen/qs_space_8"
+                android:paddingBottom="@dimen/qs_space_8"
                 android:text="@string/live_quality_auto"
                 android:textColor="@color/live_quality_pill_text"
                 android:textSize="@dimen/qs_text_status" />
@@ -136,8 +136,8 @@
                 android:layout_weight="1"
                 android:background="@drawable/live_quality_pill_item"
                 android:gravity="center"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
+                android:paddingTop="@dimen/qs_space_8"
+                android:paddingBottom="@dimen/qs_space_8"
                 android:text="@string/live_quality_smooth"
                 android:textColor="@color/live_quality_pill_text"
                 android:textSize="@dimen/qs_text_status" />
@@ -149,8 +149,8 @@
                 android:layout_weight="1"
                 android:background="@drawable/live_quality_pill_item"
                 android:gravity="center"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
+                android:paddingTop="@dimen/qs_space_8"
+                android:paddingBottom="@dimen/qs_space_8"
                 android:text="@string/live_quality_hd"
                 android:textColor="@color/live_quality_pill_text"
                 android:textSize="@dimen/qs_text_status" />
@@ -160,7 +160,7 @@
                 android:id="@+id/live_snapshot"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="@dimen/qs_space_8"
                 android:layout_weight="1"
                 android:text="@string/live_snapshot" />
 

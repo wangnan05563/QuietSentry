@@ -10,7 +10,7 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="12dp">
+        android:padding="@dimen/qs_space_12">
 
         <Button
             android:id="@+id/back_button"
@@ -27,7 +27,7 @@
             android:gravity="center"
             android:text="@string/timeline_title"
             android:textColor="@android:color/white"
-            android:textSize="18sp" />
+            android:textSize="@dimen/qs_text_subtitle" />
 
         <Button
             android:id="@+id/deleted_button"
@@ -42,8 +42,8 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp">
+        android:paddingStart="@dimen/qs_space_12"
+        android:paddingEnd="@dimen/qs_space_12">
 
         <!-- 用 Spinner 而不是三选一按钮：类型会随人形/遮挡等 P1 能力扩展，按钮组放不下 -->
         <Spinner
@@ -84,7 +84,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center"
-            android:padding="32dp"
+            android:padding="@dimen/qs_space_32"
             android:text="@string/timeline_empty"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_status"
@@ -97,13 +97,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:layout_margin="12dp"
+            android:layout_margin="@dimen/qs_space_12"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingStart="16dp"
-            android:paddingTop="8dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="8dp"
+            android:paddingStart="@dimen/qs_space_16"
+            android:paddingTop="@dimen/qs_space_8"
+            android:paddingEnd="@dimen/qs_space_8"
+            android:paddingBottom="@dimen/qs_space_8"
             android:visibility="gone">
 
             <TextView
