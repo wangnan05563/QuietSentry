@@ -290,7 +290,7 @@ class DeviceListActivity : AppCompatActivity() {
         // 用带圆角的选中底而不是 setBackgroundColor，否则卡片会被打回方角
         view.setBackgroundResource(
             if (device.id == previewDeviceId) R.drawable.qs_card_bg_selected
-            else R.drawable.qs_card_bg
+            else R.drawable.comp_shape_card
         )
         view.setOnClickListener { openLive(device) }
         // 管理动作放进长按：卡片的主用途是看画面，点一下就弹菜单会挡住最常见的操作

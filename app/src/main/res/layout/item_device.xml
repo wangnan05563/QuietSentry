@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.QuietSentry.DeviceCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="@dimen/qs_space_16"
-    android:background="@drawable/qs_card_bg"
+    android:background="@drawable/comp_shape_card"
     android:clickable="true"
     android:focusable="true"
     android:gravity="center_vertical"
@@ -19,7 +20,7 @@
             android:id="@+id/device_thumb"
             android:layout_width="56dp"
             android:layout_height="56dp"
-            android:contentDescription="@string/device_thumb_desc"
+            android:importantForAccessibility="no"
             android:scaleType="centerCrop"
             android:visibility="gone" />
 
@@ -28,7 +29,7 @@
             android:id="@+id/device_cover"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@color/qs_accent_soft"
+            android:background="@color/qs_idle"
             android:gravity="center"
             android:minWidth="56dp"
             android:minHeight="56dp"
