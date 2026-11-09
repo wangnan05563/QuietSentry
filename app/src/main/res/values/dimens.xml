@@ -21,4 +21,6 @@
     <!-- 圆角（PRD 4.6）：卡片 20dp 提高暗色下的分层可读性；按钮不在 4.6 范围，维持 10dp -->
     <dimen name="qs_radius_card">20dp</dimen>
     <dimen name="qs_radius_button">10dp</dimen>
+    <!-- 按钮最小触控高度（UI-03 规范，T04780 补） -->
+    <dimen name="qs_size_button">48dp</dimen>
 </resources>

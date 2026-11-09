@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- UI-03 基础组件资源（T04780；规范见 docs/10-基础组件规范.md）
+         父级沿用 AppCompat（应用主题为 Theme.AppCompat.NoActionBar，非 Material Components），
+         不引入 Material 父样式以免主题不兼容。 -->
+
+    <style name="Widget.QuietSentry.PrimaryButton" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/comp_btn_primary_bg</item>
+        <item name="android:backgroundTint">@color/comp_btn_primary_tint</item>
+        <item name="android:textColor">@color/qs_text</item>
+        <item name="android:textSize">@dimen/qs_text_body</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:minHeight">@dimen/qs_size_button</item>
+        <item name="android:paddingStart">@dimen/qs_space_16</item>
+        <item name="android:paddingEnd">@dimen/qs_space_16</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <style name="Widget.QuietSentry.SecondaryButton" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/comp_btn_secondary_bg</item>
+        <item name="android:textColor">@color/qs_accent</item>
+        <item name="android:textSize">@dimen/qs_text_body</item>
+        <item name="android:minHeight">@dimen/qs_size_button</item>
+        <item name="android:paddingStart">@dimen/qs_space_16</item>
+        <item name="android:paddingEnd">@dimen/qs_space_16</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <style name="Widget.QuietSentry.StatusCard">
+        <item name="android:background">@drawable/comp_shape_card</item>
+        <item name="android:padding">@dimen/qs_space_16</item>
+    </style>
+
+    <style name="Widget.QuietSentry.DeviceCard" parent="Widget.QuietSentry.StatusCard" />
+
+    <style name="Widget.QuietSentry.EmptyState" parent="Widget.QuietSentry.StatusCard">
+        <item name="android:gravity">center</item>
+    </style>
+
+    <style name="Widget.QuietSentry.ErrorBanner">
+        <item name="android:background">@drawable/comp_banner_bg</item>
+        <item name="android:padding">@dimen/qs_space_12</item>
+    </style>
+</resources>

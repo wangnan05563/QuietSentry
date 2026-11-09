@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 主按钮圆角底；实际填充色由 backgroundTint 的 color-state-list 按状态切换 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@android:color/white" />
+    <corners android:radius="@dimen/qs_radius_button" />
+</shape>
