@@ -20,19 +20,20 @@
             android:id="@+id/device_thumb"
             android:layout_width="@dimen/qs_size_icon"
             android:layout_height="@dimen/qs_size_icon"
+            android:background="@color/qs_idle"
             android:importantForAccessibility="no"
             android:scaleType="centerCrop"
             android:visibility="gone" />
 
-        <!-- 用 minWidth/minHeight 而不是固定 56dp：系统字号放大后固定尺寸会让首字母被裁掉 -->
+        <!-- 占位 = qs_surface 浅灰（§3.4），与卡片背景 qs_surface 同色但带圆角；加载失败/离线从未拍到时切 qs_idle 灰 -->
         <TextView
             android:id="@+id/device_cover"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@color/qs_idle"
+            android:background="@drawable/comp_shape_cover"
             android:gravity="center"
-            android:minWidth="56dp"
-            android:minHeight="56dp"
+            android:minWidth="@dimen/qs_size_icon"
+            android:minHeight="@dimen/qs_size_icon"
             android:paddingStart="@dimen/qs_space_8"
             android:paddingEnd="@dimen/qs_space_8"
             android:textColor="@color/qs_text"

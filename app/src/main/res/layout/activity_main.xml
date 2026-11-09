@@ -10,17 +10,18 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- PRD 3.3：权限缺失时顶部阻断色横幅，默认隐藏，授予后即收起 -->
+    <!-- PRD 3.3：权限缺失时顶部阻断色横幅，默认隐藏，授予后即收起。
+         T04889：走 Widget.QuietSentry.ErrorBanner 样式（comp_banner_bg + qs_space_12），
+         与 timeline 撤销条 / 实时页断流横幅同源；保留 PRD 3.3 单横幅原则（一个可点击 TextView，无多按钮） -->
     <TextView
         android:id="@+id/banner_permission"
+        style="@style/Widget.QuietSentry.ErrorBanner"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:background="@color/qs_inline_danger"
         android:gravity="center"
-        android:padding="@dimen/qs_space_10"
         android:text="@string/banner_notification_permission"
-        android:textColor="@android:color/white"
+        android:textColor="@color/qs_text"
         android:textSize="@dimen/qs_text_status"
         android:visibility="gone" />
 

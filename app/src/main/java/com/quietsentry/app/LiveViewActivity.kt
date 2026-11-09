@@ -227,6 +227,13 @@ class LiveViewActivity : AppCompatActivity() {
     private fun renderState(state: LiveStreamer.State) {
         // 断流状态清掉残留框：框只对正在播的流有意义；切换过渡期画面还在，框随画面保留
         if (state != LiveStreamer.State.CONNECTED && !switchingQuality) personBoxes.clearBoxes()
+        // §3.5 异常色：断流（重连/离线）= qs_danger，连接中 = qs_text_muted，已连接 = 隐藏
+        val statusColor = when (state) {
+            LiveStreamer.State.RETRY, LiveStreamer.State.OFFLINE -> getColor(R.color.qs_danger)
+            LiveStreamer.State.UNAUTHORIZED -> getColor(R.color.qs_warn)
+            else -> getColor(R.color.qs_text_muted)
+        }
+        statusText.setTextColor(statusColor)
         when (state) {
             LiveStreamer.State.CONNECTING -> {
                 statusText.text = ""
