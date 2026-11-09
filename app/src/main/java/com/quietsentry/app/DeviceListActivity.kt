@@ -16,6 +16,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -75,6 +76,19 @@ class DeviceListActivity : AppCompatActivity() {
 
     /** 侧栏事件流的上次拉取时间：与封面快照共用 30 秒节流，远端查询不该跟着 5 秒轮询跑 */
     private var sideEventsAt = 0L
+
+    /**
+     * 多设备 2×2 网格（T04759 / UX-01）：仅 sw840dp 布局存在，取到 null 即窄/中屏。
+     * 网格模式下对前 4 台在线设备各起一路流，聚焦时停网格流切换到单画面，返回时重启。
+     */
+    private var gridContainer: LinearLayout? = null
+    private var gridCells: GridLayout? = null
+    private var gridEmpty: TextView? = null
+    private val gridStreams = HashMap<String, LiveStreamer>()
+    private var gridGeneration = 0
+
+    /** 网格是否处于展示状态（用于聚焦/返回切换时判断该停网格流还是单画面流） */
+    private var gridMode = false
 
     /** 侧栏开合状态。折叠屏折叠/展开会 recreate，选择要跨重建保持，所以落 SharedPreferences */
     private var sideOpen = true
@@ -141,9 +155,25 @@ class DeviceListActivity : AppCompatActivity() {
         applySideVisibility()
         lastBreakWide = isWideBreakpoint()
 
-        // 从重建（折叠切换）中恢复选中设备：画面流要重新握手，但设备选择不该丢
+        // 多设备网格只有 sw840dp 布局存在；窄/中屏无这些 id，取到 null 走原单画面路径
+        gridContainer = findViewById(R.id.device_grid)
+        gridCells = findViewById(R.id.device_grid_cells)
+        gridEmpty = findViewById(R.id.device_grid_empty)
+        // 网格里点某格聚焦：复用单画面面板 showPreview，返回按钮切回网格
+        findViewById<Button>(R.id.device_grid_back)?.setOnClickListener { exitGridFocus() }
+        // sw840dp 才有网格控件：有即默认进入网格模式；窄/中屏无网格走原单画面
+        gridMode = gridContainer != null
+
+        // 从重建（折叠切换）中恢复选中设备：画面流要重新握手，但设备选择不该丢。
+        // 重建说明此前处于聚焦态（网格模式不会把单台设备写进 savedInstanceState），
+        // 因此恢复时退出网格、回到聚焦单画面，并亮出“返回网格”按钮
         savedInstanceState?.getString(KEY_PREVIEW_DEVICE)?.let { id ->
-            registry.all().firstOrNull { it.id == id }?.let { showPreview(it) }
+            registry.all().firstOrNull { it.id == id }?.let {
+                gridMode = false
+                findViewById<Button>(R.id.device_grid_back)?.visibility = View.VISIBLE
+                findViewById<Button>(R.id.device_preview_full)?.visibility = View.GONE
+                showPreview(it)
+            }
         }
     }
 
@@ -153,6 +183,8 @@ class DeviceListActivity : AppCompatActivity() {
         handler.post(pollRunnable)
         // 与全屏页同一策略：退后台停流，回前台自动重连，不在看不见的时候继续解码耗电
         if (previewDeviceId != null) preview?.start(QUALITY_AUTO)
+        // 网格模式回前台重启网格流（onPause 已停）
+        if (gridMode) gridStreams.values.forEach { it.start(QUALITY_AUTO) }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -171,6 +203,7 @@ class DeviceListActivity : AppCompatActivity() {
         super.onPause()
         handler.removeCallbacks(pollRunnable)
         preview?.stop()
+        gridStreams.values.forEach { it.stop() }
     }
 
     override fun onDestroy() {
@@ -180,6 +213,8 @@ class DeviceListActivity : AppCompatActivity() {
         discovery = null
         preview?.release()
         preview = null
+        gridStreams.values.forEach { it.release() }
+        gridStreams.clear()
         io.shutdownNow()
         super.onDestroy()
     }
@@ -251,6 +286,8 @@ class DeviceListActivity : AppCompatActivity() {
         // 预览设备被移除（或被别的页面删掉）后右侧面板不能继续显示上一次的画面
         if (previewDeviceId != null && ordered.none { it.first.id == previewDeviceId }) clearPreview()
         ordered.forEach { (device, state) -> container.addView(row(device, state, now)) }
+        // 网格随列表状态一起刷新：在线设备不足 2 台时自动退回单画面
+        renderGrid(ordered)
     }
 
     private fun stateOf(device: DeviceRegistry.Device, now: Long): DeviceState.View {
@@ -420,6 +457,168 @@ class DeviceListActivity : AppCompatActivity() {
         sideEvents?.removeAllViews()
         sideEmpty?.visibility = View.VISIBLE
         sideEmpty?.setText(R.string.device_side_empty)
+    }
+
+    // ---------- 多设备 2×2 网格（T04759 / UX-01） ----------
+
+    /**
+     * 渲染网格：取前 4 台在线设备各填一格。网格模式下单画面面板隐藏。
+     * 在线设备 <2 时退回单画面（网格没有“同屏多台”的价值）。
+     */
+    private fun renderGrid(ordered: List<Pair<DeviceRegistry.Device, DeviceState.View>>) {
+        val cells = gridCells ?: return
+        val container = gridContainer ?: return
+        // 网格只在 ≥840dp 且非聚焦态时展示；聚焦到单台设备时由 showPreview 切走
+        val online = ordered.filter { it.second.level != DeviceState.Level.OFFLINE }
+        val showGrid = gridMode && online.size >= 2
+        container.visibility = if (showGrid) View.VISIBLE else View.GONE
+        if (!showGrid) {
+            // 在线设备不足 2 台或聚焦态：停掉所有网格流，避免并发/内存泄漏
+            stopGridStreams()
+            cells.removeAllViews()
+            return
+        }
+
+        cells.removeAllViews()
+        val targets = online.take(GRID_MAX_CELLS)
+        // 停掉不在目标里的流（设备离线/超出 4 格/被移除），避免并发泄漏
+        val targetIds = targets.map { it.first.id }.toSet()
+        val stale = gridStreams.keys.filter { it !in targetIds }.toList()
+        stale.forEach { id ->
+            gridStreams.remove(id)?.release()
+        }
+        targets.forEach { (device, state) ->
+            cells.addView(gridCell(device, state))
+            ensureGridStream(device)
+        }
+    }
+
+    /** 单格：画面 + 底部名称/状态色点，点击聚焦到单画面 */
+    private fun gridCell(device: DeviceRegistry.Device, state: DeviceState.View): View {
+        val view = LayoutInflater.from(this).inflate(R.layout.item_grid_cell, gridCells, false)
+        // 2×2 均分：GridLayout 子项若用 match_parent 会每个都占满整个容器，
+        // 这里改用 weight 让 4 格按行列均分（columnCount=2，自动换行成 2 行）
+        val lp = GridLayout.LayoutParams()
+        lp.width = 0
+        lp.height = 0
+        lp.rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+        lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+        val margin = resources.getDimensionPixelSize(R.dimen.qs_space_4)
+        lp.setMargins(margin, margin, margin, margin)
+        view.layoutParams = lp
+        // 用 tag 记住设备 id：帧/状态回调按 id 定位对应格，避免张冠李戴
+        view.tag = device.id
+        view.findViewById<TextView>(R.id.grid_cell_name).text = device.name
+        val dot = view.findViewById<View>(R.id.grid_cell_dot)
+        dot.contentDescription = getString(stateLabel(state.level))
+        dot.background?.setTint(stateColor(state.level))
+        view.findViewById<TextView>(R.id.grid_cell_status).apply {
+            if (state.level == DeviceState.Level.ALERT) {
+                visibility = View.VISIBLE
+                text = getString(R.string.state_alert)
+            } else {
+                visibility = View.GONE
+            }
+        }
+        view.setOnClickListener { focusGridCell(device) }
+        return view
+    }
+
+    /** 为一台设备确保存在一路网格流；已有则跳过，避免重复 start */
+    private fun ensureGridStream(device: DeviceRegistry.Device) {
+        if (gridStreams.containsKey(device.id)) return
+        val gen = gridGeneration
+        val stream = LiveStreamer(
+            device.host, device.port, device.token,
+            object : LiveStreamer.Listener {
+                override fun onState(state: LiveStreamer.State) {
+                    if (gen != gridGeneration) return
+                    runOnUiThread { if (!stopped && gridMode) renderGridCellState(device.id, state) }
+                }
+
+                override fun onFrame(frame: Bitmap) {
+                    if (gen != gridGeneration) return
+                    runOnUiThread { if (!stopped && gridMode) setGridCellFrame(device.id, frame) }
+                }
+            }
+        )
+        gridStreams[device.id] = stream
+        if (!stopped) stream.start(QUALITY_AUTO)
+    }
+
+    /** 按设备 id 找到网格中对应格的 ImageView 并设帧 */
+    private fun setGridCellFrame(deviceId: String, frame: Bitmap) {
+        val cells = gridCells ?: return
+        val cell = cells.findViewWithTag<View>(deviceId) ?: return
+        cell.findViewById<ImageView>(R.id.grid_cell_image).setImageBitmap(frame)
+    }
+
+    /** 按设备 id 更新格内状态文案（连接中/重试/离线等） */
+    private fun renderGridCellState(deviceId: String, state: LiveStreamer.State) {
+        val cells = gridCells ?: return
+        val cell = cells.findViewWithTag<View>(deviceId) ?: return
+        val status = cell.findViewById<TextView>(R.id.grid_cell_status)
+        when (state) {
+            LiveStreamer.State.CONNECTED -> status.visibility = View.GONE
+            LiveStreamer.State.CONNECTING -> {
+                status.visibility = View.VISIBLE
+                status.setText(R.string.device_preview_connecting)
+            }
+            LiveStreamer.State.RETRY -> {
+                status.visibility = View.VISIBLE
+                status.setText(R.string.live_status_retry)
+            }
+            LiveStreamer.State.UNAUTHORIZED -> {
+                status.visibility = View.VISIBLE
+                status.setText(R.string.live_status_unauthorized)
+            }
+            LiveStreamer.State.BUSY -> {
+                status.visibility = View.VISIBLE
+                status.text = getString(R.string.live_status_busy, MAX_VIEWERS)
+            }
+            LiveStreamer.State.OFFLINE -> {
+                status.visibility = View.VISIBLE
+                status.setText(R.string.live_status_offline)
+            }
+        }
+    }
+
+    /** 聚焦到单台设备：停掉网格所有流，复用单画面面板 showPreview */
+    private fun focusGridCell(device: DeviceRegistry.Device) {
+        stopGridStreams()
+        gridMode = false
+        gridContainer?.visibility = View.GONE
+        // 显示“返回网格”按钮，隐藏“全屏”按钮（聚焦态下返回网格比全屏更符合心智）
+        findViewById<Button>(R.id.device_grid_back)?.visibility = View.VISIBLE
+        findViewById<Button>(R.id.device_preview_full)?.visibility = View.GONE
+        showPreview(device)
+    }
+
+    /** 从聚焦态返回网格：停单画面流，重启网格 */
+    private fun exitGridFocus() {
+        previewGeneration++
+        preview?.release()
+        preview = null
+        previewDeviceId = null
+        previewImage?.setImageDrawable(null)
+        findViewById<Button>(R.id.device_grid_back)?.visibility = View.GONE
+        findViewById<Button>(R.id.device_preview_full)?.visibility = View.VISIBLE
+        gridMode = true
+        startGrid()
+    }
+
+    /** 进入网格模式并拉流 */
+    private fun startGrid() {
+        gridMode = true
+        gridGeneration++
+        render()
+    }
+
+    /** 停掉所有网格流并清空引用 */
+    private fun stopGridStreams() {
+        gridGeneration++
+        gridStreams.values.forEach { it.release() }
+        gridStreams.clear()
     }
 
     /** 侧栏开合状态落盘：recreate（折叠切换）后用户的选择原样恢复 */
@@ -843,6 +1042,9 @@ class DeviceListActivity : AppCompatActivity() {
 
         /** 大屏断点（PRD 4.7）：≥840dp 才挂事件侧栏 */
         const val SIDE_BREAK_DP = 840
+
+        /** 2×2 网格最多 4 格；服务端 MAX_VIEWERS=5，4 路并发不撞上限（T04759/UX-01） */
+        const val GRID_MAX_CELLS = 4
 
         private const val PREF_SIDE_OPEN = "side_open"
         private const val KEY_PREVIEW_DEVICE = "preview_device"

@@ -202,6 +202,9 @@
     <string name="device_side_expand">事件</string>
     <string name="device_side_empty">这台设备还没有事件记录</string>
     <string name="device_side_unavailable">暂无法获取事件</string>
+    <string name="device_grid_hint">同屏最多看 4 台在线设备，点任意一格放大</string>
+    <string name="device_grid_empty">在线设备不足两台，暂不显示多画面网格</string>
+    <string name="device_grid_back">返回网格</string>
     <string name="device_room_unset">未设置房间</string>
     <string name="device_card_meta">%1$s · %2$s</string>
     <string name="device_card_battery">电量 %1$d%%</string>

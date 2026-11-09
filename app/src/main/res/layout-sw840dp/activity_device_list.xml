@@ -134,6 +134,19 @@
                     android:visibility="gone" />
 
                 <Button
+                    android:id="@+id/device_grid_back"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="0dp"
+                    android:minWidth="0dp"
+                    android:paddingStart="@dimen/qs_space_8"
+                    android:paddingEnd="@dimen/qs_space_8"
+                    android:text="@string/device_grid_back"
+                    android:textColor="@color/qs_text_muted"
+                    android:textSize="@dimen/qs_text_status"
+                    android:visibility="gone" />
+
+                <Button
                     android:id="@+id/device_preview_full"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -162,6 +175,49 @@
                     android:text="@string/device_preview_hint"
                     android:textColor="@color/qs_text_muted"
                     android:textSize="@dimen/qs_text_status" />
+
+                <!-- 多设备 2×2 网格（T04759 / UX-01）：≥840dp 且在线设备 ≥2 时显示，
+                     单画面 image/status 与网格互斥切换，点击格聚焦到单画面，返回恢复网格 -->
+                <LinearLayout
+                    android:id="@+id/device_grid"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@color/qs_bg"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/device_grid_hint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingStart="@dimen/qs_space_12"
+                        android:paddingEnd="@dimen/qs_space_12"
+                        android:paddingTop="@dimen/qs_space_8"
+                        android:paddingBottom="@dimen/qs_space_4"
+                        android:text="@string/device_grid_hint"
+                        android:textColor="@color/qs_text_muted"
+                        android:textSize="@dimen/qs_text_caption" />
+
+                    <GridLayout
+                        android:id="@+id/device_grid_cells"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:columnCount="2"
+                        android:padding="@dimen/qs_space_4" />
+
+                    <TextView
+                        android:id="@+id/device_grid_empty"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:padding="@dimen/qs_space_24"
+                        android:text="@string/device_grid_empty"
+                        android:textColor="@color/qs_text_muted"
+                        android:textSize="@dimen/qs_text_status"
+                        android:visibility="gone" />
+                </LinearLayout>
             </FrameLayout>
         </LinearLayout>
 

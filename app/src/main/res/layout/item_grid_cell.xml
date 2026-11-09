@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  多设备网格单格（T04759 / UX-01）：画面 + 底部设备名与状态角标。
+  只承载展示，点击与流管理由 DeviceListActivity 负责——格内不写死文案，全走 string。
+  与 item_device 卡片同一套状态色映射：stateLabel / stateColor 复用，不另建映射。
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_margin="@dimen/qs_space_4"
+    android:background="@drawable/comp_shape_card">
+
+    <ImageView
+        android:id="@+id/grid_cell_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/live_frame_desc"
+        android:scaleType="fitCenter" />
+
+    <TextView
+        android:id="@+id/grid_cell_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:padding="@dimen/qs_space_8"
+        android:textColor="@color/qs_text_muted"
+        android:textSize="@dimen/qs_text_status" />
+
+    <!-- 底部名称 + 状态色点：同 item_device 的 device_state_dot，状态不只靠颜色 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="@color/qs_overlay"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/qs_space_8"
+        android:paddingEnd="@dimen/qs_space_8"
+        android:paddingTop="@dimen/qs_space_4"
+        android:paddingBottom="@dimen/qs_space_4">
+
+        <View
+            android:id="@+id/grid_cell_dot"
+            android:layout_width="@dimen/qs_size_dot"
+            android:layout_height="@dimen/qs_size_dot"
+            android:layout_marginEnd="@dimen/qs_space_6"
+            android:background="@drawable/comp_shape_dot" />
+
+        <TextView
+            android:id="@+id/grid_cell_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/qs_text"
+            android:textSize="@dimen/qs_text_status" />
+    </LinearLayout>
+</FrameLayout>

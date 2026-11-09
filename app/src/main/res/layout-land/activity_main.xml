@@ -3,17 +3,36 @@
   摄像头端横屏（PRD §12.3：横屏时控件下移，避免遮挡画面中心）。
   这里的做法是把控件整体移出画面区：预览按 220dp 让出右侧，控件占这条侧栏，
   画面中心在任何时刻都不会被按钮盖住——底部叠加条在横屏下会吃掉近半屏，无法满足这一点。
+
+  T04759：横屏布局曾是旧版（start_button/stop_button/... 七个独立按钮），
+  MainActivity 在 T04042 重构为「primary_button + more_button 入口收敛」后，
+  横屏布局没同步更新，导致横屏设备（含 Fold 展开态）在 onCreate 时
+  findViewById(R.id.primary_button) 返回 null → lateinit 未初始化崩溃。
+  这里对齐竖屏布局的 id 与结构：status_text + recent_event + (primary_button + more_button)。
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/black">
+    android:background="@android:color/black"
+    android:fitsSystemWindows="true">
 
     <androidx.camera.view.PreviewView
         android:id="@+id/preview_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginEnd="220dp" />
+
+    <TextView
+        android:id="@+id/banner_permission"
+        style="@style/Widget.QuietSentry.ErrorBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:gravity="center"
+        android:text="@string/banner_notification_permission"
+        android:textColor="@color/qs_text"
+        android:textSize="@dimen/qs_text_status"
+        android:visibility="gone" />
 
     <ScrollView
         android:layout_width="220dp"
@@ -35,71 +54,34 @@
                 android:textColor="@android:color/white"
                 android:textSize="@dimen/qs_text_status" />
 
+            <TextView
+                android:id="@+id/recent_event"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/qs_space_8"
+                android:background="@color/qs_inline_scrim_20"
+                android:clickable="true"
+                android:ellipsize="end"
+                android:focusable="true"
+                android:maxLines="1"
+                android:padding="@dimen/qs_space_10"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/qs_text_status"
+                android:visibility="gone" />
+
             <Button
-                android:id="@+id/start_button"
+                android:id="@+id/primary_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/qs_space_8"
                 android:text="@string/start_guard" />
 
             <Button
-                android:id="@+id/stop_button"
+                android:id="@+id/more_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/qs_space_8"
-                android:text="@string/stop_guard" />
-
-            <!-- 横屏曾是唯一漏掉连续记录的布局：MainActivity 对它无条件 setOnClickListener，
-                 少了这个按钮会在 onCreate 直接 NPE 崩溃 -->
-            <Button
-                android:id="@+id/record_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/qs_space_8"
-                android:text="@string/record_mode_entry" />
-
-            <Button
-                android:id="@+id/black_mode_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/qs_space_8"
-                android:text="@string/black_mode_entry" />
-
-            <Button
-                android:id="@+id/timeline_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/qs_space_8"
-                android:text="@string/timeline_entry" />
-
-            <Button
-                android:id="@+id/pairing_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/qs_space_8"
-                android:text="@string/pairing_entry" />
-
-            <Button
-                android:id="@+id/device_list_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/qs_space_8"
-                android:text="@string/device_list_entry" />
-
-            <Button
-                android:id="@+id/remote_access_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/qs_space_8"
-                android:text="@string/remote_entry" />
-
-            <Button
-                android:id="@+id/settings_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/qs_space_8"
-                android:layout_marginBottom="@dimen/qs_space_8"
-                android:text="@string/settings_entry" />
+                android:text="@string/more_menu" />
         </LinearLayout>
     </ScrollView>
 </FrameLayout>
