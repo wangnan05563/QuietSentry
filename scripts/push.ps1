@@ -11,7 +11,7 @@
 try {
     $apk = Find-Apk -Variant $Variant
     if (-not $apk) {
-        Write-Fail "没有找到 $Variant APK，请先运行 scripts\build.bat"
+        Write-Fail "没有找到 $Variant APK，请先运行 scripts\构建.bat"
         exit 1
     }
 

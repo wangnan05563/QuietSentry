@@ -90,13 +90,13 @@ flowchart LR
 
 ```bat
 :: 检查依赖 + 生成当天 patch 号 + 构建 debug APK
-scripts\build.bat
+scripts\构建.bat
 
 :: 构建并安装到当前连接的设备（多台时会让你选）
-scripts\build-and-push.bat
+scripts\构建并推送.bat
 
 :: 只推送已构建的 APK
-scripts\push.bat -Variant debug
+scripts\推送.bat -Variant debug
 ```
 
 > 构建 / 推送 / 发布脚本统一放在 `scripts/` 下，可直接从项目根执行上面的相对路径命令。
