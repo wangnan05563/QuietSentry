@@ -118,7 +118,12 @@ class DeviceListActivity : AppCompatActivity() {
         container = findViewById(R.id.device_list_container)
         emptyText = findViewById(R.id.device_list_empty)
         hintText = findViewById(R.id.device_list_hint)
-        bindPullToRefresh()
+        // T04742：下拉刷新接在自定义 ScrollView 的拦截点（见 PullToRefreshScrollView），
+        // 这样“抓卡片下拉”也能触发，不再被 clickable 卡片吞掉 ACTION_DOWN。
+        findViewById<PullToRefreshScrollView>(R.id.device_list_scroll)?.apply {
+            pullThresholdPx = PULL_THRESHOLD_PX
+            onPullToRefresh = { refreshNow() }
+        }
         // 空态盒与离线提示条只有窄屏布局存在；sw600dp 双栏仍是纯文字空态，取到 null 走原路径
         val emptyBox = findViewById<View>(R.id.device_list_empty_box)
         val offlineBar = findViewById<View>(R.id.device_list_offline_bar)
@@ -181,43 +186,9 @@ class DeviceListActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * T04742 / docs/07 §4.3：顶部下拉触发一次立即轮询，不必等 5 秒周期。
-     * 不引入 androidx.swiperefreshlayout（仓库无该依赖且离线环境不便下载），
-     * 直接在三档布局共用的 ScrollView 上判「已到顶 + 向下拖动超过阈值」。
-     * 返回 false 不消费事件，ScrollView 自身的滚动行为完全保留。
-     */
-    @SuppressLint("ClickableViewAccessibility")
-    private fun bindPullToRefresh() {
-        val scroll = findViewById<ScrollView>(R.id.device_list_scroll) ?: return
-        var startY = 0f
-        var armed = false
-        var triggered = false
-        scroll.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    startY = event.y
-                    armed = scroll.scrollY == 0
-                    triggered = false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (armed && !triggered && scroll.scrollY == 0 &&
-                        event.y - startY > PULL_THRESHOLD_PX
-                    ) {
-                        triggered = true
-                        refreshNow()
-                    }
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    armed = false
-                    triggered = false
-                }
-            }
-            false
-        }
-    }
-
-    /** 立即轮询一次，并给一段可见反馈：轮询异步执行，反馈文案到点自动还原 */
+    /** 立即轮询一次，并给一段可见反馈：轮询异步执行，反馈文案到点自动还原。
+     *  触发入口在 PullToRefreshScrollView.onPullToRefresh（拦截点检测下拉），
+     *  见 onCreate 里的 findViewById<PullToRefreshScrollView>(R.id.device_list_scroll) 接线。 */
     private fun refreshNow() {
         val hint = hintText ?: return
         hint.setText(R.string.device_list_refreshing)

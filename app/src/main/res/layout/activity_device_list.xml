@@ -97,7 +97,7 @@
 
         <!-- T04742：顶部下拉触发一次立即轮询，不必等 5 秒周期（docs/07 §4.3）。
              三档布局共用同一 id，手势逻辑只在 DeviceListActivity 写一份 -->
-        <ScrollView
+        <com.quietsentry.app.PullToRefreshScrollView
             android:id="@+id/device_list_scroll"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
@@ -108,7 +108,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="@dimen/qs_space_12" />
-        </ScrollView>
+        </com.quietsentry.app.PullToRefreshScrollView>
 
         <!-- 从未添加的空态（PRD 07 §4.2）：三步说明 + 三条配对路径全部可见
              （扫码主按钮 / 配对码 / 手动 IP），不让用户先理解“添加”是个流程 -->
