@@ -164,7 +164,9 @@
     <string name="device_list_entry">我的设备（观看端）</string>
     <string name="device_list_title">我的设备</string>
     <string name="device_list_add">添加摄像头</string>
-    <string name="device_list_hint">点卡片看实时画面，长按可重命名、换房间或移除；状态每 5 秒自动刷新</string>
+    <string name="device_list_hint">点卡片看实时画面，长按可重命名、换房间或移除；状态每 5 秒自动刷新，下拉可立即刷新</string>
+    <!-- T04742：下拉刷新期间的短暂反馈，到点自动还原为 device_list_hint -->
+    <string name="device_list_refreshing">正在刷新设备状态…</string>
     <string name="device_list_empty">还没有设备\n1. 在摄像头端打开“配对与设备”\n2. 回到这里扫二维码或输入 6 位配对码\n3. 配对成功即可观看</string>
     <string name="device_empty_code">输入配对码</string>
     <string name="device_empty_manual">手动输入 IP</string>
@@ -207,6 +209,8 @@
     <string name="device_grid_back">返回网格</string>
     <string name="device_room_unset">未设置房间</string>
     <string name="device_card_meta">%1$s · %2$s</string>
+    <!-- T04741：告警是叠加标识，离线/低电设备刚有事件时在房间·状态后再补一段告警角标 -->
+    <string name="device_card_meta_alert">%1$s · %2$s · %3$s</string>
     <string name="device_card_battery">电量 %1$d%%</string>
     <string name="device_card_charging">电量 %1$d%%（充电中）</string>
     <string name="device_card_unknown_battery">电量 —</string>

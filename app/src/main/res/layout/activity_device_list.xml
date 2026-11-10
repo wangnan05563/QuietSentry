@@ -95,7 +95,10 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
+        <!-- T04742：顶部下拉触发一次立即轮询，不必等 5 秒周期（docs/07 §4.3）。
+             三档布局共用同一 id，手势逻辑只在 DeviceListActivity 写一份 -->
         <ScrollView
+            android:id="@+id/device_list_scroll"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 

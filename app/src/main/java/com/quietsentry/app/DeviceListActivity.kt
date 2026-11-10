@@ -1,5 +1,6 @@
 package com.quietsentry.app
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.animation.ValueAnimator
 import android.content.Context
@@ -13,12 +14,14 @@ import android.os.Looper
 import android.text.InputFilter
 import android.text.InputType
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -115,6 +118,7 @@ class DeviceListActivity : AppCompatActivity() {
         container = findViewById(R.id.device_list_container)
         emptyText = findViewById(R.id.device_list_empty)
         hintText = findViewById(R.id.device_list_hint)
+        bindPullToRefresh()
         // 空态盒与离线提示条只有窄屏布局存在；sw600dp 双栏仍是纯文字空态，取到 null 走原路径
         val emptyBox = findViewById<View>(R.id.device_list_empty_box)
         val offlineBar = findViewById<View>(R.id.device_list_offline_bar)
@@ -175,6 +179,52 @@ class DeviceListActivity : AppCompatActivity() {
                 showPreview(it)
             }
         }
+    }
+
+    /**
+     * T04742 / docs/07 §4.3：顶部下拉触发一次立即轮询，不必等 5 秒周期。
+     * 不引入 androidx.swiperefreshlayout（仓库无该依赖且离线环境不便下载），
+     * 直接在三档布局共用的 ScrollView 上判「已到顶 + 向下拖动超过阈值」。
+     * 返回 false 不消费事件，ScrollView 自身的滚动行为完全保留。
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun bindPullToRefresh() {
+        val scroll = findViewById<ScrollView>(R.id.device_list_scroll) ?: return
+        var startY = 0f
+        var armed = false
+        var triggered = false
+        scroll.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startY = event.y
+                    armed = scroll.scrollY == 0
+                    triggered = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (armed && !triggered && scroll.scrollY == 0 &&
+                        event.y - startY > PULL_THRESHOLD_PX
+                    ) {
+                        triggered = true
+                        refreshNow()
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    armed = false
+                    triggered = false
+                }
+            }
+            false
+        }
+    }
+
+    /** 立即轮询一次，并给一段可见反馈：轮询异步执行，反馈文案到点自动还原 */
+    private fun refreshNow() {
+        val hint = hintText ?: return
+        hint.setText(R.string.device_list_refreshing)
+        poll()
+        handler.postDelayed({
+            if (!stopped) hint.setText(R.string.device_list_hint)
+        }, REFRESH_FEEDBACK_MS)
     }
 
     override fun onResume() {
@@ -271,8 +321,16 @@ class DeviceListActivity : AppCompatActivity() {
         val now = System.currentTimeMillis()
         val ordered = registry.all()
             .map { it to stateOf(it, now) }
-            // 状态优先级先于用户排序：PRD 要求“状态优先”，告警与离线设备必须浮到最上面
-            .sortedWith(compareBy({ it.second.level.ordinal }, { it.first.order }))
+            // 状态优先级先于用户排序：PRD FR-03 要求告警设备浮到最上面。
+            // T04741：告警是叠加标识（View.alerting），离线/低电设备刚发生过事件也要顶到最前，
+            // 不能再只按 level.ordinal 排——那会让「离线但刚刚告警」沉到列表底部。
+            .sortedWith(
+                compareBy(
+                    { if (it.second.alerting) 0 else 1 },
+                    { it.second.level.ordinal },
+                    { it.first.order }
+                )
+            )
 
         container.removeAllViews()
         // 空态分流（PRD 07 §4.2）：“从未添加”给三步说明与添加按钮；
@@ -313,11 +371,20 @@ class DeviceListActivity : AppCompatActivity() {
         }
         view.findViewById<TextView>(R.id.device_name).text = device.name
         val room = device.room.ifEmpty { getString(R.string.device_room_unset) }
-        view.findViewById<TextView>(R.id.device_meta).text = getString(
-            R.string.device_card_meta,
-            room,
-            getString(stateLabel(state.level))
-        )
+        val label = getString(stateLabel(state.level))
+        // T04741：告警标识叠加在运行状态之上（PRD §7）。在线设备 level 已是 ALERT，
+        // 无需重复；离线/低电/过载设备则在房间·状态后再补一段「告警中」角标文案。
+        view.findViewById<TextView>(R.id.device_meta).text =
+            if (state.alerting && state.level != DeviceState.Level.ALERT) {
+                getString(
+                    R.string.device_card_meta_alert,
+                    room,
+                    label,
+                    getString(R.string.state_alert)
+                )
+            } else {
+                getString(R.string.device_card_meta, room, label)
+            }
         val stateLabelRes = stateLabel(state.level)
         view.findViewById<TextView>(R.id.device_state).apply {
             text = getString(stateLabelRes)
@@ -513,7 +580,8 @@ class DeviceListActivity : AppCompatActivity() {
         dot.contentDescription = getString(stateLabel(state.level))
         dot.background?.setTint(stateColor(state.level))
         view.findViewById<TextView>(R.id.grid_cell_status).apply {
-            if (state.level == DeviceState.Level.ALERT) {
+            // T04741：告警角标用叠加标识判断，离线但近期有事件的格子也要能标出来
+            if (state.alerting) {
                 visibility = View.VISIBLE
                 text = getString(R.string.state_alert)
             } else {
@@ -651,7 +719,7 @@ class DeviceListActivity : AppCompatActivity() {
      */
     private fun refreshSideEvents(device: DeviceRegistry.Device, now: Long) {
         if (sideBar == null || !sideOpen) return
-        if (now - sideEventsAt < SNAPSHOT_INTERVAL_MS) return
+        if (now - sideEventsAt < SIDE_EVENTS_INTERVAL_MS) return
         sideEventsAt = now
         val host = device.host
         val port = device.port
@@ -691,11 +759,14 @@ class DeviceListActivity : AppCompatActivity() {
 
     private fun detailText(state: DeviceState.View, now: Long): String {
         val parts = mutableListOf<String>()
-        // 告警是时间线的第一句：用户扫一眼卡片要立刻知道“刚刚发生了什么”；
-        // 时间由末尾的“最后事件”统一给出，这里不重复拼一遍相对时间
-        if (state.level == DeviceState.Level.ALERT) {
+        // 告警是时间线的第一句：用户扫一眼卡片要立刻知道“刚刚发生了什么”。
+        // T04741：用叠加标识而非 level，这样「离线 + 刚告警」也不会把告警句吞掉。
+        if (state.alerting) {
             parts += getString(R.string.device_card_alert)
-        } else if (state.level == DeviceState.Level.OFFLINE) {
+        }
+        // 运行状态细节与告警标识并列而非互斥（PRD §7）：离线时长、电量、心跳异常
+        // 在任何情况下都要照常给出，不能因为「刚有告警」就丢掉设备不可达这个事实。
+        if (state.level == DeviceState.Level.OFFLINE) {
             parts += getString(R.string.device_card_offline_for, relativeTime(state.seenAt, now))
             // PRD FR-03 异常：离线超过 24 小时要给出“长期离线”，普通“3 天前”容易被当成刚掉线
             if (now - state.seenAt >= LONG_OFFLINE_MS) {
@@ -1024,11 +1095,18 @@ class DeviceListActivity : AppCompatActivity() {
         const val POLL_INTERVAL_MS = 5_000L
         const val DISCOVERY_WINDOW_MS = 5_000L
 
-        /** 卡片快照低频刷新：整张 JPEG 比状态 JSON 重得多，30 秒一张足够表达“最后见过什么” */
-        const val SNAPSHOT_INTERVAL_MS = 30_000L
+        /** 卡片快照低频刷新：整张 JPEG 比状态 JSON 重得多，缓存 60 秒（docs/07 §7 NFR-01） */
+        const val SNAPSHOT_INTERVAL_MS = 60_000L
 
-        /** 缩略图目标边长：56dp 的封面按 2x 屏幕密度预留即可 */
-        const val THUMB_TARGET_PX = 128
+        /** 侧栏事件流维持 30 秒节流，不跟着快照缓存一起放宽 */
+        const val SIDE_EVENTS_INTERVAL_MS = 30_000L
+
+        /** 缩略图目标边长 320px（docs/07 §7）；按 2 倍密度下采样 */
+        const val THUMB_TARGET_PX = 320
+
+        /** T04742：到顶后下拉超过 120px 触发一次立即轮询 */
+        const val PULL_THRESHOLD_PX = 120f
+        const val REFRESH_FEEDBACK_MS = 800L
         const val MINUTE_MS = 60_000L
         const val HOUR_MS = 3_600_000L
         const val DAY_MS = 86_400_000L
