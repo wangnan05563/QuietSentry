@@ -44,7 +44,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/qs_space_16"
-            android:lineSpacingExtra="7dp"
+            android:lineSpacingExtra="@dimen/qs_onboard_line_spacing"
             android:paddingStart="@dimen/qs_space_8"
             android:paddingEnd="@dimen/qs_space_8"
             android:textColor="@color/qs_text_muted"
