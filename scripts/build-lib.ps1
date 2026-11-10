@@ -136,6 +136,11 @@ function Assert-BuildDependencies {
             $failures += "JDK 版本过低（$major），本项目需要 17。当前：$javaHome"
         } else {
             Write-Ok "JDK $major ($javaHome)"
+            # 高版本 JDK 能通过依赖检查，但 Kotlin 编译器解析不了其版本号（实测 JDK 25 报
+            # IllegalArgumentException: 25.0.1），失败发生在 Gradle 阶段而非本检查，必须提前提示
+            if ($major -gt 17) {
+                Write-Note "JAVA_HOME 指向 JDK $major（高于 17），Kotlin 编译可能无法解析该版本；若 Gradle 阶段失败，请改用 E:\Android\jdk17"
+            }
         }
     }
 
