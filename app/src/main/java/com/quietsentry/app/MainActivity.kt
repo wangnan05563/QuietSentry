@@ -306,12 +306,15 @@ class MainActivity : AppCompatActivity() {
     private fun refreshBanner() {
         when {
             !hasNotificationPermission() -> showBanner(R.string.banner_notification_permission) {
-                startActivity(
-                    Intent(
-                        Settings.ACTION_APP_NOTIFICATION_SETTINGS,
-                        Uri.parse("package:$packageName")
-                    )
-                )
+                // T05207 实测：部分 Android 14 镜像的 AppNotificationSettingsActivity
+                // 不接受 package: data，直接带 data 启动会抛 ActivityNotFoundException 让首页崩溃。
+                // 改用官方 EXTRA_APP_PACKAGE（无 data），并兜底到应用详情页，保证「点此去开启」永不崩。
+                val notificationSettings = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                val appDetails = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(Uri.parse("package:$packageName"))
+                runCatching { startActivity(notificationSettings) }
+                    .onFailure { runCatching { startActivity(appDetails) } }
             }
             cameraBusy -> showBanner(R.string.banner_camera_busy) {
                 // 占用方释放是外部事件，用户主动重试是唯一出路；仍失败会在 bindPreview 再置位

@@ -55,7 +55,9 @@ release/
 
 - `build.ps1` 与 `release.ps1`（不带 `-SkipBuild`）在依赖检查通过后、Gradle 执行前调用 `Reset-ReleaseDir`，一次运行只留一套产物，旧包不残留。依赖检查失败时不清空，避免白白删掉上一轮可用产物。
 - `release.ps1 -SkipBuild` 的语义是「复用现有产物直接发布」，此时**不清空**，否则会删掉自己要发布的文件；若 `release/` 缺失会明确报错提示先构建。
-- 重复运行同一入口：目录清空后重新生成同名文件，结果一致；`build-info.json` 的 `builtAt` 反映最后一次构建时间。
+- 重复运行同一入口（不带 `-SkipBuild`）：先清空 `release/` 再重新构建，目录内只保留本轮产物、结构一致；但 `Step-BuildPatch` 会递增 `build.buildNumber`（versionCode）与 `build.patch`，产物文件名随之变化（如 `0.1.0-20261110.1` → `0.1.0-20261112.1`），因此「幂等」指**目录重建与产物结构一致**，而非文件同名。
+- `release.ps1 -SkipBuild` 是严格幂等的入口：不清空、不推进版本，只做验签与发布，重复运行产物字节不变（T05207 实测：连续两次 SHA256 全等）。
+- `build-info.json` 的 `builtAt` 反映最后一次构建时间。
 - `push.ps1`、`build-and-push.ps1` 不清理目录——安装动作不应删除产物。
 
 ## 5 使用与验证

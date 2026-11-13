@@ -17,3 +17,7 @@ release/
 # Python 字节码缓存（脚本自检时会生成）
 __pycache__/
 *.pyc
+
+.trae
+.workbuddy
+.workbuddy-ai/

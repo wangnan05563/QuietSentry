@@ -42,6 +42,66 @@ function Resolve-JavaHome {
     return $null
 }
 
+function Get-JavaMajorVersion {
+    param([Parameter(Mandatory)][string]$JavaHome)
+    # 返回 JDK 主版本号：Java 9+ 取首个数字，Java 8 及以前取 1.8 的第二个数字。
+    # 优先读 JDK 自带 release 文件（java -version 写 stderr，在 Stop 模式下易掩盖真实错误），
+    # 缺失时回退到 java -version 输出。
+    $releaseFile = Join-Path $JavaHome 'release'
+    $versionText = if (Test-Path $releaseFile) { Get-Content $releaseFile -Raw } else { '' }
+    if ($versionText -notmatch 'JAVA_VERSION="([^"]+)"') {
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $versionText = (& (Join-Path $JavaHome 'bin\java.exe') -version 2>&1 | Out-String)
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+    }
+    $ver = $null
+    $m = [regex]::Match($versionText, 'version "([^"]+)"')
+    if ($m.Success) { $ver = $m.Groups[1].Value }
+    else {
+        $m2 = [regex]::Match($versionText, 'JAVA_VERSION="([^"]+)"')
+        if ($m2.Success) { $ver = $m2.Groups[1].Value }
+    }
+    if (-not $ver) { return 0 }
+    $parts = $ver -split '[._+]'
+    if ($parts[0] -eq '1' -and $parts.Count -gt 1) { return [int]$parts[1] }
+    return [int]$parts[0]
+}
+
+function Resolve-BuildJavaHome {
+    # 构建必须用 ≤17 的 JDK：本项目 AGP/Kotlin 版本无法解析高于 17 的 JDK 版本号
+    # （实测 JDK 25 在 Kotlin JavaVersion.parse 抛 IllegalArgumentException: 25.0.1）。
+    # 解析顺序：已知 JDK 17 目录 -> 环境 JAVA_HOME（若 ≤17）-> PATH 上的 java（若 ≤17）。
+    # 命中返回该 JDK 根目录；全部不满足返回 $null，交由依赖检查硬失败而非在 Gradle 阶段崩溃。
+    $maxMajor = 17
+    $jdk17Base = 'E:\Android\jdk17'
+    if (Test-Path $jdk17Base) {
+        $roots = @($jdk17Base) + @(Get-ChildItem $jdk17Base -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+        foreach ($root in $roots) {
+            if (Test-Path (Join-Path $root 'bin\javac.exe')) {
+                $v = Get-JavaMajorVersion $root
+                if ($v -and $v -le $maxMajor) { return $root }
+            }
+        }
+    }
+    if ($env:JAVA_HOME -and (Test-Path (Join-Path $env:JAVA_HOME 'bin\java.exe'))) {
+        $v = Get-JavaMajorVersion $env:JAVA_HOME
+        if ($v -and $v -le $maxMajor) { return $env:JAVA_HOME }
+    }
+    $java = Get-Command java -ErrorAction SilentlyContinue
+    if ($java) {
+        $home = Split-Path -Parent (Split-Path -Parent $java.Source)
+        if (Test-Path (Join-Path $home 'bin\javac.exe')) {
+            $v = Get-JavaMajorVersion $home
+            if ($v -and $v -le $maxMajor) { return $home }
+        }
+    }
+    return $null
+}
+
 function Resolve-AndroidSdk {
     if ($env:ANDROID_HOME -and (Test-Path $env:ANDROID_HOME)) { return $env:ANDROID_HOME }
     if ($env:ANDROID_SDK_ROOT -and (Test-Path $env:ANDROID_SDK_ROOT)) { return $env:ANDROID_SDK_ROOT }
@@ -75,7 +135,8 @@ function Resolve-Gradle {
 }
 
 function Get-Toolchain {
-    $javaHome = Resolve-JavaHome
+    # 构建用的 JDK 必须是 ≤17；Resolve-BuildJavaHome 负责在环境 JDK 过高时自动切换
+    $javaHome = Resolve-BuildJavaHome
     $sdk = Resolve-AndroidSdk
     $gradle = Resolve-Gradle
     $adb = $null
@@ -111,37 +172,27 @@ function Assert-BuildDependencies {
     Write-Step "检查构建依赖"
     $failures = @()
 
-    $javaHome = Resolve-JavaHome
-    if (-not $javaHome) {
-        $failures += '未找到 JDK。请安装 JDK 17 并设置 JAVA_HOME。'
+    # 环境里实际指向的 JDK（可能是用户 PATH/JAVA_HOME 设的过高版本），仅用于提示切换来源
+    $envJavaHome = Resolve-JavaHome
+    $envMajor = if ($envJavaHome) { Get-JavaMajorVersion $envJavaHome } else { 0 }
+
+    # 实际用于构建的 JDK：必须是 ≤17，否则 Kotlin 编译器会抛 IllegalArgumentException
+    $buildJava = Resolve-BuildJavaHome
+    if (-not $buildJava) {
+        if ($envMajor -gt 17) {
+            $failures += "JAVA_HOME 指向 JDK $envMajor（$envJavaHome），高于 17，本项目 AGP/Kotlin 无法解析该版本号；且在 E:\Android\jdk17 也未找到兼容的 JDK 17。请安装 JDK 17 并放到 E:\Android\jdk17。"
+        } elseif ($envMajor -gt 0 -and $envMajor -lt 17) {
+            $failures += "JDK 版本过低（$envMajor），本项目需要 JDK 17。当前：$envJavaHome"
+        } else {
+            $failures += '未找到 JDK 17。请安装 JDK 17 并放到 E:\Android\jdk17，或设置 JAVA_HOME 指向 JDK 17。'
+        }
     } else {
-        # 优先读 JDK 自带的 release 文件：java -version 写 stderr，
-        # 在 $ErrorActionPreference=Stop 下会被当成终止错误，反而掩盖真正原因
-        $releaseFile = Join-Path $javaHome 'release'
-        $versionText = if (Test-Path $releaseFile) { Get-Content $releaseFile -Raw } else { '' }
-        $major = 0
-        if ($versionText -match 'JAVA_VERSION="(\d+)') {
-            $major = [int]$Matches[1]
-        } else {
-            $previous = $ErrorActionPreference
-            $ErrorActionPreference = 'Continue'
-            try {
-                $versionText = (& (Join-Path $javaHome 'bin\java.exe') -version 2>&1 | Out-String)
-            } finally {
-                $ErrorActionPreference = $previous
-            }
-            if ($versionText -match 'version "(\d+)') { $major = [int]$Matches[1] }
+        $buildMajor = Get-JavaMajorVersion $buildJava
+        if ($envJavaHome -and $envJavaHome -ne $buildJava -and $envMajor -gt 17) {
+            # 环境 JDK 过高会拖垮 Kotlin 编译，这里明确告知已自动切到兼容 JDK，避免“警告后崩溃”
+            Write-Note "JAVA_HOME 指向 JDK $envMajor（$envJavaHome），高于 17 会导致 Kotlin 编译失败；已自动改用 JDK $buildMajor（$buildJava）"
         }
-        if ($major -gt 0 -and $major -lt 17) {
-            $failures += "JDK 版本过低（$major），本项目需要 17。当前：$javaHome"
-        } else {
-            Write-Ok "JDK $major ($javaHome)"
-            # 高版本 JDK 能通过依赖检查，但 Kotlin 编译器解析不了其版本号（实测 JDK 25 报
-            # IllegalArgumentException: 25.0.1），失败发生在 Gradle 阶段而非本检查，必须提前提示
-            if ($major -gt 17) {
-                Write-Note "JAVA_HOME 指向 JDK $major（高于 17），Kotlin 编译可能无法解析该版本；若 Gradle 阶段失败，请改用 E:\Android\jdk17"
-            }
-        }
+        Write-Ok "JDK $buildMajor ($buildJava)"
     }
 
     $sdk = Resolve-AndroidSdk

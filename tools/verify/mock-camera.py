@@ -35,8 +35,10 @@ mock 服务路由规则：
 """
 import http.server
 import json
+import struct
 import time
 import threading
+import zlib
 
 PORT = 8443  # 通过 adb reverse tcp:8443 到宿主机 127.0.0.1:8443
 
@@ -77,6 +79,34 @@ CAMERAS = {
     },
 }
 # tok-offline 不在 CAMERAS → 返回 401，模拟设备不在线
+
+# /api/snapshot 用纯 stdlib 生成 1280x720 纯色 PNG（不引入 Pillow）：
+# 宽度 > 640 才能让客户端 THUMB_TARGET_PX=320 的 inSampleSize 真正生效，
+# 每台设备用不同颜色，截图上一眼能区分是哪一路快照。
+SNAPSHOT_COLORS = {
+    "tok-guard": (52, 120, 246),
+    "tok-alert": (220, 68, 68),
+    "tok-lowbat": (232, 176, 48),
+}
+_snapshot_cache = {}
+
+
+def _solid_png(width, height, rgb):
+    key = (width, height, rgb)
+    if key in _snapshot_cache:
+        return _snapshot_cache[key]
+
+    def chunk(tag, data):
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+
+    row = b"\x00" + bytes(rgb) * width  # 每行前置 filter byte 0
+    body = (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(row * height, 6))
+            + chunk(b"IEND", b""))
+    _snapshot_cache[key] = body
+    return body
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -144,6 +174,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         elif self.path.startswith("/api/events"):
             self._json({"events": []})
+
+        elif self.path.startswith("/api/snapshot"):
+            body = _solid_png(1280, 720, SNAPSHOT_COLORS.get(token, (48, 48, 48)))
+            # 打出时间戳与 token，供走查脚本统计 60s 节流是否生效
+            print(f"SNAPSHOT token={token} at={time.time():.3f}", flush=True)
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
         else:
             self._json({"error": "not_found"}, code=404)
