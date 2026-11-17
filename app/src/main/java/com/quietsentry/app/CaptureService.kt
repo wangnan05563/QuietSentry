@@ -19,8 +19,10 @@ import android.os.Looper
 import android.util.Log
 import androidx.camera.core.Camera
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.PendingRecording
 import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
@@ -253,12 +255,7 @@ class CaptureService : LifecycleService() {
         active?.stop()
         val primary = CameraCapabilities.primary(this)
         if (primary == null) {
-            // 没有可用镜头就凑不出值守：如实告知并退出，不能让通知一直显示“采集中”骗用户
-            updateNotification(getString(R.string.camera_missing))
-            notifier.showGuardNote(getString(R.string.camera_missing_title), getString(R.string.camera_missing))
-            running = false
-            isRunning = false
-            markGuardActive(false)
+            reportCameraMissing()
             return
         }
         watchCamera(primary.id)
@@ -267,13 +264,57 @@ class CaptureService : LifecycleService() {
         // 检测前的算力探测（W26）：低端机降分辨率并隔帧送检，避免检测本身成为耗电主因
         val detection = DetectionProfile.of(this)
         val human = if (detection.humanDetection) ensureHumanDetector() else null
-        // 运动检测复用同一路相机流；分辨率为档位决定，低端机降到 VGA 不影响成片
-        val detector = MotionDetector(
-            DETECTION_SENSITIVITY,
-            MotionDetector.ALL_GRID,
-            thumbnailDir,
-            human
-        ) { confidence, thumbnail, person, boxes ->
+        val detector = buildMotionDetector(human)
+        analysis = ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setResolutionSelector(DetectionProfile.analysisSelector(detection))
+            .build()
+            .also { it.setAnalyzer(analysisExecutor, buildFrameAnalyzer(detector, detection)) }
+        try {
+            cameraProvider.unbindAll()
+            boundCamera = cameraProvider.bindToLifecycle(
+                cameraOwner,
+                CameraCapabilities.selector(primary),
+                capture,
+                analysis
+            )
+            bindTorchSwitch()
+            bindRetries = 0
+            rebinding = false
+            // 绑定成功前的解绑/重试都会产生可用性回调，记下时刻让回调按“自身噪音”忽略
+            lastBindAtMs = System.currentTimeMillis()
+            // 只有前置镜头的设备要把降级结果说出来，否则用户会以为“后置坏了”
+            updateNotification(getString(startedCaption(primary)))
+            if (!recordOnly && soundDetector == null) startSoundDetector()
+            startNextSegment(generation)
+            // 相机绑定成功后才值得对外提供服务：否则观看端只能拿到一个“在线但永远无画面”的设备
+            startLanServer()
+        } catch (e: Exception) {
+            // 相机被其他应用占用或设备无可用录制尺寸：先有限重试，再如实报错退出
+            retryBind(e)
+        }
+    }
+
+    /** 没有可用镜头就凑不出值守：如实告知并退出，不能让通知一直显示“采集中”骗用户 */
+    private fun reportCameraMissing() {
+        updateNotification(getString(R.string.camera_missing))
+        notifier.showGuardNote(getString(R.string.camera_missing_title), getString(R.string.camera_missing))
+        running = false
+        isRunning = false
+        markGuardActive(false)
+    }
+
+    /** 通知标题：连续记录与前置镜头的降级结果都要能一眼看出，避免用户误判“后置坏了” */
+    private fun startedCaption(primary: CameraCapabilities.Primary): Int = when {
+        recordOnly -> R.string.capture_recording
+        primary.facing == CameraCharacteristics.LENS_FACING_FRONT -> R.string.capture_running_front
+        else -> R.string.capture_running
+    }
+
+    /** 运动检测器：复用同一路相机流，分辨率为档位决定，低端机降到 VGA 不影响成片 */
+    private fun buildMotionDetector(human: HumanDetector?): MotionDetector =
+        MotionDetector(DETECTION_SENSITIVITY, MotionDetector.ALL_GRID, thumbnailDir, human) {
+                confidence, thumbnail, person, boxes ->
             // 人形确认命中才升级事件类型：模型不可用时 person 恒为 false，口径自动退回普通运动
             if (person) {
                 // 框同步发布给直播流（T04053）：观看端实时页据帧头画半透明框
@@ -283,79 +324,63 @@ class CaptureService : LifecycleService() {
                 onDetected(EventType.MOTION, R.string.detection_motion, confidence, thumbnail)
             }
         }
-        // 帧计数只服务降载与算力档位的隔帧判定；分析器是单线程回调，无需加锁。
-        // 每次重绑重建分析器，计数器随之归零，避免沿用上一场会话的节拍
+
+    /**
+     * 分析器：帧计数只服务降载与算力档位的隔帧判定；分析器是单线程回调，无需加锁。
+     * 每次重绑重建分析器，计数器随之归零，避免沿用上一场会话的节拍。
+     */
+    private fun buildFrameAnalyzer(
+        detector: MotionDetector,
+        detection: DetectionProfile.Profile,
+    ): ImageAnalysis.Analyzer {
         var frameCount = 0
-        val frameAnalyzer = ImageAnalysis.Analyzer { image ->
-            // 降载档（PRD FR-13）关闭实时推流并隔帧分析：省电的代价必须落在“推流与画质”上，
-            // 不能变成停止检测——否则用户会以为值守还在，实际整段时间都录不到事件
+        return ImageAnalysis.Analyzer { image ->
             frameCount++
-            val throttled = GuardRuntime.throttled
-            if (!throttled) {
-                LanFrameHub.publish(image)
-                // RTSP/NVR 拉流复用同一帧：降载档一起停推，省电的代价落在推流而不是检测上
-                H264Streamer.publish(image)
-            }
-            val skipForThrottle = throttled && frameCount % THROTTLE_FRAME_SKIP != 0
-            val skipForCapability = frameCount % detection.detectEveryNFrames != 0
-            if (skipForThrottle || skipForCapability) {
-                // 跳过的帧必须自己关闭，漏掉一次相机缓冲就会卡死整条分析管线
-                image.close()
-            } else {
-                // 先发布到实时流再交给检测器；检测器负责 image.close()，
-                // 这里不能提前关闭，否则 JPEG 编码与运动检测都会拿到失效缓冲
-                if (recordOnly) {
-                    // 连续记录只保实时流，不跑检测；关闭缓冲避免分析管线卡住
-                    image.close()
-                } else {
-                    detector.analyze(image)
-                }
-            }
+            handleAnalysisFrame(image, detector, detection, frameCount)
         }
-        analysis = ImageAnalysis.Builder()
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .setResolutionSelector(DetectionProfile.analysisSelector(detection))
-            .build()
-            .also { it.setAnalyzer(analysisExecutor, frameAnalyzer) }
-        try {
-            cameraProvider.unbindAll()
-            boundCamera = cameraProvider.bindToLifecycle(
-                cameraOwner,
-                CameraCapabilities.selector(primary),
-                capture,
-                analysis
-            )
-            // 手电由 Deterrent 计时关闭，这里只提供开关；没有闪光灯的设备由 enableTorch 自行失败
-            Deterrent.torchSwitch = { on ->
-                val control = boundCamera?.cameraControl
-                if (control == null) {
-                    false
-                } else {
-                    control.enableTorch(on)
-                    true
-                }
+    }
+
+    private fun handleAnalysisFrame(
+        image: ImageProxy,
+        detector: MotionDetector,
+        detection: DetectionProfile.Profile,
+        frameCount: Int,
+    ) {
+        // 降载档（PRD FR-13）关闭实时推流并隔帧分析：省电的代价必须落在“推流与画质”上，
+        // 不能变成停止检测——否则用户会以为值守还在，实际整段时间都录不到事件
+        val throttled = GuardRuntime.throttled
+        if (!throttled) {
+            LanFrameHub.publish(image)
+            // RTSP/NVR 拉流复用同一帧：降载档一起停推，省电的代价落在推流而不是检测上
+            H264Streamer.publish(image)
+        }
+        val skipForThrottle = throttled && frameCount % THROTTLE_FRAME_SKIP != 0
+        val skipForCapability = frameCount % detection.detectEveryNFrames != 0
+        if (skipForThrottle || skipForCapability) {
+            // 跳过的帧必须自己关闭，漏掉一次相机缓冲就会卡死整条分析管线
+            image.close()
+            return
+        }
+        // 先发布到实时流再交给检测器；检测器负责 image.close()，
+        // 这里不能提前关闭，否则 JPEG 编码与运动检测都会拿到失效缓冲
+        if (recordOnly) {
+            // 连续记录只保实时流，不跑检测；关闭缓冲避免分析管线卡住
+            image.close()
+        } else {
+            detector.analyze(image)
+        }
+    }
+
+    /** 手电由 Deterrent 计时关闭，这里只提供开关；没有闪光灯的设备由 enableTorch 自行失败 */
+    private fun bindTorchSwitch() {
+        Deterrent.torchSwitch = { on ->
+            val control = boundCamera?.cameraControl
+            if (control == null) {
+                false
+            } else {
+                control.enableTorch(on)
+                true
             }
-            bindRetries = 0
-            rebinding = false
-            // 绑定成功前的解绑/重试都会产生可用性回调，记下时刻让回调按“自身噪音”忽略
-            lastBindAtMs = System.currentTimeMillis()
-            // 只有前置镜头的设备要把降级结果说出来，否则用户会以为“后置坏了”
-            updateNotification(
-                getString(
-                    when {
-                        recordOnly -> R.string.capture_recording
-                        primary.facing == CameraCharacteristics.LENS_FACING_FRONT -> R.string.capture_running_front
-                        else -> R.string.capture_running
-                    }
-                )
-            )
-            if (!recordOnly && soundDetector == null) startSoundDetector()
-            startNextSegment(generation)
-            // 相机绑定成功后才值得对外提供服务：否则观看端只能拿到一个“在线但永远无画面”的设备
-            startLanServer()
-        } catch (e: Exception) {
-            // 相机被其他应用占用或设备无可用录制尺寸：先有限重试，再如实报错退出
-            retryBind(e)
         }
     }
 
@@ -389,8 +414,7 @@ class CaptureService : LifecycleService() {
                 if (id != watchedCameraId) return
                 // 我们自己 unbindAll 和刚绑定成功的瞬态也会收到“不可用”，那不是被别人抢占；
                 // 误判会把通知停成“被占用”，并且触发一次多余重绑
-                if (rebinding || System.currentTimeMillis() - lastBindAtMs < CAMERA_SETTLE_MS) return
-                if (cameraBusy) return
+                if (isSettling() || cameraBusy) return
                 cameraBusy = true
                 updateNotification(getString(R.string.camera_busy))
             }
@@ -398,17 +422,26 @@ class CaptureService : LifecycleService() {
             override fun onCameraAvailable(id: String) {
                 if (id != watchedCameraId) return
                 // 与上面同源的自噪：刚完成绑定就回调“可用”，此时重绑只会多停一次录制
-                if (System.currentTimeMillis() - lastBindAtMs < CAMERA_SETTLE_MS) return
-                if (!cameraBusy) return
-                cameraBusy = false
-                // 抢用方释放后必须把通知改回常规文案，否则设备在正常采集却一直显示“被占用”
-                updateNotification(getString(R.string.capture_running))
-                // 对方释放后 CameraX 不会自己恢复已断开的会话，不重绑就会静默无画面
-                if (running && !stopping && provider != null) bindCamera()
+                if (isSettling() || !cameraBusy) return
+                onCameraReleased()
             }
         }
         cameraWatch = callback
         runCatching { manager.registerAvailabilityCallback(ContextCompat.getMainExecutor(this), callback) }
+    }
+
+    /** 绑定前后 2 秒内的可用性回调属于自身噪音，按它重绑只会多停一次录制 */
+    private fun isSettling(): Boolean =
+        rebinding || System.currentTimeMillis() - lastBindAtMs < CAMERA_SETTLE_MS
+
+    /**
+     * 抢用方释放后必须把通知改回常规文案，否则设备在正常采集却一直显示“被占用”；
+     * CameraX 不会自己恢复已断开的会话，不重绑就会静默无画面。
+     */
+    private fun onCameraReleased() {
+        cameraBusy = false
+        updateNotification(getString(R.string.capture_running))
+        if (running && !stopping && provider != null) bindCamera()
     }
 
     private fun unwatchCamera() {
@@ -436,73 +469,116 @@ class CaptureService : LifecycleService() {
             StorageKeeper.enforce(this)
         }
         val capture = videoCapture ?: return
-        val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val output = File(clipDir, "clip_${stamp}_${segmentIndex++}.mp4")
+        val output = nextSegmentFile()
         // 起点要在这里而不是 Finalize 里取：Finalize 时刻比真实开录晚若干百毫秒，
         // 用它算偏移会让“事件前 5 秒”整体向后漂
         segmentStartMs = System.currentTimeMillis()
-        val pending = File(output.path + ".pending")
-
-        // 磁盘写满时连 .pending 标记都写不进去；这条路径此前没有异常处理，
-        // ENOSPC 会被直接抛到主线程把前台服务打崩（真机 10-31 的崩溃栈即在此处）。
-        // 存储满时重试没有意义，如实提示并停止采集，避免用户以为还在录。
-        val prepared = runCatching {
-            val options = FileOutputOptions.Builder(output).build()
-            var pendingRecording = capture.output.prepareRecording(this, options)
-            if (hasAudioPermission()) pendingRecording = pendingRecording.withAudioEnabled()
-            pending.writeText(output.name)
-            pendingRecording
-        }.getOrElse { e ->
-            Log.w(TAG, "segment unavailable: ${e.message}")
-            pending.delete()
-            updateNotification(getString(R.string.segment_storage_full))
-            notifier.showGuardNote(
-                getString(R.string.segment_storage_full),
-                getString(R.string.segment_storage_full_hint)
-            )
-            stopCapture()
-            return
-        }
-
-        recording = runCatching {
-            prepared.start(ContextCompat.getMainExecutor(this)) { event ->
-                if (event !is VideoRecordEvent.Finalize) return@start
-                // 分片可能因为相机异常提前结束，必须清掉残留计时，否则它会误停刚开起的下一片
-                segmentTimer.removeCallbacks(stopCurrentSegment)
-                pending.delete()
-                // 换绑后迟到的旧片 Finalize 只做文件收尾，既不能挂事件也不能再开下一片
-                if (generation != bindGeneration) return@start
-                recording = null
-                if (event.hasError()) {
-                    updateNotification(getString(R.string.segment_error, event.error))
-                    // 写坏的分片不能挂给事件：保持“检测中”，回看页会如实提示文件不可用
-                    pendingEvents.clear()
-                } else {
-                    attachPendingEvents(output, segmentStartMs, previousClip)
-                    // 只统计成功收敛的片子：坏片不代表“在录”，计入会误导用户
-                    GuardRuntime.segmentDone()
-                    // 保住刚收敛的片子，下一片的事件若发生在片头 5 秒内要靠它补前置画面
-                    previousClip = output
-                }
-                // 停止守值时最后一个分片要靠这次 Finalize 收敛，收敛后才能安全导出；
-                // 重绑流程里的分片既不续写也不触发收尾，交给新的 bindCamera 重新起片
-                if (stopping) finishSession() else if (!rebinding) startNextSegment(generation)
-            }
-        }.getOrElse { e ->
-            // 相机刚被抢走时 start 会被拒；放任异常会让前台服务拖死整个进程，本场值守直接丢失
-            Log.w(TAG, "startNextSegment rejected: ${e.message}")
-            pending.delete()
-            segmentTimer.postDelayed({ startNextSegment(generation) }, SEGMENT_RETRY_DELAY_MS)
-            null
-        }
+        val pending = File(output.path + PENDING_SUFFIX)
+        val prepared = prepareSegment(capture, output, pending) ?: return
+        recording = startSegmentRecording(prepared, output, pending, generation)
         // 已安排重试时不能把收片计时挂在不存在的录制上
         if (recording == null) return
         // 到点主动收片：片长可控，被杀或断电时最多损失一个分片
         segmentTimer.postDelayed(stopCurrentSegment, SEGMENT_DURATION_MS)
     }
 
+    /** 分片文件名按“时间戳 + 单调序号”生成，序号跨重绑也不复用 */
+    private fun nextSegmentFile(): File {
+        val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        return File(clipDir, "clip_${stamp}_${segmentIndex++}.mp4")
+    }
+
+    /**
+     * 预创建录制器并落 .pending 标记。磁盘写满时连标记都写不进去；
+     * ENOSPC 曾被直接抛到主线程把前台服务打崩（真机 10-31 的崩溃栈即在此处），
+     * 存储满时重试没有意义，如实提示并停止采集，避免用户以为还在录。
+     */
+    private fun prepareSegment(
+        capture: VideoCapture<Recorder>,
+        output: File,
+        pending: File,
+    ): PendingRecording? = runCatching {
+        val options = FileOutputOptions.Builder(output).build()
+        var pendingRecording = capture.output.prepareRecording(this, options)
+        if (hasAudioPermission()) pendingRecording = pendingRecording.withAudioEnabled()
+        pending.writeText(output.name)
+        pendingRecording
+    }.getOrElse { e ->
+        Log.w(TAG, "segment unavailable: ${e.message}")
+        clearPendingMarker(pending)
+        updateNotification(getString(R.string.segment_storage_full))
+        notifier.showGuardNote(
+            getString(R.string.segment_storage_full),
+            getString(R.string.segment_storage_full_hint)
+        )
+        stopCapture()
+        null
+    }
+
+    /** 启动录制；相机被抢走时 start 会被拒，安排重试而不是让异常拖死进程 */
+    private fun startSegmentRecording(
+        prepared: PendingRecording,
+        output: File,
+        pending: File,
+        generation: Int,
+    ): Recording? = runCatching {
+        prepared.start(ContextCompat.getMainExecutor(this)) { event ->
+            if (event is VideoRecordEvent.Finalize) {
+                onSegmentFinalized(event, output, pending, generation)
+            }
+        }
+    }.getOrElse { e ->
+        Log.w(TAG, "startNextSegment rejected: ${e.message}")
+        clearPendingMarker(pending)
+        segmentTimer.postDelayed({ startNextSegment(generation) }, SEGMENT_RETRY_DELAY_MS)
+        null
+    }
+
+    /** 分片收敛：坏片清空待挂事件，好片补挂事件并接续下一片 */
+    private fun onSegmentFinalized(
+        event: VideoRecordEvent.Finalize,
+        output: File,
+        pending: File,
+        generation: Int,
+    ) {
+        // 分片可能因为相机异常提前结束，必须清掉残留计时，否则它会误停刚开起的下一片
+        segmentTimer.removeCallbacks(stopCurrentSegment)
+        clearPendingMarker(pending)
+        // 换绑后迟到的旧片 Finalize 只做文件收尾，既不能挂事件也不能再开下一片
+        if (generation != bindGeneration) return
+        recording = null
+        if (event.hasError()) {
+            onSegmentError(event)
+        } else {
+            attachPendingEvents(output, segmentStartMs, previousClip)
+            // 只统计成功收敛的片子：坏片不代表“在录”，计入会误导用户
+            GuardRuntime.segmentDone()
+            // 保住刚收敛的片子，下一片的事件若发生在片头 5 秒内要靠它补前置画面
+            previousClip = output
+        }
+        // 停止守值时最后一个分片要靠这次 Finalize 收敛，收敛后才能安全导出；
+        // 重绑流程里的分片既不续写也不触发收尾，交给新的 bindCamera 重新起片
+        if (stopping) finishSession() else if (!rebinding) startNextSegment(generation)
+    }
+
+    /** 写坏的分片不能挂给事件：保持“检测中”，回看页会如实提示文件不可用 */
+    private fun onSegmentError(event: VideoRecordEvent.Finalize) {
+        updateNotification(getString(R.string.segment_error, event.error))
+        pendingEvents.clear()
+    }
+
+    /**
+     * 清理 .pending 标记：标记删不掉不影响本次录制，但静默留下会让下次启动误判“有未收敛分片”，
+     * 因此失败必须留日志。文件本就不存在时（写标记前就失败）无需处理。
+     */
+    private fun clearPendingMarker(marker: File) {
+        if (marker.exists() && !marker.delete()) {
+            Log.w(TAG, "pending marker delete failed: ${marker.path}")
+        }
+    }
+
     private fun repairInterruptedClips() {
-        val strayPending = clipDir.listFiles { file -> file.name.endsWith(".pending") } ?: return
+        val strayPending = clipDir.listFiles { file -> file.name.endsWith(PENDING_SUFFIX) } ?: return
         for (marker in strayPending) {
             val name = marker.readText().trim()
             val clip = File(clipDir, name)
@@ -687,7 +763,7 @@ class CaptureService : LifecycleService() {
     private fun finishSession() {
         val from = if (sessionStartMs > 0L) sessionStartMs else System.currentTimeMillis() - FALLBACK_SESSION_MS
         val clips = clipDir.listFiles { file ->
-            file.isFile && !file.name.endsWith(".pending") && file.lastModified() >= from
+            file.isFile && !file.name.endsWith(PENDING_SUFFIX) && file.lastModified() >= from
         }.orEmpty().toList()
         Thread {
             val exported = GalleryExporter.export(this, clips)
@@ -935,6 +1011,9 @@ class CaptureService : LifecycleService() {
 
         /** 录制被 CameraX 拒绝后的重试间隔：多为一瞬间的相机切换竞态 */
         private const val SEGMENT_RETRY_DELAY_MS = 3_000L
+
+        /** 未收敛分片的标记后缀：存在即代表“上次没录完”，启动时据此识别残片 */
+        private const val PENDING_SUFFIX = ".pending"
 
         /** 供界面判断值守是否在运行；相机是独占资源，值守与黑屏模式不能同时绑定。仅由本服务写入。 */
         @Volatile

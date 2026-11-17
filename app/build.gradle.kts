@@ -1,9 +1,22 @@
 import java.util.Properties
+import org.gradle.api.tasks.testing.Test
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+import org.gradle.testing.jacoco.tasks.JacocoReport
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    // 单元测试覆盖率：JaCoCo 生成 XML/HTML，SonarQube 通过 xmlReportPaths 读取，
+    // 不再由 Sonar 自己插桩（两者同时插桩会互相破坏字节码）
+    jacoco
 }
+
+// 模块构建目录改到项目根 release/.build/app：编译中间产物、报告与 APK 和最终交付物同处一棵树，
+// 删掉 release/ 即为全量清理；前缀由 gradle.properties 的 qs.buildDir 统一提供。
+layout.buildDirectory.set(
+    rootProject.file(providers.gradleProperty("qs.buildDir").orElse("release/.build").get())
+        .resolve("app")
+)
 
 // 发布签名材料不进版本库：keystore.properties 由发布方在本地填写，
 // 缺失时 release 保持 unsigned，CI 与日常 debug 构建不受影响。
@@ -93,6 +106,53 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    testOptions {
+        // 纯 JVM 单测里 Android 桩方法返回默认值而不是抛 "not mocked"，
+        // 这样带 Context 参数的类也能只测其中的纯函数分支
+        unitTests.isReturnDefaultValues = true
+    }
+}
+
+// ---------- 单元测试覆盖率（JaCoCo → SonarQube） ----------
+// 只统计 debug 单元的 Kotlin 产物；R/BuildConfig 与测试自身不参与覆盖率，
+// 否则分母会被生成代码抬高，覆盖率数字失去意义。
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+tasks.withType<Test>().configureEach {
+    configure<JacocoTaskExtension> {
+        // Kotlin 内联函数会生成没有行号的类，不放开会被 JaCoCo 直接跳过
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
+}
+
+tasks.register<JacocoReport>("jacocoTestReport") {
+    group = "reporting"
+    description = "生成 debug 单元测试覆盖率报告（XML 供 SonarQube 读取）"
+    dependsOn("testDebugUnitTest")
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+
+    val kotlinClasses = layout.buildDirectory.dir("tmp/kotlin-classes/debug")
+    classDirectories.setFrom(
+        files(kotlinClasses).asFileTree.matching {
+            exclude(
+                "**/R.class",
+                "**/R$*.class",
+                "**/BuildConfig.*",
+                "**/Manifest*.*",
+                "**/*Test*.*",
+            )
+        }
+    )
+    sourceDirectories.setFrom(files("src/main/java"))
+    executionData.setFrom(layout.buildDirectory.file("jacoco/testDebugUnitTest.exec"))
 }
 
 dependencies {
@@ -111,4 +171,7 @@ dependencies {
     implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
     // 端侧人形检测：TFLite 运行时 + 内置 EfficientDet-Lite0 模型（assets/models）
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
+
+    // 纯 JVM 单测：不引入 Robolectric，需要 Context 的分支由 returnDefaultValues 兜底
+    testImplementation("junit:junit:4.13.2")
 }

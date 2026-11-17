@@ -5,6 +5,7 @@ import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.util.Log
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -210,8 +211,8 @@ class EventStore(context: Context) : SQLiteOpenHelper(
     @Synchronized
     fun deleteForever(id: Long) {
         val event = get(id) ?: return
-        event.thumbnail?.delete()
-        event.clip?.delete()
+        deleteFile(event.thumbnail)
+        deleteFile(event.clip)
         writableDatabase.delete(TABLE, "$COL_ID=?", arrayOf(id.toString()))
     }
 
@@ -230,8 +231,8 @@ class EventStore(context: Context) : SQLiteOpenHelper(
             "$COL_OCCURRED_AT ASC",
             Int.MAX_VALUE
         ).forEach { event ->
-            event.thumbnail?.delete()
-            event.clip?.delete()
+            deleteFile(event.thumbnail)
+            deleteFile(event.clip)
         }
         return writableDatabase.delete(
             TABLE,
@@ -349,6 +350,15 @@ class EventStore(context: Context) : SQLiteOpenHelper(
         }
     }
 
+    /**
+     * 索引清理时同步删除私有文件：删不掉不阻断索引回收，
+     * 残留文件由 StorageKeeper 的配额回收兜底，但必须留日志便于排查存储占用。
+     */
+    private fun deleteFile(file: File?) {
+        if (file == null || !file.exists()) return
+        if (!file.delete()) Log.w(TAG, "event file delete failed: ${file.path}")
+    }
+
     private fun Cursor.toEvent(): Event = Event(
         id = getLong(getColumnIndexOrThrow(COL_ID)),
         type = EventType.fromRaw(getString(getColumnIndexOrThrow(COL_TYPE))),
@@ -371,6 +381,7 @@ class EventStore(context: Context) : SQLiteOpenHelper(
     )
 
     companion object {
+        private const val TAG = "EventStore"
         private const val DB_NAME = "events.db"
         private const val DB_VERSION = 3
         private const val TABLE = "events"

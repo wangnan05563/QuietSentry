@@ -97,6 +97,7 @@ class DeviceServer(
                     chosenTls = candidate
                     break
                 } catch (_: IOException) {
+                    // 端口被占用：继续尝试下一个候选端口，全部失败由下面的 boundTls 判空兜底
                 }
             }
             val tlsSocket = boundTls ?: throw IOException("no free tls port in $TLS_PORT_RANGE")
@@ -173,31 +174,45 @@ class DeviceServer(
 
     private fun route(socket: Socket, req: Request, out: OutputStream) {
         when {
-            req.method == "GET" && req.path == "/api/info" -> handleInfo(req, out)
-            req.method == "POST" && req.path == "/api/pair" -> handlePair(req, out)
-            req.method == "GET" && req.path == "/api/status" -> handleStatus(req, out)
-            req.method == "GET" && req.path == "/api/events" -> handleEvents(req, out)
-            req.method == "GET" && req.path == "/api/thumbnail" -> handleThumbnail(req, out)
-            req.method == "GET" && req.path == "/api/clip" -> handleClip(req, out)
-            req.method == "GET" && req.path == "/api/snapshot" -> handleSnapshot(req, out)
-            req.method == "GET" && req.path == "/api/live" -> handleLive(socket, req, out)
-            req.method == "POST" && req.path == "/api/leave" -> handleLeave(req, out)
-            req.method == "POST" && req.path == "/api/revoke" -> handleRevoke(req, out)
-            // 远程暂停（PRD FR-14）：Owner/Member 都可请求，Guest 不能
-            req.method == "POST" && req.path == "/api/pause" -> handlePause(req, out)
-            // 双向语音与威慑（PRD FR-16）：对讲 / 警笛 / 手电，同属远程控制，Guest 不可用
-            req.method == "POST" && req.path == "/api/talk" -> handleTalk(req, out)
-            req.method == "POST" && req.path == "/api/siren" -> handleSiren(req, out)
-            req.method == "POST" && req.path == "/api/torch" -> handleTorch(req, out)
-            // 触发态可中途停止（T04052）：权限口径与触发一致，Guest 不能也不能停
-            req.method == "POST" && req.path == "/api/siren/stop" -> handleSirenStop(req, out)
-            req.method == "POST" && req.path == "/api/torch/stop" -> handleTorchStop(req, out)
-            // 第三方集成（PRD FR-15）：仅集成开启时可访问，鉴权走 Basic 或配对令牌
-            req.method == "GET" && req.path == "/web" -> handleConsole(socket, req, out)
-            req.method == "GET" && req.path == "/api/integration" -> handleIntegrationState(socket, req, out)
-            req.method == "POST" && req.path == "/api/integration/disable" -> handleIntegrationDisable(socket, req, out)
             // ONVIF Profile S（PRD FR-15）：NVR 先连 device_service 取能力，再按 Media 服务取流地址
             req.method == "POST" && req.path.startsWith("/onvif/") -> handleOnvif(socket, req, out)
+            req.method == "GET" -> routeGet(socket, req, out)
+            req.method == "POST" -> routePost(socket, req, out)
+            else -> respond(out, 404, errorBody("not_found"))
+        }
+    }
+
+    private fun routeGet(socket: Socket, req: Request, out: OutputStream) {
+        when (req.path) {
+            "/api/info" -> handleInfo(out)
+            "/api/status" -> handleStatus(req, out)
+            "/api/events" -> handleEvents(req, out)
+            "/api/thumbnail" -> handleThumbnail(req, out)
+            "/api/clip" -> handleClip(req, out)
+            "/api/snapshot" -> handleSnapshot(req, out)
+            "/api/live" -> handleLive(socket, req, out)
+            // 第三方集成（PRD FR-15）：仅集成开启时可访问，鉴权走 Basic 或配对令牌
+            "/web" -> handleConsole(socket, req, out)
+            "/api/integration" -> handleIntegrationState(socket, req, out)
+            else -> respond(out, 404, errorBody("not_found"))
+        }
+    }
+
+    private fun routePost(socket: Socket, req: Request, out: OutputStream) {
+        when (req.path) {
+            "/api/pair" -> handlePair(req, out)
+            "/api/leave" -> handleLeave(req, out)
+            "/api/revoke" -> handleRevoke(req, out)
+            // 远程暂停（PRD FR-14）：Owner/Member 都可请求，Guest 不能
+            "/api/pause" -> handlePause(req, out)
+            // 双向语音与威慑（PRD FR-16）：对讲 / 警笛 / 手电，同属远程控制，Guest 不可用
+            "/api/talk" -> handleTalk(req, out)
+            "/api/siren" -> handleSiren(req, out)
+            "/api/torch" -> handleTorch(req, out)
+            // 触发态可中途停止（T04052）：权限口径与触发一致，Guest 不能也不能停
+            "/api/siren/stop" -> handleSirenStop(req, out)
+            "/api/torch/stop" -> handleTorchStop(req, out)
+            "/api/integration/disable" -> handleIntegrationDisable(socket, req, out)
             else -> respond(out, 404, errorBody("not_found"))
         }
     }
@@ -206,7 +221,7 @@ class DeviceServer(
      * 公开信息只够“发现 + 判断能不能连”，不放事件数、片段、令牌等任何内容：
      * 局域网里任何设备都能请求它，泄露越多越容易成为被扫描的目标。
      */
-    private fun handleInfo(req: Request, out: OutputStream) {
+    private fun handleInfo(out: OutputStream) {
         val grants = pairing.activeGrants()
         val body = JSONObject()
             .put("id", pairing.fingerprint())
@@ -273,7 +288,7 @@ class DeviceServer(
         .put("expiresAt", grant.expiresAt)
 
     private fun handleStatus(req: Request, out: OutputStream) {
-        val grant = requireGrant(req, out) ?: return
+        requireGrant(req, out) ?: return
         val body = JSONObject()
             .put("mode", currentMode())
             .put("battery", batteryPercent())
@@ -335,7 +350,7 @@ class DeviceServer(
             ?: return respond(out, 400, errorBody("missing_id"))
         val file = events.get(id)?.thumbnail?.takeIf { it.isFile }
             ?: return respond(out, 404, errorBody("thumbnail_not_found"))
-        writeHead(out, 200, "image/jpeg", file.length())
+        writeHead(out, 200, MIME_JPEG, file.length())
         file.inputStream().use { it.copyTo(out, BUFFER_SIZE) }
     }
 
@@ -364,13 +379,13 @@ class DeviceServer(
         val main = req.query["quality"] == "main"
         val frame = LanFrameHub.snapshot(main)?.second
         if (frame != null) {
-            writeHead(out, 200, "image/jpeg", frame.jpeg.size.toLong(), mapOf("X-Timestamp" to frame.atMs.toString()))
+            writeHead(out, 200, MIME_JPEG, frame.jpeg.size.toLong(), mapOf("X-Timestamp" to frame.atMs.toString()))
             out.write(frame.jpeg)
             return
         }
         val thumbnail = events.recent(1).firstOrNull()?.thumbnail?.takeIf { it.isFile }
             ?: return respond(out, 404, errorBody("no_snapshot"))
-        writeHead(out, 200, "image/jpeg", thumbnail.length(), mapOf("X-Timestamp" to thumbnail.lastModified().toString()))
+        writeHead(out, 200, MIME_JPEG, thumbnail.length(), mapOf("X-Timestamp" to thumbnail.lastModified().toString()))
         thumbnail.inputStream().use { it.copyTo(out, BUFFER_SIZE) }
     }
 
@@ -384,73 +399,100 @@ class DeviceServer(
         // 这条路径不受“集成未开启”的 404 限制，否则关闭第三方集成会连带打断自有观看端
         val grant = grantOf(req)
         if (grant == null && !requireIntegration(socket, req, out, requireEnabled = false)) return
-        if (viewers.incrementAndGet() > MAX_VIEWERS) {
-            viewers.decrementAndGet()
-            // 第 6 人明确收到提示与上限值，而不是无声地转圈（PRD FR-08 异常：并发已满）
-            return respond(
-                out,
-                429,
-                JSONObject().put("error", "too_many_viewers").put("maxViewers", MAX_VIEWERS).toString()
-            )
-        }
+        if (!admitViewer(out)) return
         try {
             // 直播是长连接：请求读取超时在这里没有意义，写超时才由 Socket 层拦截
             socket.soTimeout = 0
             // quality=auto 先在主码流上试跑，写不动再降子码流：
             // 客户端无法预知链路余量，只有服务端写到卡住时才知道该降级
             val auto = req.query["quality"] == "auto"
-            var main = auto || req.query["quality"] == "main"
-            out.write(
-                (
-                    "HTTP/1.1 200 OK\r\n" +
-                        "Content-Type: multipart/x-mixed-replace; boundary=$BOUNDARY\r\n" +
-                        "Cache-Control: no-store\r\n" +
-                        "Connection: close\r\n\r\n"
-                    ).toByteArray()
-            )
-            var lastSequence = 0L
-            val cached = LanFrameHub.snapshot(main)
-            if (cached != null) {
+            val session = LiveSession(grant, auto, main = auto || req.query["quality"] == "main")
+            writeStreamHead(out)
+            // 首帧先写缓存帧而不是等下一帧：CameraX 在低光下曝光时间可能超过 1 秒，
+            // 等下一帧会让观看端白屏到 2 秒以上，直接违反“打开实时画面到首帧 ≤2 秒”。
+            LanFrameHub.snapshot(session.main)?.let { cached ->
                 writeFrame(out, cached.second)
-                lastSequence = cached.first
+                session.lastSequence = cached.first
                 out.flush()
             }
-            var idleTicks = 0
-            var lastAuthMs = System.currentTimeMillis()
-            while (running) {
-                // 撤销必须在下一次心跳内生效：Owner 踢人后若画面还在继续推送，
-                // “撤销”就只是删了一条记录，PRD FR-14 的 5 秒内生效无从保证。
-                // 第三方 Basic 连接没有配对令牌，只能靠关闭集成来收回（那条路径由 disable 踢出）
-                if (grant != null) {
-                    val now = System.currentTimeMillis()
-                    if (now - lastAuthMs >= AUTH_CHECK_MS) {
-                        lastAuthMs = now
-                        if (pairing.authenticate(grant.token) == null) break
-                    }
-                }
-                val next = LanFrameHub.await(lastSequence, main, LIVE_WAIT_MS)
-                if (next == null) {
-                    // 无新帧可能是相机被停止或黑屏记录模式；连续多个空窗后关闭连接，
-                    // 让观看端切到“最近快照 + 最后在线时间”而不是无限等待
-                    if (++idleTicks >= LIVE_IDLE_TICKS) break
-                    continue
-                }
-                idleTicks = 0
-                val writeStart = System.nanoTime()
-                writeFrame(out, next.second)
-                lastSequence = next.first
-                out.flush()
-                // 一帧 JPEG 在局域网通常 <10ms；超过 300ms 说明链路已经跟不上主码流。
-                // 只降不升：回升会与降级反复抖动，画面反而更卡
-                if (auto && main && (System.nanoTime() - writeStart) / 1_000_000 >= DEGRADE_WRITE_MS) {
-                    main = false
-                }
-            }
+            pumpFrames(out, session)
         } catch (e: IOException) {
             // 观看端主动断开是最常见的结束方式，不当作错误
         } finally {
             viewers.decrementAndGet()
         }
+    }
+
+    /** 并发上限：第 6 人明确收到提示与上限值，而不是无声地转圈（PRD FR-08 异常：并发已满） */
+    private fun admitViewer(out: OutputStream): Boolean {
+        if (viewers.incrementAndGet() <= MAX_VIEWERS) return true
+        viewers.decrementAndGet()
+        respond(
+            out,
+            429,
+            JSONObject().put("error", "too_many_viewers").put("maxViewers", MAX_VIEWERS).toString()
+        )
+        return false
+    }
+
+    private fun writeStreamHead(out: OutputStream) {
+        out.write(
+            (
+                "HTTP/1.1 200 OK\r\n" +
+                    "Content-Type: multipart/x-mixed-replace; boundary=$BOUNDARY\r\n" +
+                    "Cache-Control: no-store\r\n" +
+                    "Connection: close\r\n\r\n"
+                ).toByteArray()
+        )
+    }
+
+    /** 帧推送主循环：令牌复核、空闲断流与主码流降级都在这里按帧推进 */
+    private fun pumpFrames(out: OutputStream, session: LiveSession) {
+        while (running) {
+            if (revoked(session)) break
+            val next = LanFrameHub.await(session.lastSequence, session.main, LIVE_WAIT_MS)
+            if (next == null) {
+                // 无新帧可能是相机被停止或黑屏记录模式；连续多个空窗后关闭连接，
+                // 让观看端切到“最近快照 + 最后在线时间”而不是无限等待
+                session.idleTicks++
+                if (session.idleTicks >= LIVE_IDLE_TICKS) break
+                continue
+            }
+            session.idleTicks = 0
+            val writeStart = System.nanoTime()
+            writeFrame(out, next.second)
+            session.lastSequence = next.first
+            out.flush()
+            // 一帧 JPEG 在局域网通常 <10ms；超过 300ms 说明链路已经跟不上主码流。
+            // 只降不升：回升会与降级反复抖动，画面反而更卡
+            if (session.auto && session.main && (System.nanoTime() - writeStart) / 1_000_000 >= DEGRADE_WRITE_MS) {
+                session.main = false
+            }
+        }
+    }
+
+    /**
+     * 令牌撤销必须在下一次心跳内生效：Owner 踢人后若画面还在继续推送，
+     * “撤销”就只是删了一条记录，PRD FR-14 的 5 秒内生效无从保证。
+     * 第三方 Basic 连接没有配对令牌，只能靠关闭集成来收回（那条路径由 disable 踢出）。
+     */
+    private fun revoked(session: LiveSession): Boolean {
+        val grant = session.grant ?: return false
+        val now = System.currentTimeMillis()
+        if (now - session.lastAuthMs < AUTH_CHECK_MS) return false
+        session.lastAuthMs = now
+        return pairing.authenticate(grant.token) == null
+    }
+
+    /** 单条直播连接的可变状态：帧序、空窗计数、复核定频与降级档位都只属于这条连接 */
+    private class LiveSession(
+        val grant: PairingStore.Grant?,
+        val auto: Boolean,
+        var main: Boolean,
+    ) {
+        var lastSequence = 0L
+        var idleTicks = 0
+        var lastAuthMs = System.currentTimeMillis()
     }
 
     private fun writeFrame(out: OutputStream, frame: LanFrameHub.Frame) {
@@ -691,10 +733,10 @@ class DeviceServer(
             )
             return false
         }
-        when (LanIntegration.verify(context, credentials.first, credentials.second)) {
+        return when (LanIntegration.verify(context, credentials.first, credentials.second)) {
             LanIntegration.Result.OK -> {
                 thirdParty += socket
-                return true
+                true
             }
 
             LanIntegration.Result.LOCKED -> {
@@ -703,12 +745,12 @@ class DeviceServer(
                     out, 429,
                     JSONObject().put("error", "auth_locked").put("retryAfterSec", remain).toString()
                 )
-                return false
+                false
             }
 
             LanIntegration.Result.INVALID -> {
                 respond(out, 401, errorBody("unauthorized"))
-                return false
+                false
             }
         }
     }
@@ -793,14 +835,17 @@ class DeviceServer(
         val total = file.length()
         val range = parseRange(req.header("range"), total)
         if (range == null) {
-            writeHead(out, 200, "video/mp4", total, mapOf("Accept-Ranges" to "bytes"))
+            writeHead(out, 200, MIME_MP4, total, mapOf(HEADER_ACCEPT_RANGES to HEADER_RANGE_BYTES))
             file.inputStream().use { it.copyTo(out, BUFFER_SIZE) }
             return
         }
         val length = range.last - range.first + 1
         writeHead(
-            out, 206, "video/mp4", length,
-            mapOf("Accept-Ranges" to "bytes", "Content-Range" to "bytes ${range.first}-${range.last}/$total")
+            out, 206, MIME_MP4, length,
+            mapOf(
+                HEADER_ACCEPT_RANGES to HEADER_RANGE_BYTES,
+                "Content-Range" to "bytes ${range.first}-${range.last}/$total"
+            )
         )
         file.inputStream().use { input ->
             input.skipFully(range.first)
@@ -816,20 +861,23 @@ class DeviceServer(
             val total = it.length
             if (total <= 0L) {
                 // 长度未知时退化为整段传输：客户端按连接关闭判定结束
-                writeHead(out, 200, "video/mp4", null)
+                writeHead(out, 200, MIME_MP4, null)
                 it.createInputStream().use { input -> input.copyTo(out, BUFFER_SIZE) }
                 return
             }
             val range = parseRange(req.header("range"), total)
             if (range == null) {
-                writeHead(out, 200, "video/mp4", total, mapOf("Accept-Ranges" to "bytes"))
+                writeHead(out, 200, MIME_MP4, total, mapOf(HEADER_ACCEPT_RANGES to HEADER_RANGE_BYTES))
                 it.createInputStream().use { input -> input.copyTo(out, BUFFER_SIZE) }
                 return
             }
             val length = range.last - range.first + 1
             writeHead(
-                out, 206, "video/mp4", length,
-                mapOf("Accept-Ranges" to "bytes", "Content-Range" to "bytes ${range.first}-${range.last}/$total")
+                out, 206, MIME_MP4, length,
+                mapOf(
+                    HEADER_ACCEPT_RANGES to HEADER_RANGE_BYTES,
+                    "Content-Range" to "bytes ${range.first}-${range.last}/$total"
+                )
             )
             it.createInputStream().use { input ->
                 // createInputStream 已经定位在 AssetFileDescriptor 的 startOffset，
@@ -1077,5 +1125,9 @@ class DeviceServer(
         /** ONVIF 客户端（Frigate/HA）按 SOAP 1.2 的响应类型解析，回 json 会直接判为设备不可用 */
         private const val SOAP_TYPE = "application/soap+xml; charset=utf-8"
         private const val BOUNDARY = "quietsentry-frame"
+        private const val MIME_JPEG = "image/jpeg"
+        private const val MIME_MP4 = "video/mp4"
+        private const val HEADER_ACCEPT_RANGES = "Accept-Ranges"
+        private const val HEADER_RANGE_BYTES = "bytes"
     }
 }

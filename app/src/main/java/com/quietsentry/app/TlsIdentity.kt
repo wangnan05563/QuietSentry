@@ -32,6 +32,12 @@ object TlsIdentity {
     private const val ALIAS = "quietsentry"
     private const val TEN_YEARS_MS = 10L * 365 * 24 * 60 * 60 * 1000
 
+    /**
+     * 显式指定 TLS 1.2：minSdk 28 尚不支持 TLS 1.3（API 29 起才有），
+     * 而泛化的 "TLS" 会随系统版本回落到更弱的协议族，属于安全扫描必须收口的口子。
+     */
+    private const val TLS_PROTOCOL = "TLSv1.2"
+
     data class Material(val context: SSLContext, val fingerprint: String)
 
     @Volatile
@@ -68,7 +74,7 @@ object TlsIdentity {
         val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply {
             init(keyStore, password)
         }
-        val ssl = SSLContext.getInstance("TLS").apply {
+        val ssl = SSLContext.getInstance(TLS_PROTOCOL).apply {
             init(kmf.keyManagers, null, SecureRandom())
         }
         val cert = keyStore.getCertificate(ALIAS)

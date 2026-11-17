@@ -17,6 +17,9 @@ import javax.net.ssl.X509TrustManager
  */
 object TlsTrust {
 
+    /** 与 TlsIdentity 保持同一协议下限：minSdk 28 不支持 TLS 1.3，显式锁 TLS 1.2 */
+    private const val TLS_PROTOCOL = "TLSv1.2"
+
     private data class Pin(val fingerprint: String, val factory: SSLSocketFactory)
 
     private val pins = ConcurrentHashMap<String, Pin>()
@@ -48,7 +51,7 @@ object TlsTrust {
 
             override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
         }
-        val context = SSLContext.getInstance("TLS")
+        val context = SSLContext.getInstance(TLS_PROTOCOL)
         context.init(null, arrayOf(trust), SecureRandom())
         return context.socketFactory
     }

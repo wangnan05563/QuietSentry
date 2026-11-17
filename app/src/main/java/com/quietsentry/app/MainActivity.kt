@@ -87,14 +87,15 @@ class MainActivity : AppCompatActivity() {
 
     // 状态卡轮询只在界面可见时运行：后台不空转，回到前台 onResume 重新拉起
     private val statusClock = Handler(Looper.getMainLooper())
-    private val statusTicker = object : Runnable {
-        override fun run() {
-            refreshStatusCard()
-            refreshRecentEvent()
-            // 存储余量与相机占用都会随时间变化，横幅必须进同一轮询
-            refreshBanner()
-            statusClock.postDelayed(this, REFRESH_INTERVAL_MS)
-        }
+    private val statusTicker = Runnable { tickStatusCard() }
+
+    /** 状态卡轮询：SAM 转换后 `this` 指向 Activity，自我重投需要具名方法承接 */
+    private fun tickStatusCard() {
+        refreshStatusCard()
+        refreshRecentEvent()
+        // 存储余量与相机占用都会随时间变化，横幅必须进同一轮询
+        refreshBanner()
+        statusClock.postDelayed(statusTicker, REFRESH_INTERVAL_MS)
     }
 
     // 停止值守的导出反馈（正在保存/已保存 N 段）不允许被轮询覆盖，导出流程结束前置位
@@ -154,45 +155,7 @@ class MainActivity : AppCompatActivity() {
         primaryButton.setOnClickListener {
             if (CaptureService.isRunning) confirmStop() else confirmThenStart { beginGuard() }
         }
-        findViewById<Button>(R.id.more_button).setOnClickListener {
-            val entries = listOf(
-                R.string.record_mode_entry,
-                R.string.black_mode_entry,
-                R.string.timeline_entry,
-                R.string.pairing_entry,
-                R.string.device_list_entry,
-                R.string.remote_entry,
-                R.string.settings_entry,
-            )
-            AlertDialog.Builder(this)
-                .setTitle(R.string.more_menu)
-                .setItems(entries.map { getString(it) }.toTypedArray()) { _, which ->
-                    when (entries[which]) {
-                        // 连续记录与值守互斥：服务会忽略重复 START，必须给明确反馈
-                        R.string.record_mode_entry -> {
-                            if (CaptureService.isRunning) {
-                                statusText.text = getString(R.string.guard_already_running)
-                            } else {
-                                confirmThenStart { startRecordOnly() }
-                            }
-                        }
-                        // 值守与黑屏都通过 unbindAll 独占相机，同时进入会让值守录像静默中断
-                        R.string.black_mode_entry -> {
-                            if (CaptureService.isRunning) {
-                                statusText.text = getString(R.string.guard_running_conflict)
-                            } else {
-                                startActivity(Intent(this, BlackScreenActivity::class.java))
-                            }
-                        }
-                        R.string.timeline_entry -> startActivity(Intent(this, EventTimelineActivity::class.java))
-                        R.string.pairing_entry -> startActivity(Intent(this, PairingActivity::class.java))
-                        R.string.device_list_entry -> startActivity(Intent(this, DeviceListActivity::class.java))
-                        R.string.remote_entry -> startActivity(Intent(this, RemoteAccessActivity::class.java))
-                        R.string.settings_entry -> startActivity(Intent(this, SettingsActivity::class.java))
-                    }
-                }
-                .show()
-        }
+        findViewById<Button>(R.id.more_button).setOnClickListener { showMoreMenu() }
         recentEvent = findViewById(R.id.recent_event)
         recentEvent.setOnClickListener {
             // 点击时重查一次拿最新事件：卡片渲染与点击之间可能刚好有新事件入库
@@ -215,6 +178,55 @@ class MainActivity : AppCompatActivity() {
         } else {
             requestPermissions.launch(requiredPermissions)
         }
+    }
+
+    /** “更多”入口：把菜单构建与分支处理挪出 onCreate，保持启动流程只做装配 */
+    private fun showMoreMenu() {
+        val entries = listOf(
+            R.string.record_mode_entry,
+            R.string.black_mode_entry,
+            R.string.timeline_entry,
+            R.string.pairing_entry,
+            R.string.device_list_entry,
+            R.string.remote_entry,
+            R.string.settings_entry,
+        )
+        AlertDialog.Builder(this)
+            .setTitle(R.string.more_menu)
+            .setItems(entries.map { getString(it) }.toTypedArray()) { _, which ->
+                onMoreMenuItem(entries[which])
+            }
+            .show()
+    }
+
+    private fun onMoreMenuItem(entry: Int) {
+        when (entry) {
+            R.string.record_mode_entry -> startRecordOnlyEntry()
+            R.string.black_mode_entry -> startBlackScreenEntry()
+            R.string.timeline_entry -> startActivity(Intent(this, EventTimelineActivity::class.java))
+            R.string.pairing_entry -> startActivity(Intent(this, PairingActivity::class.java))
+            R.string.device_list_entry -> startActivity(Intent(this, DeviceListActivity::class.java))
+            R.string.remote_entry -> startActivity(Intent(this, RemoteAccessActivity::class.java))
+            R.string.settings_entry -> startActivity(Intent(this, SettingsActivity::class.java))
+        }
+    }
+
+    /** 连续记录与值守互斥：服务会忽略重复 START，必须给明确反馈 */
+    private fun startRecordOnlyEntry() {
+        if (CaptureService.isRunning) {
+            statusText.text = getString(R.string.guard_already_running)
+            return
+        }
+        confirmThenStart { startRecordOnly() }
+    }
+
+    /** 值守与黑屏都通过 unbindAll 独占相机，同时进入会让值守录像静默中断 */
+    private fun startBlackScreenEntry() {
+        if (CaptureService.isRunning) {
+            statusText.text = getString(R.string.guard_running_conflict)
+            return
+        }
+        startActivity(Intent(this, BlackScreenActivity::class.java))
     }
 
     override fun onResume() {

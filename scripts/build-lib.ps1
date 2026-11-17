@@ -6,6 +6,23 @@ $script:ProjectRoot = Split-Path -Parent $PSScriptRoot
 $script:PackageJson = Join-Path $script:ProjectRoot 'package.json'
 $script:ReleaseDir = Join-Path $script:ProjectRoot 'release'
 
+function Get-BuildRoot {
+    # Gradle 构建目录前缀只在 gradle.properties 的 qs.buildDir 定义一次，
+    # 这里读同一行，避免「Gradle 写到 A、脚本去 B 找产物」这种两边漂移。
+    $prefix = 'release\.build'
+    $props = Join-Path $script:ProjectRoot 'gradle.properties'
+    if (Test-Path -LiteralPath $props) {
+        $line = Get-Content -LiteralPath $props -Encoding UTF8 |
+            Where-Object { $_ -match '^\s*qs\.buildDir\s*=' } |
+            Select-Object -First 1
+        if ($line) {
+            $value = ($line -split '=', 2)[1].Trim()
+            if ($value) { $prefix = $value }
+        }
+    }
+    return [System.IO.Path]::GetFullPath((Join-Path $script:ProjectRoot $prefix))
+}
+
 function Write-Step([string]$Message) {
     Write-Host ""
     Write-Host "[QuietSentry] $Message" -ForegroundColor Cyan
@@ -100,6 +117,26 @@ function Resolve-BuildJavaHome {
         }
     }
     return $null
+}
+
+function Get-KotlinPersistentDir {
+    # Kotlin 插件 2.x 的 kotlin.project.persistent.dir 指向的目录必须预先存在：
+    # 它不会自动 mkdir，目录缺失时编译 daemon 写会话文件会抛
+    # java.io.IOException: 系统找不到指定的路径（GradleErrorMessageCollector.flush），
+    # 随后 4 次重连失败并回退无 daemon，仍写同一路径而彻底失败。
+    # 路径来源与 Gradle 侧同源：gradle.properties 的 kotlin.project.persistent.dir。
+    $prefix = 'release\.build\kotlin'
+    $props = Join-Path $script:ProjectRoot 'gradle.properties'
+    if (Test-Path -LiteralPath $props) {
+        $line = Get-Content -LiteralPath $props -Encoding UTF8 |
+            Where-Object { $_ -match '^\s*kotlin\.project\.persistent\.dir\s*=' } |
+            Select-Object -First 1
+        if ($line) {
+            $value = ($line -split '=', 2)[1].Trim()
+            if ($value) { $prefix = $value }
+        }
+    }
+    return [System.IO.Path]::GetFullPath((Join-Path $script:ProjectRoot $prefix))
 }
 
 function Resolve-AndroidSdk {
@@ -326,7 +363,18 @@ function Invoke-GradleTask {
 
     Push-Location $script:ProjectRoot
     try {
-        $gradleArgs = @($Tasks) + @('--console=plain', '--stacktrace')
+        # 项目级缓存（默认项目根 .gradle）也收进 release/.build，删 release/ 时不留残渣
+        $projectCache = Join-Path (Get-BuildRoot) 'gradle'
+        if (-not (Test-Path -LiteralPath $projectCache)) {
+            New-Item -ItemType Directory -Path $projectCache -Force | Out-Null
+        }
+        # Kotlin 2.x 不会自动创建 persistent.dir，目录缺失会直接搞垮编译 daemon；
+        # 构建前确保它存在（路径来自 gradle.properties，不在这里硬编码）。
+        $kotlinDir = Get-KotlinPersistentDir
+        if (-not (Test-Path -LiteralPath $kotlinDir)) {
+            New-Item -ItemType Directory -Path $kotlinDir -Force | Out-Null
+        }
+        $gradleArgs = @($Tasks) + @("--project-cache-dir=$projectCache", '--console=plain', '--stacktrace')
         & $tc.Gradle @gradleArgs
         if ($LASTEXITCODE -ne 0) { throw "Gradle 任务失败（退出码 $LASTEXITCODE）" }
     } finally {
@@ -336,9 +384,10 @@ function Invoke-GradleTask {
 
 function Find-GradleApk {
     param([ValidateSet('debug', 'release')][string]$Variant = 'debug')
-    # Gradle 原始产物：只供构建/发布脚本复制到 release/，不作为安装或发布入口
-    $dir = Join-Path $script:ProjectRoot "app\build\outputs\apk\$Variant"
-    if (-not (Test-Path $dir)) { return $null }
+    # Gradle 原始产物：只供构建/发布脚本复制到 release/，不作为安装或发布入口。
+    # 目录跟随 qs.buildDir（release/.build/app），不再是模块下的 app/build。
+    $dir = Join-Path (Get-BuildRoot) "app\outputs\apk\$Variant"
+    if (-not (Test-Path -LiteralPath $dir)) { return $null }
     # release 未签名时文件名带 -unsigned，因此按“最新产物”取，而不是拼固定文件名
     $apk = Get-ChildItem $dir -Filter '*.apk' -File |
         Sort-Object LastWriteTime -Descending |
@@ -348,8 +397,8 @@ function Find-GradleApk {
 }
 
 function Find-GradleBundle {
-    $dir = Join-Path $script:ProjectRoot 'app\build\outputs\bundle\release'
-    if (-not (Test-Path $dir)) { return $null }
+    $dir = Join-Path (Get-BuildRoot) 'app\outputs\bundle\release'
+    if (-not (Test-Path -LiteralPath $dir)) { return $null }
     $aab = Get-ChildItem $dir -Filter '*.aab' -File |
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
@@ -358,20 +407,24 @@ function Find-GradleBundle {
 }
 
 # ---------- release 产物目录（T04714） ----------
-# 最终产物统一落在项目根 release/；Gradle 中间产物仍由 app/build 管理（已被忽略）。
-# 该目录可整体删除：下一次执行构建 / 发布入口会重建，不需要任何手工准备。
+# 所有可重建产物都收在这一棵树里：顶层放最终交付物，.build 下放 Gradle 中间产物、报告、
+# 项目缓存与 Scanner 工作目录。整目录可删：下一次构建 / 发布入口会全部重建。
 function Get-ReleaseDir {
     return $script:ReleaseDir
 }
 
 function Reset-ReleaseDir {
+    # 只清最终交付物，保留 .build 内的编译缓存：否则每次构建都等于 clean build，
+    # 编译时间白白翻倍。需要连中间产物一起清时，删整个 release/ 或跑 scripts\清理.bat。
     $dir = Get-ReleaseDir
     if (-not (Test-Path -LiteralPath $dir)) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
     } else {
-        Get-ChildItem -LiteralPath $dir -Force | ForEach-Object {
-            Remove-Item -LiteralPath $_.FullName -Recurse -Force
-        }
+        Get-ChildItem -LiteralPath $dir -Force |
+            Where-Object { $_.Name -ne '.build' } |
+            ForEach-Object {
+                Remove-Item -LiteralPath $_.FullName -Recurse -Force
+            }
     }
     return $dir
 }

@@ -59,27 +59,7 @@ class HumanDetector private constructor(
         return runCatching {
             val scaled = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
             scaled.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
-            var index = 0
-            if (byteInput != null) {
-                for (row in 0 until inputSize) {
-                    for (col in 0 until inputSize) {
-                        val color = pixels[index++]
-                        // UINT8 模型直接吃 0..255；转 Byte 后按 uint8 解释
-                        byteInput[0][row][col][0] = ((color shr 16) and 0xFF).toByte()
-                        byteInput[0][row][col][1] = ((color shr 8) and 0xFF).toByte()
-                        byteInput[0][row][col][2] = (color and 0xFF).toByte()
-                    }
-                }
-            } else {
-                for (row in 0 until inputSize) {
-                    for (col in 0 until inputSize) {
-                        val color = pixels[index++]
-                        floatInput!![0][row][col][0] = ((color shr 16) and 0xFF) / 255f
-                        floatInput[0][row][col][1] = ((color shr 8) and 0xFF) / 255f
-                        floatInput[0][row][col][2] = (color and 0xFF) / 255f
-                    }
-                }
-            }
+            fillInput()
             if (scaled !== bitmap) scaled.recycle()
 
             interpreter.runForMultipleInputsOutputs(arrayOf(input), outputs())
@@ -90,6 +70,41 @@ class HumanDetector private constructor(
         }.getOrElse {
             Log.w(TAG, "human detection failed", it)
             emptyList()
+        }
+    }
+
+    /** 按模型的张量类型填充输入：UINT8 直取 0..255，FLOAT32 归一化到 0..1 */
+    private fun fillInput() {
+        val byteTensor = byteInput
+        if (byteTensor != null) {
+            fillUint8Input(byteTensor)
+        } else {
+            floatInput?.let(::fillFloatInput)
+        }
+    }
+
+    private fun fillUint8Input(tensor: Array<Array<Array<ByteArray>>>) {
+        var index = 0
+        for (row in 0 until inputSize) {
+            for (col in 0 until inputSize) {
+                val color = pixels[index++]
+                // UINT8 模型直接吃 0..255；转 Byte 后按 uint8 解释
+                tensor[0][row][col][0] = ((color shr 16) and 0xFF).toByte()
+                tensor[0][row][col][1] = ((color shr 8) and 0xFF).toByte()
+                tensor[0][row][col][2] = (color and 0xFF).toByte()
+            }
+        }
+    }
+
+    private fun fillFloatInput(tensor: Array<Array<Array<FloatArray>>>) {
+        var index = 0
+        for (row in 0 until inputSize) {
+            for (col in 0 until inputSize) {
+                val color = pixels[index++]
+                tensor[0][row][col][0] = ((color shr 16) and 0xFF) / 255f
+                tensor[0][row][col][1] = ((color shr 8) and 0xFF) / 255f
+                tensor[0][row][col][2] = (color and 0xFF) / 255f
+            }
         }
     }
 

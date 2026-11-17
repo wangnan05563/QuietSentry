@@ -610,7 +610,9 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun openTarget(target: Diagnostics.Target) {
         val intent = when (target) {
-            Diagnostics.Target.APP_SETTINGS -> Intent(
+            // 应用详情页同时是“应用设置”入口和自启动白名单的落点：后者没有统一的系统页面，
+            // 只能让用户按 ROM 的入口自行找，两者复用同一个跳转
+            Diagnostics.Target.APP_SETTINGS, Diagnostics.Target.AUTO_START -> Intent(
                 Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                 Uri.parse("package:$packageName")
             )
@@ -618,11 +620,6 @@ class SettingsActivity : AppCompatActivity() {
                 .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
             Diagnostics.Target.BATTERY -> Intent(
                 Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                Uri.parse("package:$packageName")
-            )
-            // 自启动白名单没有统一的系统页面，只能落到应用详情页让用户按 ROM 的入口自行找
-            Diagnostics.Target.AUTO_START -> Intent(
-                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                 Uri.parse("package:$packageName")
             )
             Diagnostics.Target.WIFI -> Intent(Settings.ACTION_WIFI_SETTINGS)

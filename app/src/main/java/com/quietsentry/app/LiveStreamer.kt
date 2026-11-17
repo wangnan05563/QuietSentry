@@ -32,13 +32,17 @@ class LiveStreamer(
          * 每次进入重连等待时回调累计尝试次数（T04050）。
          * 默认空实现：不关心次数的调用方（未来接入的面板）不必被迫实现。
          */
-        fun onRetryWait(attempt: Int) {}
+        fun onRetryWait(attempt: Int) {
+            // 默认不关心重连次数：只由需要提示“第几次重试”的界面覆写
+        }
 
         /**
          * 人形框随帧头下发（T04053）：只在运动触发帧产生，回调频率与检测频率一致；
          * 默认空实现，不需要叠加框的调用方不受影响。
          */
-        fun onPersonBoxes(boxes: List<FloatArray>) {}
+        fun onPersonBoxes(boxes: List<FloatArray>) {
+            // 默认不叠加人形框：只有宽屏双栏与全屏实时页需要把框画到画布上
+        }
     }
 
     private val io = Executors.newSingleThreadExecutor()
@@ -85,42 +89,56 @@ class LiveStreamer(
             val stream = MjpegClient(host, port, token, quality)
             client = stream
             if (!stream.open()) {
-                val failure = stream.failure
-                stream.close()
-                client = null
-                if (!alive(gen)) return
-                val state = stateOf(failure)
-                listener.onState(state)
-                // 令牌撤销后重连只会一直拿到 401，停下来让用户重新配对
-                if (state == State.UNAUTHORIZED) {
-                    running = false
-                    return
-                }
-                retryAttempt++
-                listener.onRetryWait(retryAttempt)
-                if (!sleepRetry(gen, backoffDelay(retryAttempt))) return
+                if (!handleOpenFailure(stream, gen)) return
                 continue
             }
 
             listener.onState(State.CONNECTED)
             retryAttempt = 0
-            while (running && gen == generation) {
-                val bytes = stream.readFrame() ?: break
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: continue
-                latest = bitmap
-                listener.onFrame(bitmap)
-                // 框与帧同发：无框帧不回调，避免观看端把“没有新框”误当“人已离开”
-                if (stream.personBoxes.isNotEmpty()) listener.onPersonBoxes(stream.personBoxes)
-            }
+            drainFrames(stream, gen)
             stream.close()
             client = null
-            if (alive(gen)) {
-                listener.onState(State.RETRY)
-                retryAttempt++
-                listener.onRetryWait(retryAttempt)
-                if (!sleepRetry(gen, backoffDelay(retryAttempt))) return
-            }
+            if (!waitBeforeRetry(gen)) return
         }
+    }
+
+    /** 打不开时按失败类型上报；返回 false 表示循环应终止（令牌被撤销或已停止） */
+    private fun handleOpenFailure(stream: MjpegClient, gen: Int): Boolean {
+        val failure = stream.failure
+        stream.close()
+        client = null
+        if (!alive(gen)) return false
+        val state = stateOf(failure)
+        listener.onState(state)
+        // 令牌撤销后重连只会一直拿到 401，停下来让用户重新配对
+        if (state == State.UNAUTHORIZED) {
+            running = false
+            return false
+        }
+        retryAttempt++
+        listener.onRetryWait(retryAttempt)
+        return sleepRetry(gen, backoffDelay(retryAttempt))
+    }
+
+    /** 连接期内持续读帧，直到断流、停止或代号过期 */
+    private fun drainFrames(stream: MjpegClient, gen: Int) {
+        while (running && gen == generation) {
+            val bytes = stream.readFrame() ?: break
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: continue
+            latest = bitmap
+            listener.onFrame(bitmap)
+            // 框与帧同发：无框帧不回调，避免观看端把“没有新框”误当“人已离开”
+            if (stream.personBoxes.isNotEmpty()) listener.onPersonBoxes(stream.personBoxes)
+        }
+    }
+
+    /** 断流后的重连等待；返回 false 表示应终止循环（已停止或代号过期） */
+    private fun waitBeforeRetry(gen: Int): Boolean {
+        if (!alive(gen)) return true
+        listener.onState(State.RETRY)
+        retryAttempt++
+        listener.onRetryWait(retryAttempt)
+        return sleepRetry(gen, backoffDelay(retryAttempt))
     }
 
     /**

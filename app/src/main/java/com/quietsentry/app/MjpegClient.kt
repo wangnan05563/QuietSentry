@@ -4,9 +4,9 @@ import java.io.BufferedInputStream
 import java.io.Closeable
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.URI
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.HostnameVerifier
-import java.net.URL
 
 /**
  * 观看端拉取 MJPEG 直播（PRD FR-08：局域网实时画面）。
@@ -37,8 +37,8 @@ class MjpegClient(
     fun open(): Boolean = runCatching {
         val factory = TlsTrust.factoryFor(host, port)
         val scheme = if (factory != null) "https" else "http"
-        val conn = URL("$scheme://$host:$port/api/live?quality=$quality").openConnection()
-            as HttpURLConnection
+        val conn = URI.create("$scheme://$host:$port/api/live?quality=$quality").toURL()
+            .openConnection() as HttpURLConnection
         if (factory != null && conn is HttpsURLConnection) {
             conn.sslSocketFactory = factory
             conn.hostnameVerifier = HostnameVerifier { _, _ -> true }
@@ -62,26 +62,42 @@ class MjpegClient(
     /** 阻塞读下一帧 JPEG；返回 null 表示流已断开或数据不完整 */
     fun readFrame(): ByteArray? = runCatching {
         val source = input ?: return null
+        val length = readFrameLength(source) ?: return null
+        readExactly(source, length)
+    }.getOrNull()
+
+    /** 跳到帧分隔处并取出 Content-Length；顺带消费其余头部，null 表示流断或格式异常 */
+    private fun readFrameLength(source: InputStream): Int? {
         var length = -1
         while (length < 0) {
             val line = readLine(source) ?: return null
             if (line.isEmpty()) continue
             val lower = line.lowercase()
-            if (lower.startsWith(HEADER_LENGTH)) {
-                length = lower.substring(HEADER_LENGTH.length).trim().toIntOrNull() ?: return null
-                if (length <= 0) return null
-                // 服务端每帧头部还有 X-Timestamp 与结尾空行；不把它们读完就直接读 JPEG，
-                // 会把剩余头部当成像素数据，每帧都解码失败（表现为"已连接"但画面全黑）
-                while (true) {
-                    val rest = readLine(source) ?: return null
-                    if (rest.isEmpty()) break
-                    val lowerRest = rest.lowercase()
-                    if (lowerRest.startsWith(HEADER_PERSON_BOXES)) {
-                        parsePersonBoxes(lowerRest.substring(HEADER_PERSON_BOXES.length))
-                    }
-                }
+            if (!lower.startsWith(HEADER_LENGTH)) continue
+            length = lower.substring(HEADER_LENGTH.length).trim().toIntOrNull() ?: return null
+            if (length <= 0) return null
+            if (!drainHeaders(source)) return null
+        }
+        return length
+    }
+
+    /**
+     * 服务端每帧头部还有 X-Timestamp 与结尾空行；不把它们读完就直接读 JPEG，
+     * 会把剩余头部当成像素数据，每帧都解码失败（表现为"已连接"但画面全黑）。
+     */
+    private fun drainHeaders(source: InputStream): Boolean {
+        while (true) {
+            val rest = readLine(source) ?: return false
+            if (rest.isEmpty()) return true
+            val lowerRest = rest.lowercase()
+            if (lowerRest.startsWith(HEADER_PERSON_BOXES)) {
+                parsePersonBoxes(lowerRest.substring(HEADER_PERSON_BOXES.length))
             }
         }
+    }
+
+    /** 按长度读满一帧；不足即断流，不能返回半帧让解码器去猜 */
+    private fun readExactly(source: InputStream, length: Int): ByteArray? {
         val bytes = ByteArray(length)
         var read = 0
         while (read < length) {
@@ -89,8 +105,8 @@ class MjpegClient(
             if (count < 0) return null
             read += count
         }
-        bytes
-    }.getOrNull()
+        return bytes
+    }
 
     override fun close() {
         input = null

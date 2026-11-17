@@ -35,17 +35,24 @@ object NetworkPath {
         while (interfaces.hasMoreElements()) {
             val nic = interfaces.nextElement()
             if (!nic.isUp || nic.isLoopback) continue
-            val addresses = nic.inetAddresses
-            while (addresses.hasMoreElements()) {
-                val address = addresses.nextElement()
-                if (address is Inet4Address) {
-                    val host = address.hostAddress ?: continue
-                    if (isOverlayAddress(host)) return host
-                }
-            }
+            val found = overlayAddressOf(nic)
+            if (found != null) return found
         }
         null
     }.getOrNull()
+
+    /** 单个网卡上的 CGNAT 地址；没有匹配返回 null（不阻断其他网卡的枚举） */
+    private fun overlayAddressOf(nic: NetworkInterface): String? {
+        val addresses = nic.inetAddresses
+        while (addresses.hasMoreElements()) {
+            val address = addresses.nextElement()
+            if (address is Inet4Address) {
+                val host = address.hostAddress ?: continue
+                if (isOverlayAddress(host)) return host
+            }
+        }
+        return null
+    }
 
     fun probe(host: String, port: Int): Probe {
         val info = runCatching { DeviceHttp.info(host, port) }.getOrNull()

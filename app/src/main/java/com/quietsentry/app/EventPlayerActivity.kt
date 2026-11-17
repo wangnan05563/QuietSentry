@@ -64,13 +64,14 @@ class EventPlayerActivity : AppCompatActivity() {
     private var inPreRoll = false
     private var playerTitle = ""
 
-    private val progressTicker = object : Runnable {
-        override fun run() {
-            if (prepared && !dragging) {
-                seekBar.progress = videoView.currentPosition
-            }
-            mainHandler.postDelayed(this, 500)
+    private val progressTicker = Runnable { tickProgress() }
+
+    /** 进度条轮询：SAM 转换后 `this` 指向 Activity，自我重投需要具名方法承接 */
+    private fun tickProgress() {
+        if (prepared && !dragging) {
+            seekBar.progress = videoView.currentPosition
         }
+        mainHandler.postDelayed(progressTicker, 500)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

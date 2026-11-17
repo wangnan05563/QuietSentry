@@ -2,6 +2,6 @@
 <!-- Android 8+ 自适应图标：系统只负责遮罩，背景色与前景图层分开提供，
      这样同一套资源在圆形、圆角方形、主题图标下都不会被裁到盾牌边缘 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/qs_icon_bg" />
+    <background android:drawable="@drawable/ic_launcher_background" />
     <foreground android:drawable="@mipmap/ic_launcher_foreground" />
 </adaptive-icon>

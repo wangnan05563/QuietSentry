@@ -1,6 +1,5 @@
 package com.quietsentry.app
 
-import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.animation.ValueAnimator
 import android.content.Context
@@ -14,14 +13,12 @@ import android.os.Looper
 import android.text.InputFilter
 import android.text.InputType
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -102,11 +99,12 @@ class DeviceListActivity : AppCompatActivity() {
     /** 每次切换预览设备都递增：旧流的回调即使已经排队到主线程，也会因为代号过期被丢弃 */
     private var previewGeneration = 0
 
-    private val pollRunnable = object : Runnable {
-        override fun run() {
-            poll()
-            handler.postDelayed(this, POLL_INTERVAL_MS)
-        }
+    private val pollRunnable = Runnable { tickPoll() }
+
+    /** 侧栏与卡片轮询：`this` 在 SAM 转换里指向 Activity，所以要落到具名方法才能自我重投 */
+    private fun tickPoll() {
+        poll()
+        handler.postDelayed(pollRunnable, POLL_INTERVAL_MS)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -408,7 +406,20 @@ class DeviceListActivity : AppCompatActivity() {
         previewStatus?.visibility = View.VISIBLE
         previewStatus?.setText(R.string.device_preview_connecting)
         preview?.release()
-        preview = LiveStreamer(
+        preview = createPreviewStreamer(device, gen)
+        previewDeviceId = device.id
+        if (!stopped) preview?.start(QUALITY_AUTO)
+        // 选中即强制拉一次事件流：30 秒节流只约束同一设备的持续刷新
+        sideEventsAt = 0L
+        refreshSideEvents(device, System.currentTimeMillis())
+        prefetchSnapshot(device, gen)
+        // 立即重绘一次，选中高亮不用等下一轮 5 秒轮询
+        render()
+    }
+
+    /** 右侧预览流：代号比对是最后一道保险，换设备后旧回调一律丢弃 */
+    private fun createPreviewStreamer(device: DeviceRegistry.Device, gen: Int): LiveStreamer =
+        LiveStreamer(
             device.host, device.port, device.token,
             object : LiveStreamer.Listener {
                 override fun onState(state: LiveStreamer.State) {
@@ -431,13 +442,12 @@ class DeviceListActivity : AppCompatActivity() {
                 }
             }
         )
-        previewDeviceId = device.id
-        if (!stopped) preview?.start(QUALITY_AUTO)
-        // 选中即强制拉一次事件流：30 秒节流只约束同一设备的持续刷新
-        sideEventsAt = 0L
-        refreshSideEvents(device, System.currentTimeMillis())
-        // 宽屏右侧与全屏同等待遇（T04049）：连接建立前先垫一张最近快照，避免白屏等待；
-        // 只拉这一次，重连期间的全屏兜底由 LiveViewActivity 自己的节流逻辑负责
+
+    /**
+     * 宽屏右侧与全屏同等待遇（T04049）：连接建立前先垫一张最近快照，避免白屏等待；
+     * 只拉这一次，重连期间的全屏兜底由 LiveViewActivity 自己的节流逻辑负责。
+     */
+    private fun prefetchSnapshot(device: DeviceRegistry.Device, gen: Int) {
         io.execute {
             val shot = runCatching { DeviceHttp.snapshot(device.host, device.port, device.token) }
                 .getOrNull() ?: return@execute
@@ -450,8 +460,6 @@ class DeviceListActivity : AppCompatActivity() {
                 }
             }
         }
-        // 立即重绘一次，选中高亮不用等下一轮 5 秒轮询
-        render()
     }
 
     private fun renderPreviewState(state: LiveStreamer.State) {
@@ -963,12 +971,7 @@ class DeviceListActivity : AppCompatActivity() {
             // 先用 HTTP 的 /api/info 取得 HTTPS 端口与证书指纹（公开信息），
             // 注册信任锚后配对与控制全部走 HTTPS；旧版本设备没有 tls 字段则继续 HTTP。
             // 手动地址（端口映射/跨网段）无法保证 8443 可达，preferTls=false 时按用户给的端口走 HTTP。
-            val securePort = if (preferTls && info != null && info.tlsPort > 0 && info.tlsFingerprint.isNotEmpty()) {
-                TlsTrust.register(peer.host, info.tlsPort, info.tlsFingerprint)
-                info.tlsPort
-            } else {
-                peer.port
-            }
+            val securePort = resolveSecurePort(peer, preferTls, info)
             val direct = DeviceHttp.pair(peer.host, securePort, pairing.publicKeyBase64(), code)
             // 普通配对失败时把同一输入当作一次性恢复码再试一次：用户不必理解两套码的差别，
             // 恢复码正确会清空旧配对并以 Owner 身份接管
@@ -976,48 +979,67 @@ class DeviceListActivity : AppCompatActivity() {
                 peer.host, securePort, pairing.publicKeyBase64(), code, recoveryCode = code
             )
             val usedRecovery = direct == null && result != null
-            runOnUiThread {
-                if (info == null || result == null) {
-                    Toast.makeText(this, R.string.device_list_pair_failed, Toast.LENGTH_SHORT).show()
-                    return@runOnUiThread
-                }
-                // 发现记录的指纹与服务端自报不一致时拒绝：同名服务可以任意注册，
-                // 只凭服务名会把令牌交给一台伪装设备
-                if (peer.fingerprint.isNotEmpty() && peer.fingerprint != info.id) {
-                    Toast.makeText(this, R.string.device_list_pair_mismatch, Toast.LENGTH_SHORT).show()
-                    return@runOnUiThread
-                }
-                val added = registry.add(
-                    DeviceRegistry.Device(
-                        // 用服务端公钥指纹作为身份：IP 与端口都会变，指纹不会
-                        id = info.id,
-                        name = if (peer.name.isBlank()) info.name else peer.name,
-                        room = "",
-                        host = peer.host,
-                        port = securePort,
-                        tlsFingerprint = if (preferTls && securePort != peer.port) info?.tlsFingerprint.orEmpty() else "",
-                        token = result.token,
-                        order = 0,
-                        lastSeenAt = System.currentTimeMillis(),
-                        lastEventAt = info.lastEventAt,
-                    )
-                )
-                if (added) {
-                    Toast.makeText(
-                        this,
-                        if (usedRecovery) R.string.device_list_paired_recovery else R.string.device_list_paired,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    Toast.makeText(
-                        this,
-                        getString(R.string.device_list_limit, DeviceRegistry.MAX_DEVICES),
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-                render()
-            }
+            runOnUiThread { applyPairResult(peer, info, securePort, preferTls, result, usedRecovery) }
         }
+    }
+
+    /** 能从 /api/info 拿到可用 TLS 指纹才切 HTTPS，否则按用户给的端口继续 HTTP */
+    private fun resolveSecurePort(peer: LanDiscovery.Peer, preferTls: Boolean, info: DeviceHttp.Info?): Int {
+        if (!preferTls || info == null || info.tlsPort <= 0 || info.tlsFingerprint.isEmpty()) {
+            return peer.port
+        }
+        TlsTrust.register(peer.host, info.tlsPort, info.tlsFingerprint)
+        return info.tlsPort
+    }
+
+    /** 配对回包落库：只接受指纹一致的服务端，并把“满员/恢复码接管”的差异回显给用户 */
+    private fun applyPairResult(
+        peer: LanDiscovery.Peer,
+        info: DeviceHttp.Info?,
+        securePort: Int,
+        preferTls: Boolean,
+        result: DeviceHttp.PairResult?,
+        usedRecovery: Boolean,
+    ) {
+        if (info == null || result == null) {
+            Toast.makeText(this, R.string.device_list_pair_failed, Toast.LENGTH_SHORT).show()
+            return
+        }
+        // 发现记录的指纹与服务端自报不一致时拒绝：同名服务可以任意注册，
+        // 只凭服务名会把令牌交给一台伪装设备
+        if (peer.fingerprint.isNotEmpty() && peer.fingerprint != info.id) {
+            Toast.makeText(this, R.string.device_list_pair_mismatch, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val added = registry.add(
+            DeviceRegistry.Device(
+                // 用服务端公钥指纹作为身份：IP 与端口都会变，指纹不会
+                id = info.id,
+                name = if (peer.name.isBlank()) info.name else peer.name,
+                room = "",
+                host = peer.host,
+                port = securePort,
+                tlsFingerprint = if (preferTls && securePort != peer.port) info.tlsFingerprint else "",
+                token = result.token,
+                order = 0,
+                lastSeenAt = System.currentTimeMillis(),
+                lastEventAt = info.lastEventAt,
+            )
+        )
+        if (added) {
+            Toast.makeText(
+                this,
+                if (usedRecovery) R.string.device_list_paired_recovery else R.string.device_list_paired,
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            Toast.makeText(
+                this,
+                getString(R.string.device_list_limit, DeviceRegistry.MAX_DEVICES),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+        render()
     }
 
     private fun stateLabel(level: DeviceState.Level): Int = when (level) {

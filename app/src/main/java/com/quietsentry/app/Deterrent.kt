@@ -1,6 +1,5 @@
 package com.quietsentry.app
 
-import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Handler
@@ -109,7 +108,7 @@ object Deterrent {
     }
 
     private fun isNight(): Boolean {
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val hour = Calendar.getInstance()[Calendar.HOUR_OF_DAY]
         // 区间跨午夜：22、23、0…6 都算夜间
         return hour >= NIGHT_START_HOUR || hour < NIGHT_END_HOUR
     }

@@ -8,7 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import org.json.JSONObject
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.util.concurrent.Executors
 
 /**
@@ -89,7 +89,10 @@ object UpdateChecker {
     }
 
     private fun fetchLatest(slug: String): Release? {
-        val connection = URL("https://api.github.com/repos/$slug/releases/latest")
+        // JDK 20+ 已把 URL(String) 构造器标记为废弃；URI.create + toURL 是官方推荐替代，
+        // Android 各版本同样可用，非法地址改为抛 IllegalArgumentException
+        val connection = URI.create("https://api.github.com/repos/$slug/releases/latest")
+            .toURL()
             .openConnection() as HttpURLConnection
         connection.connectTimeout = TIMEOUT_MS
         connection.readTimeout = TIMEOUT_MS
@@ -97,9 +100,7 @@ object UpdateChecker {
         connection.setRequestProperty("User-Agent", "QuietSentry")
         try {
             if (connection.responseCode == HttpURLConnection.HTTP_NOT_FOUND) return null
-            if (connection.responseCode !in 200..299) {
-                throw IllegalStateException("HTTP ${connection.responseCode}")
-            }
+            check(connection.responseCode in 200..299) { "HTTP ${connection.responseCode}" }
             val body = connection.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(body)
             val tag = json.optString("tag_name")

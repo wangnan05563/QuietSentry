@@ -105,16 +105,24 @@ Dependency repositories are pre-configured with Aliyun mirrors; the first build 
 
 ```bat
 :: Check deps + bump today's patch number + build debug APK
-scripts\构建.bat
+scripts\安卓构建打包.bat
 
 :: Build and install to the connected device (prompts when multiple are found)
-scripts\构建并推送.bat
+scripts\安卓构建推送.bat
 
 :: Push an already-built APK only
-scripts\推送.bat -Variant debug
+scripts\安卓推送测试.bat -Variant debug
+
+:: Remove every reproducible output (release/ plus legacy build dirs)
+scripts\清理构建产物.bat
 ```
 
 > Build / push / release scripts live under `scripts/` and are run from the project root.
+> Every reproducible output lives in `release/`: the final APK/AAB at the top level, and
+> Gradle intermediates, reports, the project cache and the Scanner work dir under
+> `release/.build`. Deleting `release/` is therefore a full clean — the next build recreates
+> it. Daily builds only clear the top-level artifacts and keep the compile cache, so they
+> stay incremental.
 
 The build script writes **today's date + an incrementing index** into `build.patch` of the
 root `package.json` and bumps `buildNumber` (the `versionCode`) before every package, so
@@ -189,6 +197,7 @@ Play Store icon, and the 1280×640 social preview.
 ├─ docs/                                    # UX, tech design, compliance, compat matrix, release checklist
 ├─ scripts/                                  # build / push / release / icon scripts (unified entry)
 ├─ tools/verify/                             # ONVIF / RTSP / TLS / stability verification scripts
+├─ release/                                  # everything reproducible: APK/AAB on top, .build/ underneath
 ├─ PRD-QuietSentry.md                       # product requirements document
 └─ package.json                             # version & build metadata
 ```
@@ -305,16 +314,22 @@ flowchart LR
 
 ```bat
 :: 检查依赖 + 生成当天 patch 号 + 构建 debug APK
-scripts\构建.bat
+scripts\安卓构建打包.bat
 
 :: 构建并安装到当前连接的设备（多台时会让你选）
-scripts\构建并推送.bat
+scripts\安卓构建推送.bat
 
 :: 只推送已构建的 APK
-scripts\推送.bat -Variant debug
+scripts\安卓推送测试.bat -Variant debug
+
+:: 清理全部可重建产物（release/ 整棵树 + 历史遗留构建目录）
+scripts\清理构建产物.bat
 ```
 
 > 构建 / 推送 / 发布脚本统一放在 `scripts/` 下，可直接从项目根执行上面的相对路径命令。
+> 所有可重建产物都收在 `release/`：最终 APK/AAB 在顶层，Gradle 中间产物、报告、项目缓存与
+> Scanner 工作目录在 `release/.build`。因此删掉整个 `release/` 就是一次全量清理，下次构建自动
+> 重建；日常构建只清顶层交付物、保留编译缓存，仍然是增量编译。
 
 构建脚本会在每次打包前把 **当天日期 + 递增序号** 写入根 `package.json` 的 `build.patch`，
 并递增 `buildNumber`（即 `versionCode`），保证每次产物版本唯一：
@@ -386,6 +401,7 @@ python scripts\gen-icons.py
 ├─ docs/                                    # 交互、技术方案、合规、兼容矩阵、发布清单
 ├─ scripts/                                  # 构建 / 推送 / 发布 / 图标生成脚本（统一入口）
 ├─ tools/verify/                             # ONVIF / RTSP / TLS / 稳定性验证脚本
+├─ release/                                  # 可重建产物总目录：顶层 APK/AAB，下层 .build/
 ├─ PRD-QuietSentry.md                       # 产品需求文档
 └─ package.json                             # 版本与构建元数据
 ```

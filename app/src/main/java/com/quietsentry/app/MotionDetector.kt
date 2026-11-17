@@ -94,45 +94,66 @@ class MotionDetector(
 
     /** 采样成功返回 true；首次调用（无基线）返回 false。 */
     private fun sampleBlocks(image: ImageProxy): Boolean {
+        if (!sampleGrid(image)) return false
+        if (!hasPrevious) {
+            previous = blocks.copyOf()
+            hasPrevious = true
+            return false
+        }
+        updateChangedRatios()
+        previous = blocks.copyOf()
+        return true
+    }
+
+    /** 按 8x6 网格取每块灰度均值；尺寸非法或没有图像平面时返回 false */
+    private fun sampleGrid(image: ImageProxy): Boolean {
         val plane = image.planes.firstOrNull() ?: return false
         val width = image.width
         val height = image.height
         if (width <= 0 || height <= 0) return false
-        val buffer = plane.buffer
-        val rowStride = plane.rowStride
-        val pixelStride = plane.pixelStride
-
         for (row in 0 until ROWS) {
             val top = row * height / ROWS
             val bottom = (row + 1) * height / ROWS
             for (col in 0 until COLS) {
                 val left = col * width / COLS
                 val right = (col + 1) * width / COLS
-                var sum = 0
-                var samples = 0
-                var y = top
-                while (y < bottom) {
-                    var x = left
-                    while (x < right) {
-                        val offset = y * rowStride + x * pixelStride
-                        if (offset < buffer.limit()) {
-                            sum += buffer.get(offset).toInt() and 0xFF
-                            samples++
-                        }
-                        x += SAMPLE_STEP
-                    }
-                    y += SAMPLE_STEP
-                }
-                if (samples > 0) blocks[row * COLS + col] = sum / samples
+                val average = averageBlock(plane, top, bottom, left, right)
+                // 采样数为 0 时保留上一帧的值：写入 0 会被误判成“整块变黑”，造成假事件
+                if (average != null) blocks[row * COLS + col] = average
             }
         }
+        return true
+    }
 
-        if (!hasPrevious) {
-            previous = blocks.copyOf()
-            hasPrevious = true
-            return false
+    /** 单块灰度均值；块内按 SAMPLE_STEP 跳采样，越界像素直接丢弃 */
+    private fun averageBlock(
+        plane: ImageProxy.PlaneProxy,
+        top: Int,
+        bottom: Int,
+        left: Int,
+        right: Int,
+    ): Int? {
+        val buffer = plane.buffer
+        var sum = 0
+        var samples = 0
+        var y = top
+        while (y < bottom) {
+            var x = left
+            while (x < right) {
+                val offset = y * plane.rowStride + x * plane.pixelStride
+                if (offset < buffer.limit()) {
+                    sum += buffer[offset].toInt() and 0xFF
+                    samples++
+                }
+                x += SAMPLE_STEP
+            }
+            y += SAMPLE_STEP
         }
+        return if (samples > 0) sum / samples else null
+    }
 
+    /** 逐块比对上一帧，得到“全画面变化比例”与“蒙版内变化比例” */
+    private fun updateChangedRatios() {
         var maskedChanged = 0
         var allChanged = 0
         for (i in 0 until BLOCK_COUNT) {
@@ -144,8 +165,6 @@ class MotionDetector(
         val maskedTotal = gridMask.count { it }.coerceAtLeast(1)
         maskedChangedRatio = maskedChanged.toFloat() / maskedTotal
         fullChangedRatio = allChanged.toFloat() / BLOCK_COUNT
-        previous = blocks.copyOf()
-        return true
     }
 
     companion object {

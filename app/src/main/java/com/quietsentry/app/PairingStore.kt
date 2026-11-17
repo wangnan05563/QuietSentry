@@ -88,7 +88,7 @@ class PairingStore(context: Context) {
     @Synchronized
     fun newRecoveryCode(): String {
         val code = CryptoBox.randomCode()
-        val hash = MessageDigest.getInstance("SHA-256").digest(code.toByteArray())
+        val hash = MessageDigest.getInstance(DIGEST_ALGORITHM).digest(code.toByteArray())
         prefs.edit()
             .putString(KEY_RECOVERY_HASH, Base64.encodeToString(hash, Base64.NO_WRAP))
             .putLong(KEY_RECOVERY_EXPIRES, System.currentTimeMillis() + RECOVERY_TTL_MS)
@@ -104,7 +104,7 @@ class PairingStore(context: Context) {
         if (prefs.getLong(KEY_RECOVERY_EXPIRES, 0L) <= System.currentTimeMillis()) return false
         val expected = recoveryHash ?: return false
         val actual = Base64.encodeToString(
-            MessageDigest.getInstance("SHA-256").digest(input.trim().toByteArray()),
+            MessageDigest.getInstance(DIGEST_ALGORITHM).digest(input.trim().toByteArray()),
             Base64.NO_WRAP
         )
         if (!MessageDigest.isEqual(expected.toByteArray(), actual.toByteArray())) return false
@@ -148,7 +148,7 @@ class PairingStore(context: Context) {
         if (existing == null && activeGrants().size >= MAX_GRANTS) return null
         if (code != null && !consumePairCode(code)) return null
         val own = identity()
-        val salt = MessageDigest.getInstance("SHA-256")
+        val salt = MessageDigest.getInstance(DIGEST_ALGORITHM)
             .digest(CryptoBox.encodePublicKey(own.public).toByteArray() + clientPublicKey.toByteArray())
         val key = CryptoBox.sharedSecret(own.private, peer, salt)
         val now = System.currentTimeMillis()
@@ -335,5 +335,8 @@ class PairingStore(context: Context) {
 
         /** PRD §4.4（决策 O3）：单台摄像头最多 5 人，含 Owner */
         const val MAX_GRANTS = 5
+
+        /** 摘要算法：恢复码与邀请盐共用，避免两处各写一个字符串在轮换算法时漏改 */
+        const val DIGEST_ALGORITHM = "SHA-256"
     }
 }

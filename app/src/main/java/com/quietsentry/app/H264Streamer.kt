@@ -258,32 +258,37 @@ private class H264Encoder(
     private fun fillNv12(image: ImageProxy) {
         val planes = image.planes
         if (planes.size < 3) return
-        val ySource = planes[0]
-        val uSource = planes[1]
-        val vSource = planes[2]
-        val yBuffer = ySource.buffer
-        val yRowStride = ySource.rowStride
-        val yPixelStride = ySource.pixelStride
+        fillLuma(planes[0])
+        fillChroma(planes[1], planes[2])
+    }
+
+    /** 亮度平面：按 scale 跳采样，越界读取按 0 处理（部分设备的 stride 会大于图像宽度） */
+    private fun fillLuma(plane: ImageProxy.PlaneProxy) {
+        val buffer = plane.buffer
         for (row in 0 until height) {
-            val sourceBase = row * scale * yRowStride
+            val sourceBase = row * scale * plane.rowStride
             val targetBase = row * width
             for (col in 0 until width) {
-                val offset = sourceBase + col * scale * yPixelStride
-                nv12[targetBase + col] = if (offset < yBuffer.limit()) yBuffer.get(offset) else 0
+                val offset = sourceBase + col * scale * plane.pixelStride
+                nv12[targetBase + col] = if (offset < buffer.limit()) buffer[offset] else 0
             }
         }
-        val uBuffer = uSource.buffer
-        val vBuffer = vSource.buffer
-        val uvRowStride = uSource.rowStride
-        val uvPixelStride = uSource.pixelStride
+    }
+
+    /** 色度平面：U/V 交错写入 NV12 的后半段，两路共用一个 offset 计算 */
+    private fun fillChroma(uPlane: ImageProxy.PlaneProxy, vPlane: ImageProxy.PlaneProxy) {
+        val uBuffer = uPlane.buffer
+        val vBuffer = vPlane.buffer
+        val uvRowStride = uPlane.rowStride
+        val uvPixelStride = uPlane.pixelStride
         val uvBase = width * height
         for (row in 0 until height / 2) {
             val sourceBase = row * scale * uvRowStride
             for (col in 0 until width / 2) {
                 val offset = sourceBase + col * scale * uvPixelStride
                 val target = uvBase + row * width + col * 2
-                nv12[target] = if (offset < uBuffer.limit()) uBuffer.get(offset) else 0
-                nv12[target + 1] = if (offset < vBuffer.limit()) vBuffer.get(offset) else 0
+                nv12[target] = if (offset < uBuffer.limit()) uBuffer[offset] else 0
+                nv12[target + 1] = if (offset < vBuffer.limit()) vBuffer[offset] else 0
             }
         }
     }
@@ -291,7 +296,8 @@ private class H264Encoder(
 
 private fun bytesOf(buffer: ByteBuffer): ByteArray {
     val copy = ByteArray(buffer.remaining())
-    buffer.duplicate().get(copy)
+    val source = buffer.duplicate()
+    for (index in copy.indices) copy[index] = source[index]
     return copy
 }
 
@@ -304,11 +310,8 @@ private fun splitAnnexB(data: ByteArray): List<ByteArray> {
     var start = -1
     var i = 0
     while (i + 2 < data.size) {
-        if (data[i] == 0.toByte() && data[i + 1] == 0.toByte() && data[i + 2] == 1.toByte()) {
-            if (start >= 0) {
-                val end = if (i > 0 && data[i - 1] == 0.toByte()) i - 1 else i
-                if (end > start) result.add(data.copyOfRange(start, end))
-            }
+        if (isStartCode(data, i)) {
+            if (start >= 0) addNal(result, data, start, endOfNal(data, i))
             start = i + 3
             i += 3
         } else {
@@ -321,4 +324,16 @@ private fun splitAnnexB(data: ByteArray): List<ByteArray> {
         result.add(data)
     }
     return result
+}
+
+/** 00 00 01 起始码；部分设备会在前面多补一个 0，这里只看后三位 */
+private fun isStartCode(data: ByteArray, index: Int): Boolean =
+    data[index] == 0.toByte() && data[index + 1] == 0.toByte() && data[index + 2] == 1.toByte()
+
+/** 当前 NAL 的结束位置：紧邻下一个起始码前若还有补位 0，要把它留在上一个 NAL 之外 */
+private fun endOfNal(data: ByteArray, startCodeIndex: Int): Int =
+    if (startCodeIndex > 0 && data[startCodeIndex - 1] == 0.toByte()) startCodeIndex - 1 else startCodeIndex
+
+private fun addNal(result: MutableList<ByteArray>, data: ByteArray, start: Int, end: Int) {
+    if (end > start) result.add(data.copyOfRange(start, end))
 }

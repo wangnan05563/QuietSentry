@@ -406,10 +406,10 @@ object OnvifService {
         </s:Envelope>
     """.trimIndent()
 
-    private fun utcYear(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
-    private fun utcMonth(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1
-    private fun utcDay(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH)
-    private fun utcHour(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-    private fun utcMinute(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.MINUTE)
-    private fun utcSecond(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.SECOND)
+    private fun utcYear(): Int = java.util.Calendar.getInstance()[java.util.Calendar.YEAR]
+    private fun utcMonth(): Int = java.util.Calendar.getInstance()[java.util.Calendar.MONTH] + 1
+    private fun utcDay(): Int = java.util.Calendar.getInstance()[java.util.Calendar.DAY_OF_MONTH]
+    private fun utcHour(): Int = java.util.Calendar.getInstance()[java.util.Calendar.HOUR_OF_DAY]
+    private fun utcMinute(): Int = java.util.Calendar.getInstance()[java.util.Calendar.MINUTE]
+    private fun utcSecond(): Int = java.util.Calendar.getInstance()[java.util.Calendar.SECOND]
 }

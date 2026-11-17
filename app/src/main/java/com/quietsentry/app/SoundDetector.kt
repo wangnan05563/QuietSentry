@@ -56,55 +56,10 @@ class SoundDetector(
     private fun loop() {
         var recorder: AudioRecord? = null
         try {
-            val minBuffer = AudioRecord.getMinBufferSize(
-                SAMPLE_RATE,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT
-            )
-            if (minBuffer <= 0) return
-            recorder = AudioRecord.Builder()
-                .setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
-                .setAudioFormat(
-                    AudioFormat.Builder()
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setSampleRate(SAMPLE_RATE)
-                        .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
-                        .build()
-                )
-                // 两倍最小缓冲：单块读取不会因为调度抖动而丢样本
-                .setBufferSizeInBytes(minBuffer * 2)
-                .build()
-            if (recorder.state != AudioRecord.STATE_INITIALIZED) return
+            recorder = createRecorder() ?: return
             record = recorder
             recorder.startRecording()
-
-            val chunk = ShortArray(CHUNK_SAMPLES)
-            var hotMs = 0L
-            while (running) {
-                val read = recorder.read(chunk, 0, chunk.size)
-                if (read <= 0) continue
-
-                var sum = 0.0
-                for (i in 0 until read) {
-                    val v = chunk[i].toDouble()
-                    sum += v * v
-                }
-                val rms = sqrt(sum / read)
-                // 转换为 dBFS：安静环境约 -70，正常说话约 -40 ~ -30
-                val db = if (rms > 0.0) 20.0 * log10(rms / 32768.0) else SILENCE_DB
-
-                if (db >= thresholdDb) hotMs += CHUNK_MS else hotMs = 0
-                if (hotMs >= SUSTAIN_MS) {
-                    hotMs = 0
-                    val now = System.currentTimeMillis()
-                    // 同一事件源 60 秒内合并为一条（PRD FR-07）
-                    if (now - lastEventAtMs >= MERGE_WINDOW_MS) {
-                        lastEventAtMs = now
-                        val confidence = ((db - thresholdDb) / 12.0 * 100).toInt().coerceIn(1, 100)
-                        onSound(confidence)
-                    }
-                }
-            }
+            readLoop(recorder)
         } catch (e: Exception) {
             // 麦克风被占用或权限被回收：静默退出，视频录制不受影响
         } finally {
@@ -112,6 +67,65 @@ class SoundDetector(
             runCatching { recorder?.release() }
             record = null
         }
+    }
+
+    /** 建录音器：缓冲或初始化失败返回 null，调用方按“不可用”静默退出 */
+    private fun createRecorder(): AudioRecord? {
+        val minBuffer = AudioRecord.getMinBufferSize(
+            SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        )
+        if (minBuffer <= 0) return null
+        val recorder = AudioRecord.Builder()
+            .setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(SAMPLE_RATE)
+                    .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+                    .build()
+            )
+            // 两倍最小缓冲：单块读取不会因为调度抖动而丢样本
+            .setBufferSizeInBytes(minBuffer * 2)
+            .build()
+        return recorder.takeIf { it.state == AudioRecord.STATE_INITIALIZED }
+    }
+
+    /** 逐块读电平；持续超阈值 SUSTAIN_MS 才上报，单次敲击不产生事件 */
+    private fun readLoop(recorder: AudioRecord) {
+        val chunk = ShortArray(CHUNK_SAMPLES)
+        var hotMs = 0L
+        while (running) {
+            val read = recorder.read(chunk, 0, chunk.size)
+            if (read <= 0) continue
+            val db = decibelOf(chunk, read)
+            hotMs = if (db >= thresholdDb) hotMs + CHUNK_MS else 0
+            if (hotMs >= SUSTAIN_MS) {
+                hotMs = 0
+                emitIfDue(db)
+            }
+        }
+    }
+
+    /** 块内 RMS 转 dBFS：安静环境约 -70，正常说话约 -40 ~ -30 */
+    private fun decibelOf(chunk: ShortArray, read: Int): Double {
+        var sum = 0.0
+        for (i in 0 until read) {
+            val v = chunk[i].toDouble()
+            sum += v * v
+        }
+        val rms = sqrt(sum / read)
+        return if (rms > 0.0) 20.0 * log10(rms / 32768.0) else SILENCE_DB
+    }
+
+    /** 同一事件源 60 秒内合并为一条（PRD FR-07） */
+    private fun emitIfDue(db: Double) {
+        val now = System.currentTimeMillis()
+        if (now - lastEventAtMs < MERGE_WINDOW_MS) return
+        lastEventAtMs = now
+        val confidence = ((db - thresholdDb) / 12.0 * 100).toInt().coerceIn(1, 100)
+        onSound(confidence)
     }
 
     companion object {

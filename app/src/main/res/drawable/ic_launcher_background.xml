@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自适应图标背景：品牌深底 + 居中柔光，贴近官方 assets/brand/logo-1024.png 的径向光晕质感。
+     启动器负责圆形/圆角方形遮罩，这里只提供底色与光晕；盾牌由 foreground 层叠加。
+     background 必须是“整块填充”的 drawable，故用 layer-list：底层铺品牌深底，上层叠一个
+     居中径向渐变的椭圆做柔光，透明度很低，只在盾牌四周透出暗色光晕，不抢前景。 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/qs_icon_bg" />
+        </shape>
+    </item>
+    <item android:gravity="fill">
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:centerX="0.5"
+                android:centerY="0.5"
+                android:gradientRadius="62%"
+                android:startColor="#2400BFA6"
+                android:endColor="#00000000"
+                android:useLevel="false" />
+        </shape>
+    </item>
+</layer-list>

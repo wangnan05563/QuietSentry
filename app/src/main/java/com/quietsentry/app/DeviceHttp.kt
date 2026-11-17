@@ -2,9 +2,9 @@ package com.quietsentry.app
 
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import java.net.URI
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.HostnameVerifier
-import java.net.URL
 
 /**
  * 观看端访问相机端 HTTP 服务的最小客户端（PRD §12：局域网 HTTP + 令牌）。
@@ -168,7 +168,8 @@ object DeviceHttp {
     fun snapshot(host: String, port: Int, token: String): SnapshotResult? = runCatching {
         val factory = TlsTrust.factoryFor(host, port)
         val scheme = if (factory != null) "https" else "http"
-        val connection = URL("$scheme://$host:$port/api/snapshot").openConnection() as HttpURLConnection
+        val connection = URI.create("$scheme://$host:$port/api/snapshot").toURL()
+            .openConnection() as HttpURLConnection
         if (factory != null && connection is HttpsURLConnection) {
             connection.sslSocketFactory = factory
             connection.hostnameVerifier = HostnameVerifier { _, _ -> true }
@@ -233,23 +234,32 @@ object DeviceHttp {
         method: String = "GET",
         token: String? = null,
         body: String? = null,
-    ): String? = request(host, port, path, method, token, body)
+    ): String? = request(
+        host, port, path,
+        method = method,
+        token = token,
+        bytes = body?.toByteArray(Charsets.UTF_8)
+    )
         ?.takeIf { it.code in 200..299 }
         ?.body
 
+    /**
+     * 统一的请求执行器。请求体只保留 [bytes] 一种形态：
+     * 字符串体在调用方转成字节，避免为一个可选参数再拆出重载/数据类，也让内容类型只有一个来源。
+     */
     private fun request(
         host: String,
         port: Int,
         path: String,
         method: String = "GET",
         token: String? = null,
-        body: String? = null,
         bytes: ByteArray? = null,
         contentType: String = JSON_TYPE,
     ): Reply? = runCatching {
         val factory = TlsTrust.factoryFor(host, port)
         val scheme = if (factory != null) "https" else "http"
-        val connection = URL("$scheme://$host:$port$path").openConnection() as HttpURLConnection
+        val connection = URI.create("$scheme://$host:$port$path").toURL()
+            .openConnection() as HttpURLConnection
         if (factory != null && connection is HttpsURLConnection) {
             connection.sslSocketFactory = factory
             // 自签证书 CN 写的是设备名而不是 IP，hostname 校验只能交给指纹 pin
@@ -260,8 +270,7 @@ object DeviceHttp {
         connection.connectTimeout = TIMEOUT_MS
         connection.readTimeout = TIMEOUT_MS
         token?.let { connection.setRequestProperty("X-Auth-Token", it) }
-        val payload = bytes ?: body?.toByteArray(Charsets.UTF_8)
-        if (payload != null) {
+        bytes?.let { payload ->
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", contentType)
             connection.outputStream.use { it.write(payload) }

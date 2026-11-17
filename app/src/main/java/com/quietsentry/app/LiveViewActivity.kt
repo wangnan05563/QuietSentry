@@ -61,17 +61,18 @@ class LiveViewActivity : AppCompatActivity() {
     private var activeDeterrent: String? = null
     private var deterrentDeadlineMs = 0L
     private val uiHandler = Handler(Looper.getMainLooper())
-    private val deterrentTick = object : Runnable {
-        override fun run() {
-            val remainingSec = (deterrentDeadlineMs - System.currentTimeMillis() + 999) / 1000
-            if (remainingSec <= 0 || activeDeterrent == null) {
-                endDeterrentUi()
-                return
-            }
-            activeDeterrentButton()?.text = getString(R.string.live_deter_stop, remainingSec)
-            // 250ms 粒度让秒数跳变发生在 0.25s 内，比整秒轮询更接近服务端的真实剩余时间
-            uiHandler.postDelayed(this, 250)
+    private val deterrentTick = Runnable { tickDeterrent() }
+
+    /** 威慑倒计时：`this` 在 SAM 转换里指向 Activity，自我重投必须走具名方法 */
+    private fun tickDeterrent() {
+        val remainingSec = (deterrentDeadlineMs - System.currentTimeMillis() + 999) / 1000
+        if (remainingSec <= 0 || activeDeterrent == null) {
+            endDeterrentUi()
+            return
         }
+        activeDeterrentButton()?.text = getString(R.string.live_deter_stop, remainingSec)
+        // 250ms 粒度让秒数跳变发生在 0.25s 内，比整秒轮询更接近服务端的真实剩余时间
+        uiHandler.postDelayed(deterrentTick, 250)
     }
 
     /** 只在按住期间存在；松手即置空，用空值作为“当前没在录”的唯一判据 */
