@@ -183,6 +183,8 @@ class CaptureService : LifecycleService() {
                 startCapture()
             }
             ACTION_STOP -> stopCapture()
+            // 待机通知的“停止待机”：必须连常驻的局域网宿主一起停掉，不能只摘前台通知
+            ACTION_STOP_STANDBY -> stopStandby()
             // 观看端请求暂停：与用户本机停止走同一条停采流程，只是要额外留下"被远程暂停"的状态与记录
             ACTION_PAUSE -> pauseByRemote()
             // 进程被系统回收后 START_STICKY 重建时 intent 为空：只有上次确实在值守才恢复采集，
@@ -812,8 +814,8 @@ class CaptureService : LifecycleService() {
                     .putExtra(EXTRA_EXPORTED, exported.size)
             )
             if (keepStandby) {
-                // 导出可能持续数秒；只有用户在此期间没有重新开始值守，才落回在线待机
-                Handler(Looper.getMainLooper()).post { if (!running) enterStandby() }
+                // 导出可能持续数秒；只有用户在此期间没有重新开始值守、也没有点“停止待机”，才落回在线待机
+                Handler(Looper.getMainLooper()).post { if (!running && keepStandbyAfterStop) enterStandby() }
             } else {
                 stopSelf()
             }
@@ -828,6 +830,20 @@ class CaptureService : LifecycleService() {
         // 待机不持有相机/麦克风，前台类型必须同步切换：继续申报 camera 会让系统
         // 在状态栏显示“相机使用中”，既误导用户，也容易被 ROM 判定为异常占用。
         startForegroundWithType(standby = true)
+    }
+
+    /**
+     * 用户主动退出在线待机：同时结束前台服务与常驻局域网宿主。
+     * LanServerHost 是进程级单例，只 stopSelf 会留下一个没有通知、仍能响应 HTTP 的幽灵服务。
+     */
+    private fun stopStandby() {
+        if (running) stopCapture()
+        standby = false
+        keepStandbyAfterStop = false
+        // 本机主动退出待机后回到普通空闲态；下次打开首页应恢复预览，而不是继续显示“已暂停”
+        GuardState.setPaused(this, false)
+        LanServerHost.stop()
+        stopSelf()
     }
 
     /**
@@ -970,10 +986,12 @@ class CaptureService : LifecycleService() {
     }
 
     private fun buildNotification(text: String, standby: Boolean = false): android.app.Notification {
-        val stopIntent = Intent(this, CaptureService::class.java).setAction(ACTION_STOP)
+        val stopAction = if (standby) ACTION_STOP_STANDBY else ACTION_STOP
+        val stopRequest = if (standby) REQUEST_STOP_STANDBY else REQUEST_STOP
+        val stopIntent = Intent(this, CaptureService::class.java).setAction(stopAction)
         val stopPending = PendingIntent.getService(
             this,
-            REQUEST_STOP,
+            stopRequest,
             stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -1035,10 +1053,12 @@ class CaptureService : LifecycleService() {
     companion object {
         const val ACTION_START = "com.quietsentry.app.action.START"
         const val ACTION_STOP = "com.quietsentry.app.action.STOP"
+        const val ACTION_STOP_STANDBY = "com.quietsentry.app.action.STOP_STANDBY"
         const val ACTION_PAUSE = "com.quietsentry.app.action.PAUSE_BY_REMOTE"
         private const val CHANNEL_ID = "capture"
         private const val NOTIFICATION_ID = 1001
         private const val REQUEST_STOP = 1
+        private const val REQUEST_STOP_STANDBY = 3
         private const val REQUEST_OPEN = 2
         private const val CHECK_EVERY_SEGMENTS = 10
 

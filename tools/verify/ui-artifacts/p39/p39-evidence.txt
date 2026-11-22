@@ -1,0 +1,39 @@
+QuietSentry P3 .9 证据摘要
+版本：0.1.0-20261122.9（versionCode 74）
+拓扑：观看端 emulator-5554（qsui）、相机端 emulator-5558（qsui2），均 720×1280 / 320dpi
+转发：adb -s emulator-5558 forward tcp:18081 tcp:8080；tcp:8443 tcp:8443（adb root 后会清空，需重建）
+
+P3-03 远程暂停后的在线待机
+- 值守中 /api/status：mode=guard，paused=false，charging=false
+- POST /api/pause 返回 {"ok":true}
+- 暂停后 /api/status：mode=idle，paused=true，live=false，frameCached=true，watching=0
+- dumpsys activity services：isForeground=true，foregroundId=1001，types=40000000（specialUse）
+- dumpsys media.camera：DISCONNECT client for com.quietsentry.app；Active Camera Clients 无活跃占用的相机客户端
+- 通知 dump：actions={ [0] "停止待机" -> PendingIntent startService }
+- 拔电息屏 60 秒：mWakefulness=Asleep，mIsPowered=false，charging=false；/api/status 仍 HTTP 200（serverTime=1795365202754）
+- 强制 Doze：mState=IDLE，mLightState=OVERRIDE；/api/status 仍 HTTP 200（serverTime=1795365238023）
+- 观看端在强制 Doze 窗口仍显示“已暂停”，未显示“离线”
+证据：p39-standby.png、p39-viewer-doze.png、p39-viewer-forceidle.png（本目录）
+
+P3-03 停止待机语义（.9 新增）
+- 待机通知动作走 ACTION_STOP_STANDBY；未在 UI 实际点按，使用等价 su 0 am startservice -a com.quietsentry.app.action.STOP_STANDBY -n com.quietsentry.app/.CaptureService
+- 执行后 dumpsys activity services 无 CaptureService；ss -ltn 无 :8080/:8443；/api/status 连接拒绝
+- guard_state.xml：guard_active=false，paused_by_remote=false，abnormal_start_count=0
+- 观看端 DeviceList 转为“离线”；相机首页恢复空闲预览
+证据：p39-cam-after-stop.png、p39-viewer-offline.png（本目录）
+
+P3-01 重配旧自动名迁移
+- .8 实测：registry 预置 name=10.0.2.2、host=10.0.2.2；相机码 292579；重配后 name=sdk_gphone64_x86_64
+- .9 仅改 CaptureService，DeviceRegistry 未变；自定义名“不被覆盖”由 existing.name != previousHost 条件分支保证，未在 UI 单独做第三轮重配
+证据：上一轮 p3/p3-repair2.png
+
+P3-02 状态语义
+- /api/info 与 /api/status 均返回 live=false、frameCached=true（watching=0，存在缓存帧）
+- 代码：live = viewers.get() > 0 && LanFrameHub.hasFrame()；frameCached = LanFrameHub.hasFrame()
+- live=true（viewers>0 且存在缓存帧）的在线观看场景未单独构造；结论由条件表达式与暂停态实测支撑
+
+口径与风险
+- 相机端 final 包为 0.1.0-20261122.9；0.1.0-20261122.8 保留为上一轮基线。
+- Doze 用模拟器拔电状态 + 息屏 60 秒 + force-idle 验证；/api/status 走 adb 端口转发回环，观看端走 10.0.2.2:8443。未替代真实手机厂商 ROM 冻结测试。
+- specialUse 属于本地局域网待机的合理用途；上架商店时需按平台规则说明。
+- 手动添加 8443 的测试条目 tlsFingerprint 为空（手动入口按 HTTP 设计，preferTls=false）；P3-01 名称迁移结论不受影响。
