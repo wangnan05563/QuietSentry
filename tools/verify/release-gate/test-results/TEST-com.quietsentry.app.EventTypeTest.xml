@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.quietsentry.app.EventTypeTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-22T17:48:30" hostname="DESKTOP-G10O4NL" time="0.004">
+  <properties/>
+  <testcase name="每个类型都带非空原始值" classname="com.quietsentry.app.EventTypeTest" time="0.003"/>
+  <testcase name="已知原始值按名映射" classname="com.quietsentry.app.EventTypeTest" time="0.001"/>
+  <testcase name="未知与空值回退为运动事件" classname="com.quietsentry.app.EventTypeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

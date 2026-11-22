@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.quietsentry.app.NetworkPathTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-22T17:48:30" hostname="DESKTOP-G10O4NL" time="0.681">
+  <properties/>
+  <testcase name="一七二点一六到三一属于私网" classname="com.quietsentry.app.NetworkPathTest" time="0.535"/>
+  <testcase name="一九二点一六八属于私网而相邻段不是" classname="com.quietsentry.app.NetworkPathTest" time="0.0"/>
+  <testcase name="非法地址一律不认" classname="com.quietsentry.app.NetworkPathTest" time="0.001"/>
+  <testcase name="自组网判定同样拒绝非法地址" classname="com.quietsentry.app.NetworkPathTest" time="0.143"/>
+  <testcase name="局域网地址不算自组网" classname="com.quietsentry.app.NetworkPathTest" time="0.001"/>
+  <testcase name="十网段与回环属于私网" classname="com.quietsentry.app.NetworkPathTest" time="0.0"/>
+  <testcase name="一百点六四到一百二十七属于自组网" classname="com.quietsentry.app.NetworkPathTest" time="0.0"/>
+  <testcase name="公网地址不算局域网" classname="com.quietsentry.app.NetworkPathTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

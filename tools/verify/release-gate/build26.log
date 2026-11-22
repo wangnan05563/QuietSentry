@@ -1,0 +1,23 @@
+
+[QuietSentry] 构建 release 包
+
+[QuietSentry] 检查构建依赖
+  OK  JDK 17 (E:\Android\jdk17\jdk-17.0.20.1+1)
+  OK  Android SDK (E:\Android\sdk)
+  OK  platform android-35
+  OK  build-tools 34.0.0
+  OK  Gradle (E:\Android\gradle-8.9\bin\gradle.bat)
+  OK  Gradle 依赖缓存
+
+  OK  产物目录 E:\QuietSentryBuild\release（已清空旧产物）
+  OK  版本 0.1.0-20261123.2（versionCode 76）
+
+[QuietSentry] 执行 Gradle: assembleRelease bundleRelease
+
+[QuietSentry] 构建完成
+  OK  APK: E:\QuietSentryBuild\release\QuietSentry-0.1.0-20261123.2-release.apk
+  OK  体积: 34.11 MB
+  OK  AAB: E:\QuietSentryBuild\release\QuietSentry-0.1.0-20261123.2.aab（15.98 MB）
+  OK  产物目录: E:\QuietSentryBuild\release（可整体删除后重建）
+  ..  这套产物可直接发布：scripts\一键发布.bat -SkipBuild（省掉重复构建）
+

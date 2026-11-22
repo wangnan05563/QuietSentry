@@ -1,6 +1,7 @@
 package com.quietsentry.app
 
 import android.app.NotificationChannel
+import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -18,6 +19,7 @@ import java.util.Locale
  * 为什么三级用独立通道而不是同一通道的不同优先级：Android 8 起提醒强度由通道决定，
  * 用户在系统设置里可以只静音“设备提示”而保留“紧急告警”，同通道无法做到这种粒度。
  */
+@SuppressLint("MissingPermission") // 所有 notify 入口都先调用 canNotify()；Android 13 拒绝时 notify 也不会抛异常
 class EventNotifier(private val context: Context) {
 
     /** 通知被系统关闭时只保留索引，由回看页承担“应用内消息中心”的角色（FR-09 异常降级） */

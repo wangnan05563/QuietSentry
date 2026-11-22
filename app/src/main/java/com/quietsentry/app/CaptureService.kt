@@ -1,6 +1,7 @@
 package com.quietsentry.app
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -517,6 +518,7 @@ class CaptureService : LifecycleService() {
      * ENOSPC 曾被直接抛到主线程把前台服务打崩（真机 10-31 的崩溃栈即在此处），
      * 存储满时重试没有意义，如实提示并停止采集，避免用户以为还在录。
      */
+    @SuppressLint("MissingPermission") // hasAudioPermission() 已校验 RECORD_AUDIO，Lint 不认识这个包装函数
     private fun prepareSegment(
         capture: VideoCapture<Recorder>,
         output: File,

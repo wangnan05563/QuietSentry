@@ -70,6 +70,7 @@ class SoundDetector(
     }
 
     /** 建录音器：缓冲或初始化失败返回 null，调用方按“不可用”静默退出 */
+    @SuppressLint("MissingPermission") // start() 已校验 RECORD_AUDIO 后才启动采集线程
     private fun createRecorder(): AudioRecord? {
         val minBuffer = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.quietsentry.app.AlertPolicyTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-22T17:48:30" hostname="DESKTOP-G10O4NL" time="0.036">
+  <properties/>
+  <testcase name="同源连续第三次触发升级为紧急" classname="com.quietsentry.app.AlertPolicyTest" time="0.026"/>
+  <testcase name="同日时段不标记跨午夜" classname="com.quietsentry.app.AlertPolicyTest" time="0.002"/>
+  <testcase name="时刻格式化覆盖零点与当天最后一分钟" classname="com.quietsentry.app.AlertPolicyTest" time="0.0"/>
+  <testcase name="默认检测时段覆盖白天" classname="com.quietsentry.app.AlertPolicyTest" time="0.004"/>
+  <testcase name="起止相同不视为跨午夜" classname="com.quietsentry.app.AlertPolicyTest" time="0.001"/>
+  <testcase name="声音事件不升级紧急" classname="com.quietsentry.app.AlertPolicyTest" time="0.0"/>
+  <testcase name="免打扰时段跨午夜时单独标记" classname="com.quietsentry.app.AlertPolicyTest" time="0.0"/>
+  <testcase name="检测时段同样支持跨午夜标记" classname="com.quietsentry.app.AlertPolicyTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

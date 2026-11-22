@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.quietsentry.app.TlsTrustTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-22T17:48:31" hostname="DESKTOP-G10O4NL" time="0.401">
+  <properties/>
+  <testcase name="注册后可按主机与端口取回指纹" classname="com.quietsentry.app.TlsTrustTest" time="0.398"/>
+  <testcase name="端口为零或指纹为空时拒绝注册" classname="com.quietsentry.app.TlsTrustTest" time="0.0"/>
+  <testcase name="未注册的主机查询返回空" classname="com.quietsentry.app.TlsTrustTest" time="0.0"/>
+  <testcase name="不同端口各自独立" classname="com.quietsentry.app.TlsTrustTest" time="0.001"/>
+  <testcase name="同一主机端口只保留首次注册的指纹" classname="com.quietsentry.app.TlsTrustTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

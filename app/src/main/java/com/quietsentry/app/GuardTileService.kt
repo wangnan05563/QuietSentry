@@ -1,5 +1,6 @@
 package com.quietsentry.app
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -53,6 +54,7 @@ class GuardTileService : TileService() {
             PackageManager.PERMISSION_GRANTED
 
     /** Android 14 起要求 PendingIntent 形式；旧版的重载只在语义上被标记过时 */
+    @SuppressLint("StartActivityAndCollapseDeprecated") // 已按 UPSIDE_DOWN_CAKE 分支，旧重载只在 33 及以下执行
     private fun openMain() {
         val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

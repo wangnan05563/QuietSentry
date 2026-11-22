@@ -1,6 +1,7 @@
 package com.quietsentry.app
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioFormat
@@ -84,6 +85,7 @@ class TalkRecorder(
         onStopped(failed)
     }
 
+    @SuppressLint("MissingPermission") // start() 已校验 RECORD_AUDIO 后才进入采集
     private fun create(): AudioRecord? = runCatching {
         val minBuffer = AudioRecord.getMinBufferSize(
             TalkPlayer.SAMPLE_RATE,

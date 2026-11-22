@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.quietsentry.app.DeviceStateTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-11-22T17:48:30" hostname="DESKTOP-G10O4NL" time="0.2">
+  <properties/>
+  <testcase name="热等级三及以上判过热" classname="com.quietsentry.app.DeviceStateTest" time="0.006"/>
+  <testcase name="未来时间戳不算告警" classname="com.quietsentry.app.DeviceStateTest" time="0.0"/>
+  <testcase name="服务端字段原样透传" classname="com.quietsentry.app.DeviceStateTest" time="0.001"/>
+  <testcase name="值守心跳超时才判疑似中断" classname="com.quietsentry.app.DeviceStateTest" time="0.0"/>
+  <testcase name="事件时间取本地与服务端的较新者" classname="com.quietsentry.app.DeviceStateTest" time="0.0"/>
+  <testcase name="离线设备给出安全默认值" classname="com.quietsentry.app.DeviceStateTest" time="0.0"/>
+  <testcase name="电量未知不判低电且百分之二十仍是低电边界" classname="com.quietsentry.app.DeviceStateTest" time="0.0"/>
+  <testcase name="告警窗口按左闭右开判断" classname="com.quietsentry.app.DeviceStateTest" time="0.001"/>
+  <testcase name="五分钟窗口内在线设备顶到告警态" classname="com.quietsentry.app.DeviceStateTest" time="0.001"/>
+  <testcase name="未充电且电量低于百分之二十才算低电" classname="com.quietsentry.app.DeviceStateTest" time="0.0"/>
+  <testcase name="值守模式优先于待机" classname="com.quietsentry.app.DeviceStateTest" time="0.118"/>
+  <testcase name="待机设备不检查心跳" classname="com.quietsentry.app.DeviceStateTest" time="0.01"/>
+  <testcase name="剩余存储低于五百兆才判存储告警" classname="com.quietsentry.app.DeviceStateTest" time="0.001"/>
+  <testcase name="离线但刚有事件时仍然置告警标识" classname="com.quietsentry.app.DeviceStateTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

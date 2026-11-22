@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.quietsentry.app.GuardRuntimeTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-22T17:48:30" hostname="DESKTOP-G10O4NL" time="0.006">
+  <properties/>
+  <testcase name="心跳按传入时刻刷新" classname="com.quietsentry.app.GuardRuntimeTest" time="0.005"/>
+  <testcase name="复位清空全部运行态" classname="com.quietsentry.app.GuardRuntimeTest" time="0.0"/>
+  <testcase name="每次收敛分片递增计数" classname="com.quietsentry.app.GuardRuntimeTest" time="0.001"/>
+  <testcase name="开始值守会清零分片计数并记录模式" classname="com.quietsentry.app.GuardRuntimeTest" time="0.0"/>
+  <testcase name="降载标记可独立切换" classname="com.quietsentry.app.GuardRuntimeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

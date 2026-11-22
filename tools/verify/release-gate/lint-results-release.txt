@@ -1,0 +1,636 @@
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\AlertPolicy.kt:84: Warning: Implicitly using the default locale is a common source of bugs: Use String.format(Locale, ...) instead [DefaultLocale]
+            String.format("%02d:%02d", minuteOfDay / 60, minuteOfDay % 60)
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\AlertPolicy.kt:120: Warning: Implicitly using the default locale is a common source of bugs: Use String.format(Locale, ...) instead [DefaultLocale]
+            String.format("%02d:%02d", minuteOfDay / 60, minuteOfDay % 60)
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "DefaultLocale":
+   Calling String#toLowerCase() or #toUpperCase() without specifying an
+   explicit locale is a common source of bugs. The reason for that is that
+   those methods will use the current locale on the user's device, and even
+   though the code appears to work correctly when you are developing the app,
+   it will fail in some locales. For example, in the Turkish locale, the
+   uppercase replacement for i is not I.
+
+   If you want the methods to just perform ASCII replacement, for example to
+   convert an enum name, call String#toUpperCase(Locale.ROOT) instead. If you
+   really want to use the current locale, call
+   String#toUpperCase(Locale.getDefault()) instead.
+
+   https://developer.android.com/reference/java/util/Locale.html#default_locale
+
+E:\QuietSentryBuild\app\src\main\res\layout\activity_device_list.xml:52: Warning: The id "device_list_offline_bar" in layout "activity_device_list" is missing from the following layout configurations: layout-sw600dp, layout-sw840dp (present in layout) [InconsistentLayout]
+        android:id="@+id/device_list_offline_bar"
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_device_list.xml:77: Warning: The id "device_list_rescan" in layout "activity_device_list" is missing from the following layout configurations: layout-sw600dp, layout-sw840dp (present in layout) [InconsistentLayout]
+            android:id="@+id/device_list_rescan"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_device_list.xml:85: Warning: The id "device_list_diag" in layout "activity_device_list" is missing from the following layout configurations: layout-sw600dp, layout-sw840dp (present in layout) [InconsistentLayout]
+            android:id="@+id/device_list_diag"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw600dp\activity_device_list.xml:113: Warning: The id "device_preview_title" in layout "activity_device_list" is missing from the following layout configurations: layout (present in layout-sw600dp, layout-sw840dp) [InconsistentLayout]
+                    android:id="@+id/device_preview_title"
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:114: Occurrence in layout-sw840dp
+E:\QuietSentryBuild\app\src\main\res\layout\activity_device_list.xml:116: Warning: The id "device_list_empty_box" in layout "activity_device_list" is missing from the following layout configurations: layout-sw600dp, layout-sw840dp (present in layout) [InconsistentLayout]
+            android:id="@+id/device_list_empty_box"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw600dp\activity_device_list.xml:123: Warning: The id "device_preview_full" in layout "activity_device_list" is missing from the following layout configurations: layout (present in layout-sw600dp, layout-sw840dp) [InconsistentLayout]
+                    android:id="@+id/device_preview_full"
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:151: Occurrence in layout-sw840dp
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:124: Warning: The id "device_side_expand" in layout "activity_device_list" is missing from the following layout configurations: layout, layout-sw600dp (present in layout-sw840dp) [InconsistentLayout]
+                    android:id="@+id/device_side_expand"
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_device_list.xml:135: Warning: The id "device_empty_scan" in layout "activity_device_list" is missing from the following layout configurations: layout-sw600dp, layout-sw840dp (present in layout) [InconsistentLayout]
+                android:id="@+id/device_empty_scan"
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw600dp\activity_device_list.xml:135: Warning: The id "device_preview_image" in layout "activity_device_list" is missing from the following layout configurations: layout (present in layout-sw600dp, layout-sw840dp) [InconsistentLayout]
+                    android:id="@+id/device_preview_image"
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:163: Occurrence in layout-sw840dp
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:138: Warning: The id "device_grid_back" in layout "activity_device_list" is missing from the following layout configurations: layout, layout-sw600dp (present in layout-sw840dp) [InconsistentLayout]
+                    android:id="@+id/device_grid_back"
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw600dp\activity_device_list.xml:142: Warning: The id "device_preview_status" in layout "activity_device_list" is missing from the following layout configurations: layout (present in layout-sw600dp, layout-sw840dp) [InconsistentLayout]
+                    android:id="@+id/device_preview_status"
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:170: Occurrence in layout-sw840dp
+E:\QuietSentryBuild\app\src\main\res\layout\activity_device_list.xml:143: Warning: The id "device_empty_code" in layout "activity_device_list" is missing from the following layout configurations: layout-sw600dp, layout-sw840dp (present in layout) [InconsistentLayout]
+                android:id="@+id/device_empty_code"
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_device_list.xml:151: Warning: The id "device_empty_manual" in layout "activity_device_list" is missing from the following layout configurations: layout-sw600dp, layout-sw840dp (present in layout) [InconsistentLayout]
+                android:id="@+id/device_empty_manual"
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:183: Warning: The id "device_grid" in layout "activity_device_list" is missing from the following layout configurations: layout, layout-sw600dp (present in layout-sw840dp) [InconsistentLayout]
+                    android:id="@+id/device_grid"
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:203: Warning: The id "device_grid_cells" in layout "activity_device_list" is missing from the following layout configurations: layout, layout-sw600dp (present in layout-sw840dp) [InconsistentLayout]
+                        android:id="@+id/device_grid_cells"
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:211: Warning: The id "device_grid_empty" in layout "activity_device_list" is missing from the following layout configurations: layout, layout-sw600dp (present in layout-sw840dp) [InconsistentLayout]
+                        android:id="@+id/device_grid_empty"
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:227: Warning: The id "device_side_bar" in layout "activity_device_list" is missing from the following layout configurations: layout, layout-sw600dp (present in layout-sw840dp) [InconsistentLayout]
+            android:id="@+id/device_side_bar"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:251: Warning: The id "device_side_collapse" in layout "activity_device_list" is missing from the following layout configurations: layout, layout-sw600dp (present in layout-sw840dp) [InconsistentLayout]
+                    android:id="@+id/device_side_collapse"
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:272: Warning: The id "device_side_events" in layout "activity_device_list" is missing from the following layout configurations: layout, layout-sw600dp (present in layout-sw840dp) [InconsistentLayout]
+                        android:id="@+id/device_side_events"
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:280: Warning: The id "device_side_empty" in layout "activity_device_list" is missing from the following layout configurations: layout, layout-sw600dp (present in layout-sw840dp) [InconsistentLayout]
+                    android:id="@+id/device_side_empty"
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "InconsistentLayout":
+   This check ensures that a layout resource which is defined in multiple
+   resource folders, specifies the same set of widgets.
+
+   This finds cases where you have accidentally forgotten to add a widget to
+   all variations of the layout, which could result in a runtime crash for
+   some resource configurations when a findViewById() fails.
+
+   There are cases where this is intentional. For example, you may have a
+   dedicated large tablet layout which adds some extra widgets that are not
+   present in the phone version of the layout. As long as the code accessing
+   the layout resource is careful to handle this properly, it is valid. In
+   that case, you can suppress this lint check for the given extra or missing
+   views, or the whole layout
+
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\CaptureService.kt:954: Warning: Field requires API level 30 (current min is 29): android.content.pm.ServiceInfo#FOREGROUND_SERVICE_TYPE_CAMERA [InlinedApi]
+            var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\CaptureService.kt:956: Warning: Field requires API level 30 (current min is 29): android.content.pm.ServiceInfo#FOREGROUND_SERVICE_TYPE_MICROPHONE [InlinedApi]
+                type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "InlinedApi":
+   This check scans through all the Android API field references in the
+   application and flags certain constants, such as static final integers and
+   Strings, which were introduced in later versions. These will actually be
+   copied into the class files rather than being referenced, which means that
+   the value is available even when running on older devices. In some cases
+   that's fine, and in other cases it can result in a runtime crash or
+   incorrect behavior. It depends on the context, so consider the code
+   carefully and decide whether it's safe and can be suppressed or whether the
+   code needs to be guarded.
+
+   If you really want to use this API and don't need to support older devices
+   just set the minSdkVersion in your build.gradle or AndroidManifest.xml
+   files.
+
+   If your code is deliberately accessing newer APIs, and you have ensured
+   (e.g. with conditional execution) that this code will only ever be called
+   on a supported platform, then you can annotate your class or method with
+   the @TargetApi annotation specifying the local minimum SDK to apply, such
+   as @TargetApi(11), such that this check considers 11 rather than your
+   manifest file's minimum SDK as the required API level.
+
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\MainActivity.kt:629: Warning: Use of REQUEST_IGNORE_BATTERY_OPTIMIZATIONS violates the Play Store Content Policy regarding acceptable use cases, as described in https://developer.android.com/training/monitoring-device-state/doze-standby.html [BatteryLife]
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\SettingsActivity.kt:629: Warning: Use of REQUEST_IGNORE_BATTERY_OPTIMIZATIONS violates the Play Store Content Policy regarding acceptable use cases, as described in https://developer.android.com/training/monitoring-device-state/doze-standby.html [BatteryLife]
+                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "BatteryLife":
+   This issue flags code that either
+   * negatively affects battery life, or
+   * uses APIs that have recently changed behavior to prevent background tasks
+   from consuming memory and battery excessively.
+
+   Generally, you should be using WorkManager instead.
+
+   For more details on how to update your code, please see
+   https://developer.android.com/topic/performance/background-optimization
+
+
+E:\QuietSentryBuild\app\build.gradle.kts:159: Warning: A newer version of androidx.core:core-ktx than 1.13.1 is available: 1.15.0 [GradleDependency]
+    implementation("androidx.core:core-ktx:${property("depCoreKtxVersion")}")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:57: Warning: Expecting android:screenOrientation="unspecified" or "fullSensor" for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices [LockedOrientationActivity]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:63: Warning: Expecting android:screenOrientation="unspecified" or "fullSensor" for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices [LockedOrientationActivity]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:68: Warning: Expecting android:screenOrientation="unspecified" or "fullSensor" for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices [LockedOrientationActivity]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:73: Warning: Expecting android:screenOrientation="unspecified" or "fullSensor" for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices [LockedOrientationActivity]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:78: Warning: Expecting android:screenOrientation="unspecified" or "fullSensor" for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices [LockedOrientationActivity]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:84: Warning: Expecting android:screenOrientation="unspecified" or "fullSensor" for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices [LockedOrientationActivity]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:98: Warning: Expecting android:screenOrientation="unspecified" or "fullSensor" for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices [LockedOrientationActivity]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:104: Warning: Expecting android:screenOrientation="unspecified" or "fullSensor" for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices [LockedOrientationActivity]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:116: Warning: Expecting android:screenOrientation="unspecified" or "fullSensor" for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices [LockedOrientationActivity]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "LockedOrientationActivity":
+   The <activity> element should not be locked to any orientation so that
+   users can take advantage of the multi-window environments and larger
+   screens available on Android. To fix the issue, consider declaring the
+   corresponding activity element with `screenOrientation="unspecified"`or
+   fullSensor attribute.
+
+   https://developer.android.com/topic/arc/window-management
+
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:57: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:63: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:68: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:73: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:78: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:84: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:98: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:104: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:110: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="sensor" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:116: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="portrait" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "DiscouragedApi":
+   Discouraged APIs are allowed and are not deprecated, but they may be unfit
+   for common use (e.g. due to slow performance or subtle behavior).
+
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\OnboardingActivity.kt:128: Warning: Use AppCompatResources.getDrawable() [UseCompatLoadingForDrawables from androidx.appcompat]
+            background = getDrawable(R.drawable.onboard_dot)
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\OnboardingActivity.kt:128: Warning: Use AppCompatResources.getDrawable() [UseCompatLoadingForDrawables from androidx.appcompat]
+            background = getDrawable(R.drawable.onboard_dot)
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseCompatLoadingForDrawables":
+   Use Compat loading of drawables
+
+   Vendor: Android Open Source Project
+   Identifier: androidx.appcompat
+   Feedback: https://issuetracker.google.com/issues/new?component=460343
+
+E:\Data_Gradle\caches\modules-2\files-2.1\org.bouncycastle\bcpkix-jdk18on\1.78.1\17b3541f736df97465f87d9f5b5dfa4991b37bb3\bcpkix-jdk18on-1.78.1.jar: Warning: checkServerTrusted is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers [TrustAllX509TrustManager]
+
+   Explanation for issues of type "TrustAllX509TrustManager":
+   This check looks for X509TrustManager implementations whose
+   checkServerTrusted or checkClientTrusted methods do nothing (thus trusting
+   any certificate chain) which could result in insecure network traffic
+   caused by trusting arbitrary TLS/SSL certificates presented by peers.
+
+   https://goo.gle/TrustAllX509TrustManager
+
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\TlsTrust.kt:39: Warning: Implementing a custom X509TrustManager is error-prone and likely to be insecure. It is likely to disable certificate validation altogether, and is non-trivial to implement correctly without calling Android's default implementation. [CustomX509TrustManager]
+        val trust = object : X509TrustManager {
+                    ~~~~~~
+
+   Explanation for issues of type "CustomX509TrustManager":
+   This check looks for custom X509TrustManager implementations.
+
+   https://goo.gle/CustomX509TrustManager
+
+E:\QuietSentryBuild\app\src\main\AndroidManifest.xml:35: Warning: The attribute android:allowBackup is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute android:dataExtractionRules specifying an @xml resource which configures cloud backups and device transfers on Android 12 and higher. [DataExtractionRules]
+        android:allowBackup="false"
+                             ~~~~~
+
+   Explanation for issues of type "DataExtractionRules":
+   Before Android 12, the attributes android:allowBackup and
+   android:fullBackupContent were used to configure all forms of backup,
+   including cloud backups, device-to-device transfers and adb backup.
+
+   In Android 12 and higher, these attributes have been deprecated and will
+   only apply to cloud backups. You should instead use the attribute
+   android:dataExtractionRules, specifying an @xml resource that configures
+   which files to back up, for cloud backups and for device-to-device
+   transfers, separately. If your minSdkVersion supports older versions,
+   you'll still want to specify an android:fullBackupContent resource if the
+   default behavior is not right for your app.
+
+   https://developer.android.com/about/versions/12/backup-restore#xml-changes
+   https://goo.gle/DataExtractionRules
+
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\PersonBoxOverlay.kt:75: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val rect = RectF()
+                   ~~~~~~~
+
+   Explanation for issues of type "DrawAllocation":
+   You should avoid allocating objects during a drawing or layout operation.
+   These are called frequently, so a smooth UI can be interrupted by garbage
+   collection pauses caused by the object allocations.
+
+   The way this is generally handled is to allocate the needed objects up
+   front and to reuse them for each drawing operation.
+
+   Some methods allocate memory on your behalf (such as Bitmap.create), and
+   these should be handled in the same way.
+
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\MainActivity.kt:569: Warning: Unnecessary; SDK_INT is never < 28 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\MainActivity.kt:623: Warning: Unnecessary; SDK_INT is never < 28 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\UpdateChecker.kt:42: Warning: Unnecessary; SDK_INT is always >= 28 [ObsoleteSdkInt]
+        val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\mipmap-anydpi-v26: Warning: This folder configuration (v26) is unnecessary; minSdkVersion is 28. Merge all the resources in this folder into mipmap-anydpi. [ObsoleteSdkInt]
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\LanServerHost.kt:23: Warning: Do not place Android context classes in static fields (static reference to LanAdvertiser which has field context pointing to Context); this is a memory leak [StaticFieldLeak]
+    private var advertiser: LanAdvertiser? = null
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "StaticFieldLeak":
+   A static field will leak contexts.
+
+   Non-static inner classes have an implicit reference to their outer class.
+   If that outer class is for example a Fragment or Activity, then this
+   reference means that the long-running handler/loader/task will hold a
+   reference to the activity which prevents it from getting garbage
+   collected.
+
+   Similarly, direct field references to activities and fragments from these
+   longer running instances can cause leaks.
+
+   ViewModel classes should never point to Views or non-application Contexts.
+
+E:\QuietSentryBuild\app\src\main\res\layout-sw600dp\activity_device_list.xml:42: Warning: Set android:baselineAligned="false" on this element for better performance [DisableBaselineAlignment]
+    <LinearLayout
+     ~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:43: Warning: Set android:baselineAligned="false" on this element for better performance [DisableBaselineAlignment]
+    <LinearLayout
+     ~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\item_device.xml:2: Warning: Set android:baselineAligned="false" on this element for better performance [DisableBaselineAlignment]
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+ ~~~~~~~~~~~~
+
+   Explanation for issues of type "DisableBaselineAlignment":
+   When a LinearLayout is used to distribute the space proportionally between
+   nested layouts, the baseline alignment property should be turned off to
+   make the layout computation faster.
+
+E:\QuietSentryBuild\app\src\main\res\layout-sw600dp\activity_device_list.xml:99: Warning: Nested weights are bad for performance [NestedWeights]
+            android:layout_weight="1"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:100: Warning: Nested weights are bad for performance [NestedWeights]
+            android:layout_weight="1"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw600dp\activity_device_list.xml:132: Warning: Nested weights are bad for performance [NestedWeights]
+                android:layout_weight="1">
+                ~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:160: Warning: Nested weights are bad for performance [NestedWeights]
+                android:layout_weight="1">
+                ~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_live_view.xml:132: Warning: Nested weights are bad for performance [NestedWeights]
+                android:layout_weight="1"
+                ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NestedWeights":
+   Layout weights require a widget to be measured twice. When a LinearLayout
+   with non-zero weights is nested inside another LinearLayout with non-zero
+   weights, then the number of measurements increase exponentially.
+
+E:\QuietSentryBuild\app\src\main\res\layout\activity_black_screen.xml:5: Warning: Possible overdraw: Root element paints background @android:color/black with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@android:color/black">
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_consent.xml:5: Warning: Possible overdraw: Root element paints background @android:color/black with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@android:color/black"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_device_list.xml:5: Warning: Possible overdraw: Root element paints background @android:color/black with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@android:color/black"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw600dp\activity_device_list.xml:10: Warning: Possible overdraw: Root element paints background @android:color/black with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@android:color/black"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-sw840dp\activity_device_list.xml:11: Warning: Possible overdraw: Root element paints background @android:color/black with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@android:color/black"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_event_player.xml:5: Warning: Possible overdraw: Root element paints background @android:color/black with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@android:color/black"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_event_timeline.xml:5: Warning: Possible overdraw: Root element paints background @android:color/black with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@android:color/black"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_live_view.xml:5: Warning: Possible overdraw: Root element paints background @color/qs_bg with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@color/qs_bg">
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_main.xml:5: Warning: Possible overdraw: Root element paints background @android:color/black with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@android:color/black"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout-land\activity_main.xml:16: Warning: Possible overdraw: Root element paints background @android:color/black with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@android:color/black"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_onboarding.xml:5: Warning: Possible overdraw: Root element paints background @color/qs_bg with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@color/qs_bg"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_pairing.xml:5: Warning: Possible overdraw: Root element paints background @color/qs_bg with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@color/qs_bg"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_remote_access.xml:5: Warning: Possible overdraw: Root element paints background @color/qs_bg with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@color/qs_bg"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_scan_pair.xml:5: Warning: Possible overdraw: Root element paints background @color/qs_bg with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@color/qs_bg">
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_settings.xml:5: Warning: Possible overdraw: Root element paints background @color/qs_bg with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="@color/qs_bg"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\item_event.xml:9: Warning: Possible overdraw: Root element paints background ?android:attr/selectableItemBackground with a theme that also paints a background (inferred theme is @style/Theme.QuietSentry) [Overdraw]
+    android:background="?android:attr/selectableItemBackground">
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "Overdraw":
+   If you set a background drawable on a root view, then you should use a
+   custom theme where the theme background is null. Otherwise, the theme
+   background will be painted first, only to have your custom background
+   completely cover it; this is called "overdraw".
+
+   NOTE: This detector relies on figuring out which layouts are associated
+   with which activities based on scanning the Java code, and it's currently
+   doing that using an inexact pattern matching algorithm. Therefore, it can
+   incorrectly conclude which activity the layout is associated with and then
+   wrongly complain that a background-theme is hidden.
+
+   If you want your custom background on multiple pages, then you should
+   consider making a custom theme with your custom background and just using
+   that theme instead of a root element background.
+
+   Of course it's possible that your custom drawable is translucent and you
+   want it to be mixed with the background. However, you will get better
+   performance if you pre-mix the background with your drawable and use that
+   resulting image or color as a custom theme background instead.
+
+E:\QuietSentryBuild\app\src\main\res\drawable\qs_card_bg.xml:4: Warning: The resource R.drawable.qs_card_bg appears to be unused [UnusedResources]
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+^
+E:\QuietSentryBuild\app\src\main\res\values\strings.xml:37: Warning: The resource R.string.guard_started_tip appears to be unused [UnusedResources]
+    <string name="guard_started_tip">值守中：按电源键熄屏后采集继续，通知栏可随时确认</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\values\strings.xml:161: Warning: The resource R.string.player_pre_roll appears to be unused [UnusedResources]
+    <string name="player_pre_roll">正在播放事件前画面…</string>
+            ~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\values\strings.xml:223: Warning: The resource R.string.device_list_no_device appears to be unused [UnusedResources]
+    <string name="device_list_no_device">没有发现设备：请确认两台设备连接同一 Wi-Fi</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\values\strings.xml:353: Warning: The resource R.string.settings_plan_start appears to be unused [UnusedResources]
+    <string name="settings_plan_start">开始时间</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\values\strings.xml:354: Warning: The resource R.string.settings_plan_end appears to be unused [UnusedResources]
+    <string name="settings_plan_end">结束时间</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\values\strings.xml:535: Warning: The resource R.string.device_thumb_desc appears to be unused [UnusedResources]
+    <string name="device_thumb_desc">设备画面缩略图</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UnusedResources":
+   Unused resources make applications larger and slow down builds.
+
+
+   The unused resource check can ignore tests. If you want to include
+   resources that are only referenced from tests, consider packaging them in a
+   test source set instead.
+
+   You can include test sources in the unused resource check by setting the
+   system property lint.unused-resources.include-tests =true, and to exclude
+   them (usually for performance reasons), use
+   lint.unused-resources.exclude-tests =true.
+   ,
+
+E:\QuietSentryBuild\app\src\main\res\layout\activity_live_view.xml:111: Warning: This LinearLayout layout or its LinearLayout parent is unnecessary; transfer the background attribute to the other view [UselessParent]
+        <LinearLayout
+         ~~~~~~~~~~~~
+
+   Explanation for issues of type "UselessParent":
+   A layout with children that has no siblings, is not a scrollview or a root
+   layout, and does not have a background, can be removed and have its
+   children moved directly into the parent for a flatter and more efficient
+   layout hierarchy.
+
+E:\QuietSentryBuild\app\src\main\res\mipmap-anydpi-v26\ic_launcher.xml:4: Warning: The application adaptive icon is missing a monochrome tag [MonochromeLauncherIcon]
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+^
+E:\QuietSentryBuild\app\src\main\res\mipmap-anydpi-v26\ic_launcher_round.xml:2: Warning: The application adaptive roundIcon is missing a monochrome tag [MonochromeLauncherIcon]
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+^
+
+   Explanation for issues of type "MonochromeLauncherIcon":
+   If android:roundIcon and android:icon are both in your manifest, you must
+   either remove the reference to android:roundIcon if it is not needed; or,
+   supply the monochrome icon in the drawable defined by the android:roundIcon
+   and android:icon attribute.
+
+   For example, if android:roundIcon and android:icon are both in the
+   manifest, a launcher might choose to use android:roundIcon over
+   android:icon to display the adaptive app icon. Therefore, your themed
+   application iconwill not show if your monochrome attribute is not also
+   specified in android:roundIcon.
+
+E:\QuietSentryBuild\app\src\main\res\layout\activity_event_player.xml:76: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+        <Button
+         ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_event_player.xml:83: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+        <Button
+         ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_event_player.xml:90: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+        <Button
+         ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_event_player.xml:97: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+        <Button
+         ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_event_player.xml:113: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+        <Button
+         ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_event_player.xml:120: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+        <Button
+         ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_event_player.xml:127: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+        <Button
+         ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_event_player.xml:134: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+        <Button
+         ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_main.xml:67: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+            <Button
+             ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_main.xml:74: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+            <Button
+             ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_settings.xml:88: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+            <Button
+             ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_settings.xml:95: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+            <Button
+             ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_settings.xml:133: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+            <Button
+             ~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\activity_settings.xml:140: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+            <Button
+             ~~~~~~
+
+   Explanation for issues of type "ButtonStyle":
+   Button bars typically use a borderless style for the buttons. Set the
+   style="?android:attr/buttonBarButtonStyle" attribute on each of the
+   buttons, and set style="?android:attr/buttonBarStyle" on the parent layout
+
+   https://d.android.com/r/studio-ui/designer/material/dialogs
+
+E:\QuietSentryBuild\app\src\main\res\layout\activity_remote_access.xml:60: Warning: Missing autofillHints attribute [Autofill]
+            <EditText
+             ~~~~~~~~
+
+   Explanation for issues of type "Autofill":
+   Specify an autofillHints attribute when targeting SDK version 26 or higher
+   or explicitly specify that the view is not important for autofill. Your app
+   can help an autofill service classify the data correctly by providing the
+   meaning of each view that could be autofillable, such as views representing
+   usernames, passwords, credit card fields, email addresses, etc.
+
+   The hints can have any value, but it is recommended to use predefined
+   values like 'username' for a username or 'creditCardNumber' for a credit
+   card number. For a list of all predefined autofill hint constants, see the
+   AUTOFILL_HINT_ constants in the View reference at
+   https://developer.android.com/reference/android/view/View.html.
+
+   You can mark a view unimportant for autofill by specifying an
+   importantForAutofill attribute on that view or a parent view. See
+   https://developer.android.com/reference/android/view/View.html#setImportant
+   ForAutofill(int).
+
+   https://developer.android.com/guide/topics/text/autofill.html
+
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\LiveViewActivity.kt:136: Warning: Custom view `Button` has setOnTouchListener called on it but does not override performClick [ClickableViewAccessibility]
+        talkButton.setOnTouchListener { view, event ->
+        ^
+
+   Explanation for issues of type "ClickableViewAccessibility":
+   If a View that overrides onTouchEvent or uses an OnTouchListener does not
+   also implement performClick and call it when clicks are detected, the View
+   may not handle accessibility actions properly. Logic handling the click
+   actions should ideally be placed in View#performClick as some accessibility
+   services invoke performClick when a click action should occur.
+
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\PairingActivity.kt:291: Warning: Assigning Locale.getDefault() to a final static field is suspicious; this code will not work correctly if the user changes locale while the app is running [ConstantLocale]
+        val TIME_FORMAT = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
+                                                          ~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "ConstantLocale":
+   Assigning Locale.getDefault() to a constant is suspicious, because the
+   locale can change while the app is running.
+
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\RemoteAccessActivity.kt:80: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+            target.setText("$lan:$DEFAULT_PORT")
+                           ~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\java\com\quietsentry\app\RemoteAccessActivity.kt:85: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+            target.setText("$host:${intent.getIntExtra(EXTRA_PORT, DEFAULT_PORT)}")
+                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "SetTextI18n":
+   When calling TextView#setText
+   * Never call Number#toString() to format numbers; it will not handle
+   fraction separators and locale-specific digits properly. Consider using
+   String#format with proper format specifications (%d or %f) instead.
+   * Do not pass a string literal (e.g. "Hello") to display text. Hardcoded
+   text can not be properly translated to other languages. Consider using
+   Android resource strings instead.
+   * Do not build messages by concatenating text chunks. Such messages can not
+   be properly translated.
+
+   https://developer.android.com/guide/topics/resources/localization.html
+
+E:\QuietSentryBuild\app\src\main\res\layout\item_hour_card.xml:28: Warning: When you define paddingStart you should probably also define paddingEnd for right-to-left symmetry [RtlSymmetry]
+        android:paddingStart="@dimen/qs_space_10"
+        ~~~~~~~~~~~~~~~~~~~~
+E:\QuietSentryBuild\app\src\main\res\layout\item_hour_card.xml:37: Warning: When you define paddingStart you should probably also define paddingEnd for right-to-left symmetry [RtlSymmetry]
+        android:paddingStart="@dimen/qs_space_8"
+        ~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "RtlSymmetry":
+   If you specify padding or margin on the left side of a layout, you should
+   probably also specify padding on the right side (and vice versa) for
+   right-to-left layout symmetry.
+
+0 errors, 112 warnings

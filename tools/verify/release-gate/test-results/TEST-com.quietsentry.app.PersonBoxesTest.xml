@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.quietsentry.app.PersonBoxesTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-22T17:48:31" hostname="DESKTOP-G10O4NL" time="0.453">
+  <properties/>
+  <testcase name="多目标框按发布顺序保留" classname="com.quietsentry.app.PersonBoxesTest" time="0.446"/>
+  <testcase name="刚发布的框在有效期内可取回" classname="com.quietsentry.app.PersonBoxesTest" time="0.0"/>
+  <testcase name="有效期足够短时仍能取到刚发布的框" classname="com.quietsentry.app.PersonBoxesTest" time="0.0"/>
+  <testcase name="超过有效期返回空" classname="com.quietsentry.app.PersonBoxesTest" time="0.0"/>
+  <testcase name="发布空框会作废上一批结果" classname="com.quietsentry.app.PersonBoxesTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
