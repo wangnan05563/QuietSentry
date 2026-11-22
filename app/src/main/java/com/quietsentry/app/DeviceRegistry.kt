@@ -50,11 +50,14 @@ class DeviceRegistry(context: Context) {
         val list = read()
         val existing = list.firstOrNull { it.id == device.id }
         if (existing != null) {
-            // 同一台设备重新配对：只刷新连接信息，保留用户起的名字、房间与排序
+            // 同一台设备重新配对：刷新连接信息，保留用户起的名字、房间与排序。
+            // tlsFingerprint 必须同步；旧实现漏掉它，会让升级/重配用户在进程重启后没有信任锚。
             existing.host = device.host
             existing.port = device.port
+            existing.tlsFingerprint = device.tlsFingerprint
             existing.token = device.token
             existing.lastSeenAt = device.lastSeenAt
+            existing.lastEventAt = device.lastEventAt
             write(list)
             return true
         }
