@@ -1,0 +1,35 @@
+QuietSentry P3 证据摘要
+版本：0.1.0-20261122.8（versionCode 73）
+拓扑：观看端 emulator-5554（qsui）、相机端 emulator-5558（qsui2），均 720×1280 / 320dpi
+转发：adb -s emulator-5558 forward tcp:18081 tcp:8080；tcp:8443 tcp:8443
+
+P3-03 远程暂停后的在线待机
+- 相机值守中 /api/status：{"mode":"guard","paused":false,"live":false,"frameCached":true}
+- POST /api/pause 返回 {"ok":true}
+- 暂停后 /api/status：{"mode":"idle","paused":true,"live":false,"frameCached":true,"watching":0}
+- dumpsys activity services：isForeground=true，foregroundId=1001，types=40000000（specialUse）
+- dumpsys media.camera：Active Camera Clients 为空；状态栏绿色相机指示消失
+- 通知 dump：actions={ [0] "停止待机" -> PendingIntent startService }；未在 UI 实际点按，用等价 `am startservice -a ACTION_STOP` 验证 CaptureService 退出
+- 停止待机后 LanServerHost 为进程级单例，HTTP 8080 仍可能在进程存活期间可达；要完全离线需强制停止应用
+- 息屏：mWakefulness=Asleep；60 秒后同一 /api/status 仍 HTTP 200（serverTime 1795361704364）
+- 观看端 DeviceList 在同一息屏窗口显示“已暂停”，未显示“离线”
+证据：p38-standby.png、p38-standby-expanded.png、p38-viewer2.png（本目录）
+
+P3-01 重配旧自动名迁移
+- 预置 registry：id=77:A1:A9:FE:04:DA:DD:E9，name=10.0.2.2，host=10.0.2.2
+- 相机配对码 292579；观看端手动添加 10.0.2.2:8443 并配对
+- 配对后 registry：name=sdk_gphone64_x86_64，host=10.0.2.2，token 更新
+- 设备卡显示新名 sdk_gphone64_x86_64
+- 自定义名“不被覆盖”由 `existing.name != previousHost` 条件分支保证；未在 UI 单独做第三轮重配
+证据：p3-repair2.png（本目录）
+
+P3-02 状态语义
+- /api/info 与 /api/status 均返回 live=false、frameCached=true（watching=0，存在缓存帧）
+- 代码：live = viewers.get() > 0 && LanFrameHub.hasFrame()；frameCached = LanFrameHub.hasFrame()
+- 待机/暂停时 live=false，frameCached 保留最近帧存在性，避免把“有帧”误读成“正在直播”
+- live=true（viewers>0 且存在缓存帧）的在线观看场景未单独构造；结论由条件表达式与暂停态实测支撑
+
+口径与风险
+- 相机端 final 包为 0.1.0-20261122.8；P2-26 的 0.1.0-20261122.1 仍保留在 release。
+- 息屏可达在模拟器充电态验证；未验证拔电后 Doze/厂商 ROM 冻结，仍建议用户允许电池优化豁免。
+- 手动添加 8443 的测试条目 tlsFingerprint 为空（手动入口按 HTTP 设计，preferTls=false）；P3-01 名称迁移结论不受影响。

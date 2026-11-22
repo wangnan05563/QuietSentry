@@ -73,8 +73,9 @@ class MainActivity : AppCompatActivity() {
                 getString(R.string.save_failed)
             }
             // 导出完成说明服务已释放相机；用户仍停在本界面，此时必须立刻恢复预览，
-            // 否则会一直停在“画面由后台采集”，直到切走再回来（T03770）
-            if (!CaptureService.isRunning && previewSuppressed) {
+            // 否则会一直停在“画面由后台采集”，直到切走再回来（T03770）。
+            // 远程暂停是例外：设备仍在待机，预览恢复会重新占用相机，必须保持抑制。
+            if (!CaptureService.isRunning && !GuardState.isPaused(this@MainActivity) && previewSuppressed) {
                 previewSuppressed = false
                 previewView.visibility = View.VISIBLE
                 if (requiredPermissions.all(::hasPermission)) {
@@ -304,7 +305,7 @@ class MainActivity : AppCompatActivity() {
         // 值守中打开 App：界面再次 bind 会把服务已经绑定的采集一并解绑，必须让相机归后台（T03770）
         if (CaptureService.isRunning) {
             suppressPreview()
-        } else if (previewSuppressed) {
+        } else if (previewSuppressed && !GuardState.isPaused(this)) {
             previewSuppressed = false
             previewView.visibility = View.VISIBLE
             if (requiredPermissions.all(::hasPermission)) {
@@ -324,7 +325,9 @@ class MainActivity : AppCompatActivity() {
      * 否则正常绑定预览。两个入口（权限回调、onCreate）都走这里，避免漏掉其中一条。
      */
     private fun showCameraOrGuard() {
-        if (CaptureService.isRunning) {
+        // 远程暂停虽然让服务停采，但设备仍在“在线待机”；此时打开 App 不能再抢相机，
+        // 否则息屏待机的省电与隐私收益会被界面预览抵消。
+        if (CaptureService.isRunning || GuardState.isPaused(this)) {
             suppressPreview()
             return
         }
@@ -337,7 +340,11 @@ class MainActivity : AppCompatActivity() {
     private fun suppressPreview() {
         previewView.visibility = View.GONE
         previewSuppressed = true
-        statusText.text = getString(R.string.guard_running_preview)
+        statusText.text = if (GuardState.isPaused(this)) {
+            getString(R.string.state_paused)
+        } else {
+            getString(R.string.guard_running_preview)
+        }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

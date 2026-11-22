@@ -52,6 +52,12 @@ class DeviceRegistry(context: Context) {
         if (existing != null) {
             // 同一台设备重新配对：刷新连接信息，保留用户起的名字、房间与排序。
             // tlsFingerprint 必须同步；旧实现漏掉它，会让升级/重配用户在进程重启后没有信任锚。
+            val previousHost = existing.host
+            // 旧版自动名是上次 host/IP；仅在这种“自动名”场景迁移到新设备名，
+            // 用户手动改过的名字不会被覆盖。
+            if (existing.name.isBlank() || existing.name == previousHost) {
+                existing.name = device.name
+            }
             existing.host = device.host
             existing.port = device.port
             existing.tlsFingerprint = device.tlsFingerprint

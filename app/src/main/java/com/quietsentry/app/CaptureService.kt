@@ -117,6 +117,9 @@ class CaptureService : LifecycleService() {
     private var recording: Recording? = null
     private var running = false
     private var stopping = false
+    /** 远程暂停后停采但保留前台服务，让息屏时局域网仍可达 */
+    private var standby = false
+    private var keepStandbyAfterStop = false
     private var segmentIndex = 0
 
     /**
@@ -183,15 +186,26 @@ class CaptureService : LifecycleService() {
             // 观看端请求暂停：与用户本机停止走同一条停采流程，只是要额外留下"被远程暂停"的状态与记录
             ACTION_PAUSE -> pauseByRemote()
             // 进程被系统回收后 START_STICKY 重建时 intent 为空：只有上次确实在值守才恢复采集，
-            // 用户主动停止会先把标记清掉，因此不会出现“停了又自己活过来”（T03771）
-            null -> if (!running && wasGuardActive()) startCapture()
+            // 用户主动停止会先把标记清掉；若已处于远程暂停，则进入在线待机而不是停掉服务。
+            null -> when {
+                !running && wasGuardActive() -> startCapture()
+                // 只有“被观看端暂停”才允许重建为在线待机；本机主动停止后重建必须退出，
+                // 否则用户已经关掉值守，进程还会被 START_STICKY 拉回来常驻。
+                !running && GuardState.isPaused(this) -> enterStandby()
+                else -> stopSelf()
+            }
         }
         return START_STICKY
     }
 
     private fun startCapture() {
         if (running) return
+        // 从待机（specialUse/dataSync）回到采集时必须先把前台类型换回 camera|microphone，
+        // 否则系统仍按待机类型记账，相机隐私指示器不会随采集启动出现。
+        startForegroundWithType()
         stopping = false
+        standby = false
+        keepStandbyAfterStop = false
         running = true
         isRunning = true
         // 标记仍是“值守中”说明上次是被杀或设备重启：这就是被杀检测的证据，先记账再继续采集
@@ -346,6 +360,12 @@ class CaptureService : LifecycleService() {
         detection: DetectionProfile.Profile,
         frameCount: Int,
     ) {
+        // 停采后 CameraX 可能还会把已入队的帧回调上来；此时编码器已释放，
+        // 继续走 publish 会重建编码器，甚至在 release 与 drain 之间踩坏 MediaCodec。
+        if (!running || stopping) {
+            image.close()
+            return
+        }
         // 降载档（PRD FR-13）关闭实时推流并隔帧分析：省电的代价必须落在“推流与画质”上，
         // 不能变成停止检测——否则用户会以为值守还在，实际整段时间都录不到事件
         val throttled = GuardRuntime.throttled
@@ -723,13 +743,25 @@ class CaptureService : LifecycleService() {
     private fun pauseByRemote() {
         if (!running) return
         AuditLog.record(this, AuditLog.REMOTE_PAUSE, "观看端请求暂停采集")
-        stopCapture()
+        // 先落暂停标记再停采：导出广播可能在 stopCapture 返回后几毫秒内到达，
+        // 界面收到广播时若还没看到 paused，会误以为可以恢复预览而重新抢占相机。
         GuardState.setPaused(this, true)
-        updateNotification(getString(R.string.pause_remote_notice))
+        // 与普通停止的关键差别：停采后服务不退出，保留前台服务让息屏后仍能被观看端查询
+        stopCapture(keepStandby = true)
+        enterStandby()
         notifier.showGuardNote(getString(R.string.pause_remote_title), getString(R.string.pause_remote_notice))
     }
 
-    private fun stopCapture() {
+    private fun stopCapture(keepStandby: Boolean = false) {
+        if (!running) {
+            // 没有采集在跑：远程暂停请求可能发生在服务已进入待机时，保持待机即可；
+            // 普通 STOP 则沿用原有收尾路径，避免服务被凭空留住。
+            keepStandbyAfterStop = keepStandby
+            if (keepStandby) enterStandby() else finishSession()
+            return
+        }
+        keepStandbyAfterStop = keepStandby
+        if (keepStandby) standby = true
         stopping = true
         running = false
         isRunning = false
@@ -740,6 +772,9 @@ class CaptureService : LifecycleService() {
         segmentTimer.removeCallbacks(retryBind)
         rebinding = false
         unwatchCamera()
+        // 待机要真的释放相机：只解绑分析器不够，Preview/VideoCapture 仍会占着摄像头，
+        // 系统隐私指示器不会熄灭，也违背“在线待机不占硬件”的定义。
+        provider?.unbindAll()
         GuardRuntime.reset()
         // 不关闭局域网监听：设备要在“在线·待机”下继续可发现、可配对，
         // 直播则因没有新帧自然断开（LanFrameHub 长时间无帧）
@@ -761,6 +796,7 @@ class CaptureService : LifecycleService() {
      * 复制整段视频是 IO 密集型操作，必须离开主线程；也不能提前 stopSelf，否则进程收尾会掐断导出。
      */
     private fun finishSession() {
+        val keepStandby = keepStandbyAfterStop
         val from = if (sessionStartMs > 0L) sessionStartMs else System.currentTimeMillis() - FALLBACK_SESSION_MS
         val clips = clipDir.listFiles { file ->
             file.isFile && !file.name.endsWith(PENDING_SUFFIX) && file.lastModified() >= from
@@ -775,8 +811,23 @@ class CaptureService : LifecycleService() {
                 Intent(ACTION_EXPORTED).setPackage(packageName)
                     .putExtra(EXTRA_EXPORTED, exported.size)
             )
-            stopSelf()
+            if (keepStandby) {
+                // 导出可能持续数秒；只有用户在此期间没有重新开始值守，才落回在线待机
+                Handler(Looper.getMainLooper()).post { if (!running) enterStandby() }
+            } else {
+                stopSelf()
+            }
         }.start()
+    }
+
+    /** 远程暂停后的轻量在线态：停采集、停相机，但保持前台服务与局域网监听，息屏不被冻结 */
+    private fun enterStandby() {
+        if (running) return
+        standby = true
+        startLanServer()
+        // 待机不持有相机/麦克风，前台类型必须同步切换：继续申报 camera 会让系统
+        // 在状态栏显示“相机使用中”，既误导用户，也容易被 ROM 判定为异常占用。
+        startForegroundWithType(standby = true)
     }
 
     /**
@@ -868,14 +919,27 @@ class CaptureService : LifecycleService() {
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
 
-    private fun startForegroundWithType() {
-        val notification = buildNotification(getString(R.string.capture_starting))
+    private fun startForegroundWithType(standby: Boolean = false) {
+        val text = if (standby) {
+            if (GuardState.isPaused(this)) getString(R.string.standby_paused_notice)
+            else getString(R.string.standby_notice)
+        } else {
+            getString(R.string.capture_starting)
+        }
+        val notification = buildNotification(text, standby)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Android 14 起，申报 microphone 类型要求录音权限已授予，否则 startForeground 直接抛异常；
-            // 用户拒绝录音时退化为纯相机类型，录制本身仍可用（只是没有声音）
+            // 采集申报 camera|microphone；待机没有硬件占用，改用不宣称相机的类型。
             var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
-            if (hasAudioPermission()) {
+            if (!standby && hasAudioPermission()) {
                 type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            }
+            if (standby) {
+                // Android 14 起 specialUse 需要 Manifest 声明 subtype；旧版本退化为 dataSync
+                type = if (Build.VERSION.SDK_INT >= 34) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                } else {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                }
             }
             startForeground(NOTIFICATION_ID, notification, type)
         } else {
@@ -890,9 +954,9 @@ class CaptureService : LifecycleService() {
         )
     }
 
-    private fun updateNotification(text: String) {
+    private fun updateNotification(text: String, standby: Boolean = false) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIFICATION_ID, buildNotification(text))
+        manager.notify(NOTIFICATION_ID, buildNotification(text, standby))
     }
 
     /**
@@ -905,7 +969,7 @@ class CaptureService : LifecycleService() {
         remoteLabelTimer.postDelayed(restoreRemoteLabel, REMOTE_LABEL_MS)
     }
 
-    private fun buildNotification(text: String): android.app.Notification {
+    private fun buildNotification(text: String, standby: Boolean = false): android.app.Notification {
         val stopIntent = Intent(this, CaptureService::class.java).setAction(ACTION_STOP)
         val stopPending = PendingIntent.getService(
             this,
@@ -919,14 +983,19 @@ class CaptureService : LifecycleService() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.presence_video_online)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setOngoing(true)
             .setContentIntent(contentIntent)
-            .addAction(0, getString(R.string.stop_guard), stopPending)
-            .build()
+        // 待机也必须有出口：通知里给“停止待机”，不能只留一个只能回首页的入口。
+        builder.addAction(
+            0,
+            getString(if (standby) R.string.standby_stop else R.string.stop_guard),
+            stopPending
+        )
+        return builder.build()
     }
 
     override fun onDestroy() {

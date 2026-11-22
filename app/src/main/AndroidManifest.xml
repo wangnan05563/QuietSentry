@@ -16,6 +16,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- 远程暂停后进入在线待机：不再占用相机/麦克风，改用 dataSync（API 29–33）
+         与 specialUse（API 34+）前台类型，避免系统显示虚假的相机占用指示 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- 离线期间事件本地排队、恢复后补发摘要，需要读取当前网络状态 -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- 锁屏后未豁免的 UID 会被 ROM 冻结（Samsung Freecess），前台服务挡不住，需要引导用户加入白名单 -->
@@ -114,7 +118,13 @@
         <service
             android:name=".CaptureService"
             android:exported="false"
-            android:foregroundServiceType="camera|microphone" />
+            android:foregroundServiceType="camera|microphone|dataSync|specialUse">
+            <!-- Android 14+ 对 specialUse 强制要求 subtype；声明的是“本地局域网待机服务”，
+                 不是把相机类型换个名字继续占用硬件 -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="local_network_standby" />
+        </service>
 
         <!-- 快捷设置磁贴（T04059）：只有系统允许绑定（BIND_QUICK_SETTINGS_TILE 是系统权限，
              对普通调用方等价于不可用），用户仍需手动把磁贴拖进面板 -->

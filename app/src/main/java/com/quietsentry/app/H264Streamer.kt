@@ -89,6 +89,7 @@ object H264Streamer {
      * 从相机分析帧编码。调用方仍负责 image.close()，这里只读像素。
      * 编码器未就绪或输入缓冲暂时不可用时直接丢帧：RTSP 拉流失败不能回压到值守录制。
      */
+    @Synchronized
     fun publish(image: ImageProxy) {
         val now = System.currentTimeMillis()
         if (now - lastPublishMs < AVC_PUBLISH_INTERVAL_MS) return
@@ -108,6 +109,7 @@ object H264Streamer {
     }
 
     /** 停止值守或相机重绑时释放硬件编码器：实例常驻会一直占用编解码资源 */
+    @Synchronized
     fun stop() {
         main?.release()
         sub?.release()
