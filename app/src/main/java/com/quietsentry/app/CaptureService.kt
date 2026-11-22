@@ -205,6 +205,8 @@ class CaptureService : LifecycleService() {
         // 从待机（specialUse/dataSync）回到采集时必须先把前台类型换回 camera|microphone，
         // 否则系统仍按待机类型记账，相机隐私指示器不会随采集启动出现。
         startForegroundWithType()
+        // 新一轮值守会解除远程暂停，旧的“已被观看端暂停”提示必须同步撤掉
+        notifier.clearGuardNote()
         stopping = false
         standby = false
         keepStandbyAfterStop = false
@@ -842,6 +844,8 @@ class CaptureService : LifecycleService() {
         keepStandbyAfterStop = false
         // 本机主动退出待机后回到普通空闲态；下次打开首页应恢复预览，而不是继续显示“已暂停”
         GuardState.setPaused(this, false)
+        // 服务都停了，远程暂停提示不能留在通知栏继续指向一个已经离线的设备
+        notifier.clearGuardNote()
         LanServerHost.stop()
         stopSelf()
     }

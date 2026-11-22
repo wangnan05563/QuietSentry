@@ -1,0 +1,39 @@
+QuietSentry P3 收口证据：观看端 live=true 与通知动作实按
+
+环境
+- 相机 emulator-5558，观看端 emulator-5554
+- 相机包：0.1.0-20261122.9（vc74，下文称 .9）；最终复测包：0.1.0-20261123.1（vc75，跨日构建，下文称 .10）
+- 相机 HTTP 8080 经 adb forward tcp:18081；观看端走 10.0.2.2:8443
+
+一、.9 观看端真实连接构造 live=true
+- 观看端 DeviceListActivity 设备卡 bounds 约 [24,385][696,587]；点 (350,480) 进入 LiveViewActivity，点卡片下方 (350,620/650) 不会进入。
+- 进入 LiveView 后顶部显示“已连接”，画面为彩色测试图。
+- 相机 /api/status：
+  {"mode":"guard","watching":1,"maxViewers":5,"live":true,"frameCached":true,"paused":false,"bitrateKbps":158,"version":"0.1.0-20261122.9"}
+- 证据：p310-live-connected.png
+
+二、.9 通知动作实按与发现的残留通知缺陷
+- 远程 POST /api/pause 返回 200 {"ok":true}；暂停后 /api/status 为 mode=idle、paused=true、watching=1、live=true、frameCached=true。
+- 通知栏先点组展开按钮，再点单条通知展开按钮，暴露 android:id/action0“停止待机”，bounds=[112,857][272,953]。
+- 实按后：HTTP 连接失败、ss 无 :8080/:8443、guard_state.xml 为 guard_active=false / paused_by_remote=false / abnormal_start_count=0。
+- 缺陷：事件通知 id=2200（events_info）仍留在通知栏，显示“静哨 · 已被观看端暂停 / 采集已由观看端远程暂停，需在本机重新开始值守”，与设备已离线矛盾。
+- 证据：p310-pre-fix-stale-note.png（残留通知）、p310-pre-fix-viewer-offline.png（观看端“设备离线，正在重试…”）
+
+三、.10 修复与复测
+- 修复：EventNotifier 新增 clearGuardNote()，cancel(GUARD_NOTE_ID=2200)；CaptureService.stopStandby() 与 startCapture() 调用，停止待机或重新值守时撤掉过期提示。
+- 相机安装 0.1.0-20261123.1（vc75）后，/api/status version=0.1.0-20261123.1。
+- 观看端再次点 (350,480) 进入 LiveView，状态：
+  {"mode":"guard","watching":1,"live":true,"frameCached":true,"bitrateKbps":74,"version":"0.1.0-20261123.1"}
+- POST /api/pause 后：mode=idle、paused=true、watching=1、live=true、frameCached=true。
+- 同一条通知动作 bounds=[112,857][272,953]，实按后：
+  - /api/status 连接失败；ss 无 :8080/:8443；guard_active=false、paused_by_remote=false、abnormal_start_count=0。
+  - dumpsys notification --noredact 中已无 com.quietsentry.app 的 NotificationRecord；通知栏只剩 Android System 两条。
+  - 观看端显示“设备离线，正在重试…”，顶部“第 6 次重连”。
+- 证据：p310-notif-action.png（动作展开）、p310-notif-action.xml（action0 节点）、p310-after-stop-notif-clean.png（通知栏已清空）、p310-viewer-offline.png（观看端离线）。
+
+四、P3-01 自定义名
+- 观看端设备卡已通过 UI 长按重命名为 MyCam01，device_registry.xml 中 name=MyCam01；证据 p310-custom-name-set.png。
+- 第一次手动重配误用端口 8080：观看端的 10.0.2.2:8080 不是相机，相机 8080 实际经宿主 tcp:18081 转发，配对失败并提示“配对码错误或已过期”。
+- 改用 host=10.0.2.2、port=18081、最新配对码 747438 后配对成功：token 由 gZnrdDOcjO9vGLvNjum1jg 变为 ggUlme84vDp6LBGQaXoXuQ，host/port 更新为 10.0.2.2:18081、tlsFingerprint 置空，但 name 仍为 MyCam01，设备卡仍显示 MyCam01。
+- 用新 token 启动值守并再次进入 LiveView：/api/status 返回 watching=1、live=true、frameCached=true、bitrateKbps=153，证明新 token 不仅能写进 registry，还能真实出流。
+- 证据：p310-custom-name-preserved.png、p310-pair-code.xml、p310-postpair-live.png。

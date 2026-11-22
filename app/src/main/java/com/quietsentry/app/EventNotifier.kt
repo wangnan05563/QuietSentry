@@ -90,6 +90,14 @@ class EventNotifier(private val context: Context) {
         NotificationManagerCompat.from(context).notify(GUARD_NOTE_ID, builder.build())
     }
 
+    /**
+     * 清除值守状态提示。远程暂停的提示在用户点“停止待机”或重新开始值守后已经失效，
+     * 继续留在通知栏会把“设备已离线”和“需在本机重新开始值守”同时展示给用户。
+     */
+    fun clearGuardNote() {
+        NotificationManagerCompat.from(context).cancel(GUARD_NOTE_ID)
+    }
+
     /** 重启前正在值守：平台不允许开机自动恢复采集，只能提示用户回来确认 */
     fun notifyRestart() = showGuardNote(
         context.getString(R.string.power_restart_title),
