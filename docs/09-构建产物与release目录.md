@@ -100,7 +100,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\push.ps1 -Variant de
 # 一键发布（构建 + 验签 + 上传，产物写入 release/）
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\release.ps1 -NoUpload
 
-# 用已有产物再发布一次（不清空）
+# 直接用「打包构建」产出的那套发布（读 build-info.json 校验，不重新构建）
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\release.ps1 -SkipBuild -NoUpload
 
 # 全量清理：停守护进程后删掉 release/ 与所有历史遗留构建目录
@@ -110,6 +110,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\clean.ps1
 自检顺序：构建 → 断言 `release/` 内 APK 与 `build-info.json` 存在、且 `release/.build/app/outputs`
 有 Gradle 原始产物 → 断言项目根没有重新出现 `app/build`、`.gradle`、`.kotlin` → 删除 `release/` →
 重新构建并断言同样齐全 → 以 `-SkipBuild -NoUpload` 运行发布脚本，断言能找到 `release/` 下的 APK 与 AAB。
+
+### 打包构建与一键发布的联动
+
+两个入口共用 `build-lib.ps1` 的 `Invoke-BuildChain`（依赖检查 → 推进 patch → Gradle → 落盘
+→ 写清单），不再各自维护一套 Gradle 调用与产物命名：
+
+| 入口 | 变体 | 产出 |
+| --- | --- | --- |
+| `scripts\安卓构建打包.bat` | debug | APK |
+| `scripts\安卓构建打包.bat -Variant release` | release | 签名 APK + AAB |
+| `scripts\一键发布.bat` | release | 构建（APK + AAB）→ 验签 → 发布 |
+| `scripts\一键发布.bat -SkipBuild` | release | 只验签 → 发布 `build-info.json` 登记的那套 |
+
+`build-info.json` 记录 `variant / versionName / buildNumber / gradleTasks / commit / dirty`。
+`-SkipBuild` 以这份清单为准：变体不是 release、或登记的产物已被删除，直接报错；构建时工作区有
+未提交改动、或记录的提交与当前 `HEAD` 不一致，只提示不阻断（本地验证时工作区常常是脏的）。
 
 ## 6 边界与注意
 

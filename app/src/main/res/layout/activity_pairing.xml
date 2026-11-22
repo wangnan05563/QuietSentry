@@ -60,6 +60,17 @@
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_headline" />
 
+        <!-- 码只有 5 分钟有效期，却没有剩余时间：用户抄到一半失效，只会以为码是错的 -->
+        <TextView
+            android:id="@+id/pairing_code_ttl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_6"
+            android:gravity="center"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="@dimen/qs_text_caption"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/pairing_fingerprint"
             android:layout_width="match_parent"

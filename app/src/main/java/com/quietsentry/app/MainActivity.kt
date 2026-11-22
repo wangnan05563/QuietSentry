@@ -1,18 +1,27 @@
 package com.quietsentry.app
 
 import android.Manifest
+import android.app.Dialog
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -92,6 +101,9 @@ class MainActivity : AppCompatActivity() {
     /** 状态卡轮询：SAM 转换后 `this` 指向 Activity，自我重投需要具名方法承接 */
     private fun tickStatusCard() {
         refreshStatusCard()
+        // 值守由服务异步拉起，isRunning 在 beginGuard 返回后才置位；只在 onResume 刷按钮
+        // 会让运行中仍显示“开始值守”，而点击实际执行的是停止——破坏性动作被标成启动。
+        refreshPrimaryButton()
         refreshRecentEvent()
         // 存储余量与相机占用都会随时间变化，横幅必须进同一轮询
         refreshBanner()
@@ -103,6 +115,9 @@ class MainActivity : AppCompatActivity() {
 
     // 预览绑定失败多半是相机被其他应用占用；置位后横幅给出“点此重试”，重绑成功即清除
     private var cameraBusy = false
+
+    /** 已经向系统请求过权限：区分“还没问”与“问过被拒”，后者才需要常驻的恢复横幅 */
+    private var permissionAsked = false
 
     companion object {
         private const val REFRESH_INTERVAL_MS = 10_000L
@@ -118,6 +133,8 @@ class MainActivity : AppCompatActivity() {
             if (result[Manifest.permission.CAMERA] == true) {
                 showCameraOrGuard()
             } else {
+                // 横幅由 refreshBanner 统一维护（它会在 onResume 再刷一次），
+                // 这里只补状态文字，避免两处各写一份显隐逻辑互相覆盖
                 statusText.text = getString(R.string.camera_permission_denied)
             }
         }
@@ -176,6 +193,7 @@ class MainActivity : AppCompatActivity() {
         if (requiredPermissions.all(::hasPermission)) {
             showCameraOrGuard()
         } else {
+            permissionAsked = true
             requestPermissions.launch(requiredPermissions)
         }
     }
@@ -183,20 +201,62 @@ class MainActivity : AppCompatActivity() {
     /** “更多”入口：把菜单构建与分支处理挪出 onCreate，保持启动流程只做装配 */
     private fun showMoreMenu() {
         val entries = listOf(
-            R.string.record_mode_entry,
-            R.string.black_mode_entry,
-            R.string.timeline_entry,
-            R.string.pairing_entry,
-            R.string.device_list_entry,
-            R.string.remote_entry,
-            R.string.settings_entry,
+            R.string.record_mode_entry to R.string.more_record_desc,
+            R.string.black_mode_entry to R.string.more_black_desc,
+            R.string.timeline_entry to R.string.more_timeline_desc,
+            R.string.pairing_entry to R.string.more_pairing_desc,
+            R.string.device_list_entry to R.string.more_device_desc,
+            R.string.remote_entry to R.string.more_remote_desc,
+            R.string.settings_entry to R.string.more_settings_desc,
         )
-        AlertDialog.Builder(this)
-            .setTitle(R.string.more_menu)
-            .setItems(entries.map { getString(it) }.toTypedArray()) { _, which ->
-                onMoreMenuItem(entries[which])
-            }
-            .show()
+        // PRD 要求底部弹层：居中 AlertDialog 把高频功能塞进屏幕中央，读起来像错误弹窗。
+        // 没有引入 Material 依赖，这里用 Dialog + 底部 Gravity + 圆角背景自己搭。
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_more_sheet)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            setGravity(Gravity.BOTTOM)
+            setDimAmount(0.6f)
+        }
+        val container = dialog.findViewById<LinearLayout>(R.id.more_sheet_items)
+        entries.forEach { (titleRes, descRes) ->
+            container.addView(buildMoreRow(titleRes, descRes) {
+                dialog.dismiss()
+                onMoreMenuItem(titleRes)
+            })
+        }
+        dialog.findViewById<TextView>(R.id.more_sheet_close).setOnClickListener { dialog.dismiss() }
+        dialog.show()
+    }
+
+    /** 弹层单行：标题 15sp + 说明 12sp，最小高度 64dp，整行可点，点击区远大于 44dp */
+    private fun buildMoreRow(
+        titleRes: Int,
+        descRes: Int,
+        onClick: () -> Unit,
+    ): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(20), dp(10), dp(12), dp(10))
+            minimumHeight = dp(64)
+            isClickable = true
+            isFocusable = true
+            setBackgroundResource(R.drawable.qs_row_ripple)
+            setOnClickListener { onClick() }
+        }
+        row.addView(TextView(this).apply {
+            text = getString(titleRes)
+            setTextColor(getColor(R.color.qs_text))
+            textSize = 15f
+        })
+        row.addView(TextView(this).apply {
+            text = getString(descRes)
+            setTextColor(getColor(R.color.qs_text_muted))
+            textSize = 12f
+        })
+        return row
     }
 
     private fun onMoreMenuItem(entry: Int) {
@@ -280,6 +340,8 @@ class MainActivity : AppCompatActivity() {
         statusText.text = getString(R.string.guard_running_preview)
     }
 
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
     private fun hasPermission(permission: String): Boolean =
         ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
@@ -317,6 +379,9 @@ class MainActivity : AppCompatActivity() {
      */
     private fun refreshBanner() {
         when {
+            // 相机权限被拒且已经问过：系统不会再弹框，只能把用户送到设置页手动开
+            !hasPermission(Manifest.permission.CAMERA) && permissionAsked ->
+                showBanner(R.string.banner_camera_permission) { openAppSettings() }
             !hasNotificationPermission() -> showBanner(R.string.banner_notification_permission) {
                 // T05207 实测：部分 Android 14 镜像的 AppNotificationSettingsActivity
                 // 不接受 package: data，直接带 data 启动会抛 ActivityNotFoundException 让首页崩溃。
@@ -346,6 +411,13 @@ class MainActivity : AppCompatActivity() {
         bannerPermission.visibility = View.VISIBLE
     }
 
+    /** 权限被“不再询问”拦死后的唯一出路：跳应用详情页改授权。 */
+    private fun openAppSettings() {
+        val appDetails = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            .setData(Uri.parse("package:$packageName"))
+        runCatching { startActivity(appDetails) }
+    }
+
     private fun isStorageLow(): Boolean =
         StatFs(filesDir.absolutePath).availableBytes < STORAGE_LOW_BYTES
 
@@ -363,29 +435,62 @@ class MainActivity : AppCompatActivity() {
         if (holdStatusText) return
         val freeGb = StatFs(filesDir.absolutePath).availableBytes / GB
         val free = String.format(Locale.US, "%.1fGB", freeGb)
-        statusText.text = if (CaptureService.isRunning) {
+        val running = CaptureService.isRunning
+        // 远程暂停后服务已停、isRunning 为 false，但“待机”会把“被观看端暂停”这件事藏掉：
+        // 用户回到相机端只会看到一个可以重新开始的待机页，不知道是谁、为什么停的。
+        val paused = GuardState.isPaused(this)
+        val message = if (running) {
             val total = (System.currentTimeMillis() - GuardRuntime.startedAtMs).coerceAtLeast(0L) / 1000
             val elapsed = String.format(Locale.US, "%02d:%02d:%02d", total / 3600, total % 3600 / 60, total % 60)
             getString(
                 if (GuardRuntime.recordOnly) R.string.status_card_recording else R.string.status_card_guarding,
                 elapsed,
-                free
+                free,
+                GuardRuntime.segmentCount
             )
+        } else if (paused) {
+            getString(R.string.status_card_paused, free)
         } else {
             getString(R.string.status_card_idle, free)
         }
+        // 状态行原本只有文字，“正在值守”和“已停止”在余光里几乎一样；
+        // 补一个状态色点，取值沿用设备列表的 qs_ok / qs_idle，避免两套语义
+        val line = SpannableString("● $message")
+        line.setSpan(
+            ForegroundColorSpan(
+                ContextCompat.getColor(
+                    this,
+                    when {
+                        running -> R.color.qs_ok
+                        paused -> R.color.qs_warn
+                        else -> R.color.qs_idle
+                    }
+                )
+            ),
+            0,
+            1,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        statusText.text = line
     }
 
     /**
-     * 最近事件卡：无事件即隐藏。是否“已留存”不只看 clip 路径——
-     * 片段导出到相册后私有原件会被删除，此时仍有 clipUri 可播，同样算已留存。
+     * 最近事件卡：有事件时给时间/类型/留存状态，没有事件时给一行空态说明。
+     * 直接整块隐藏会让新用户以为“这一栏永远不会有东西”，
+     * 而空态文案同时也告诉用户值守期间什么情况才会产生事件。
+     * 是否“已留存”不只看 clip 路径——片段导出到相册后私有原件会被删除，
+     * 此时仍有 clipUri 可播，同样算已留存。
      */
     private fun refreshRecentEvent() {
         val event = eventStore.recent(1).firstOrNull()
         if (event == null) {
-            recentEvent.visibility = View.GONE
+            // 空态不响应点击：跳到空时间轴等于让用户白跑一趟
+            recentEvent.isClickable = false
+            recentEvent.text = getString(R.string.recent_event_empty)
+            recentEvent.visibility = View.VISIBLE
             return
         }
+        recentEvent.isClickable = true
         recentEvent.visibility = View.VISIBLE
         val time = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(event.occurredAt))
         val retained = event.clipUri != null || event.clip?.isFile == true
@@ -437,25 +542,53 @@ class MainActivity : AppCompatActivity() {
      * 为什么仍走前台服务：录制本身就是 camera 类型前台服务的职责，绕开它会被系统在息屏后回收。
      */
     private fun startRecordOnly() {
-        requestBatteryExemption()
-        ContextCompat.startForegroundService(
-            this,
-            Intent(this, CaptureService::class.java)
-                .setAction(CaptureService.ACTION_START)
-                .putExtra(CaptureService.EXTRA_RECORD_ONLY, true)
-        )
-        suppressPreview()
-        // 同 beginGuard：isRunning 尚未置位，状态卡交给 ticker 接管
+        withBatteryExemption {
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, CaptureService::class.java)
+                    .setAction(CaptureService.ACTION_START)
+                    .putExtra(CaptureService.EXTRA_RECORD_ONLY, true)
+            )
+            suppressPreview()
+            // 同 beginGuard：isRunning 尚未置位，状态卡交给 ticker 接管
+        }
+    }
+
+    /**
+     * 先讲清楚“为什么要给电池豁免”，再打开系统设置。
+     * 直接跳系统弹窗（历史上就是这样）用户只看到一句英文标题，不知道给了会怎样、不给又会怎样。
+     */
+    private fun withBatteryExemption(onProceed: () -> Unit) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            onProceed()
+            return
+        }
+        val power = getSystemService(PowerManager::class.java)
+        if (power == null || power.isIgnoringBatteryOptimizations(packageName)) {
+            onProceed()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.battery_explain_title)
+            .setMessage(R.string.battery_explain_message)
+            .setPositiveButton(R.string.battery_explain_allow) { _, _ ->
+                requestBatteryExemption()
+                onProceed()
+            }
+            .setNegativeButton(R.string.battery_explain_later) { _, _ -> onProceed() }
+            .show()
     }
 
     /** 值守与连续记录共用的启动前置检查：权限缺一不可，否则前台服务会直接抛异常。 */
     private fun ensureStartable(): Boolean {
         if (!hasPermission(Manifest.permission.CAMERA)) {
+            permissionAsked = true
             requestPermissions.launch(requiredPermissions)
             statusText.text = getString(R.string.permission_required)
             return false
         }
         if (!hasNotificationPermission()) {
+            permissionAsked = true
             requestPermissions.launch(requiredPermissions)
             statusText.text = getString(R.string.notification_required)
             return false
@@ -464,15 +597,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun beginGuard() {
-        // 未豁免时弹系统对话框：实测锁屏 7 分钟后 Samsung 会冻结 UID，前台服务挡不住
-        requestBatteryExemption()
-        ContextCompat.startForegroundService(
-            this,
-            Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_START)
-        )
-        // 服务启动会 unbindAll 抢走相机，界面预览先收起来，避免留下一个永远黑屏的取景框。
-        // 此刻服务的 isRunning 还没置位，立即刷状态卡会误显示“待机”，交给 ticker 10 秒内接管
-        suppressPreview()
+        withBatteryExemption {
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_START)
+            )
+            // 服务启动会 unbindAll 抢走相机，界面预览先收起来，避免留下一个永远黑屏的取景框。
+            // 此刻服务的 isRunning 还没置位，立即刷状态卡会误显示“待机”，交给 ticker 10 秒内接管
+            suppressPreview()
+        }
     }
 
     /**

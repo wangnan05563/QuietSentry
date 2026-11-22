@@ -8,7 +8,8 @@
     <androidx.camera.view.PreviewView
         android:id="@+id/preview_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:contentDescription="@string/preview_desc" />
 
     <!-- PRD 3.3：权限缺失时顶部阻断色横幅，默认隐藏，授予后即收起。
          T04889：走 Widget.QuietSentry.ErrorBanner 样式（comp_banner_bg + qs_space_12），

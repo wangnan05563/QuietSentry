@@ -3,6 +3,7 @@ package com.quietsentry.app
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -44,8 +45,40 @@ class RemoteAccessActivity : AppCompatActivity() {
             runCatching { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) }
         }
         probeButton.setOnClickListener { probe() }
+        // 地址常要抄到另一台设备，长按选择在窄屏上不好操作，单独给一个复制入口
+        findViewById<Button>(R.id.remote_copy).setOnClickListener {
+            val text = target.text.toString().trim()
+            if (text.isEmpty()) {
+                Toast.makeText(this, R.string.remote_copy_empty, Toast.LENGTH_SHORT).show()
+            } else {
+                val clipboard = getSystemService(android.content.ClipboardManager::class.java)
+                clipboard?.setPrimaryClip(
+                    android.content.ClipData.newPlainText("QuietSentry", text)
+                )
+                Toast.makeText(this, R.string.remote_copied, Toast.LENGTH_SHORT).show()
+                // 只记长度，不落地址本身；用于回归脚本确认复制真的写进了剪贴板
+                android.util.Log.i("QuietSentry", "remote address copied, len=${text.length}")
+            }
+        }
+        // 两段组网步骤占两屏，默认收起：只在用户明确要看时展开，避免把地址框和检测结果挤出首屏
+        val guideToggle = findViewById<Button>(R.id.remote_guide_toggle)
+        val guideTailscale = findViewById<TextView>(R.id.remote_guide_tailscale)
+        val guideWireguard = findViewById<TextView>(R.id.remote_guide_wireguard)
+        guideToggle.setOnClickListener {
+            val expand = guideTailscale.visibility != View.VISIBLE
+            guideTailscale.visibility = if (expand) View.VISIBLE else View.GONE
+            guideWireguard.visibility = if (expand) View.VISIBLE else View.GONE
+            guideToggle.text = getString(
+                if (expand) R.string.remote_guide_collapse else R.string.remote_guide_expand
+            )
+        }
 
         renderLocal()
+        // 首屏先把本机局域网地址填进输入框：否则复制按钮和“检测”都要用户照着上面一行手抄
+        val lan = NetworkPath.lanAddress(this)
+        if (target.text.isNullOrBlank() && lan != null) {
+            target.setText("$lan:$DEFAULT_PORT")
+        }
         // 从设备卡片进来时带着目标地址，多一步点击只是多一次误操作机会
         val host = intent.getStringExtra(EXTRA_HOST).orEmpty()
         if (host.isNotEmpty()) {

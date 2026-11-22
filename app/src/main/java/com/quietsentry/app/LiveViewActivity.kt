@@ -50,6 +50,12 @@ class LiveViewActivity : AppCompatActivity() {
     private lateinit var streamer: LiveStreamer
     private var quality = QUALITY_AUTO
 
+    /** 当前播放状态：兜底快照是异步线程，回到主线程时必须据此丢弃迟到的结果 */
+    private var liveState = LiveStreamer.State.CONNECTING
+
+    /** 已确认远程暂停：此后任何迟到的帧/状态都不能再覆盖暂停提示 */
+    private var pauseCommitted = false
+
     /**
      * 画质切换过渡态（PRD 8 风险表“切换不清帧”）：切换会触发一轮 CONNECTING，
      * 不加这个标志的话兜底快照会立刻盖掉用户正在看的最后一帧。
@@ -152,12 +158,15 @@ class LiveViewActivity : AppCompatActivity() {
 
         // 横屏时刘海在屏幕左/右短边：系统栏虽然已隐藏，但挖孔区仍会盖住顶部“关闭”与底部按钮。
         // 只避让 displayCutout 一类，不用整屏 systemBars 内边距，否则画面会被重新压回安全区、失去全屏意义。
+        // updatePadding 是绝对值覆盖，必须把 XML 里的基础 8dp 一并加回来，否则竖屏（无挖孔）时
+        // 顶部“已连接”和底部“暂停”会直接贴到屏幕边缘。
         val topBar = findViewById<View>(R.id.live_top_bar)
         val bottomBar = findViewById<View>(R.id.live_bottom_bar)
+        val basePadding = resources.getDimensionPixelSize(R.dimen.qs_space_8)
         ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { _, insets ->
             val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
-            topBar.updatePadding(left = cutout.left, right = cutout.right)
-            bottomBar.updatePadding(left = cutout.left, right = cutout.right)
+            topBar.updatePadding(left = cutout.left + basePadding, right = cutout.right + basePadding)
+            bottomBar.updatePadding(left = cutout.left + basePadding, right = cutout.right + basePadding)
             insets
         }
 
@@ -167,7 +176,10 @@ class LiveViewActivity : AppCompatActivity() {
             object : LiveStreamer.Listener {
                 override fun onState(state: LiveStreamer.State) = onUi { renderState(state) }
 
-                override fun onFrame(frame: Bitmap) = onUi { image.setImageBitmap(frame) }
+                override fun onFrame(frame: Bitmap) = onUi {
+                    if (pauseCommitted) return@onUi
+                    image.setImageBitmap(frame)
+                }
 
                 // 框与帧同源：帧尺寸随框一起传给叠加层，letterbox 换算才不会错位
                 override fun onPersonBoxes(boxes: List<FloatArray>) = onUi {
@@ -226,6 +238,15 @@ class LiveViewActivity : AppCompatActivity() {
     }
 
     private fun renderState(state: LiveStreamer.State) {
+        liveState = state
+        // 暂停已提交后，断流/重连回调也不能把中央提示改回“重连中”或清空
+        if (pauseCommitted) {
+            image.setImageDrawable(null)
+            counterText.text = ""
+            statusText.text = getString(R.string.live_pause_overlay)
+            findViewById<View>(R.id.live_actions).visibility = View.GONE
+            return
+        }
         // 断流状态清掉残留框：框只对正在播的流有意义；切换过渡期画面还在，框随画面保留
         if (state != LiveStreamer.State.CONNECTED && !switchingQuality) personBoxes.clearBoxes()
         // §3.5 异常色：断流（重连/离线）= qs_danger，连接中 = qs_text_muted，已连接 = 隐藏
@@ -298,6 +319,8 @@ class LiveViewActivity : AppCompatActivity() {
             val result = DeviceHttp.snapshot(host, port, token) ?: return@Thread
             val bitmap = BitmapFactory.decodeByteArray(result.jpeg, 0, result.jpeg.size) ?: return@Thread
             onUi {
+                // 已连接或已暂停时，迟到的兜底快照不能再覆盖直播帧和中央状态文字
+                if (pauseCommitted || liveState == LiveStreamer.State.CONNECTED || GuardState.isPaused(this@LiveViewActivity)) return@onUi
                 image.setImageBitmap(bitmap)
                 if (result.atMs > 0) {
                     val time = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(result.atMs))
@@ -332,6 +355,20 @@ class LiveViewActivity : AppCompatActivity() {
                     if (ok) R.string.live_pause_done else R.string.live_pause_failed,
                     Toast.LENGTH_SHORT
                 ).show()
+                if (ok) {
+                    // 先落闸门再断流：stop() 之后仍可能有已解码的帧排队到主线程
+                    pauseCommitted = true
+                    // 服务端已停采集，但这条 MJPEG 连接可能还挂着最后一帧、顶部仍显示“已连接”，
+                    // 用户会以为画面只是卡住。主动断流并把“需在相机端恢复”写在画面中央。
+                    streamer.stop()
+                    image.setImageDrawable(null)
+                    counterText.text = ""
+                    // 暂停后对讲/警笛/手电都无法作用在已停采集的相机上，继续显示只会
+                    // 压住居中提示；隐藏整列动作，把画面中央让给“需在相机端恢复”。
+                    findViewById<View>(R.id.live_actions).visibility = View.GONE
+                    statusText.text = getString(R.string.live_pause_overlay)
+                    findViewById<Button>(R.id.live_pause).isEnabled = false
+                }
             }
         }.start()
     }

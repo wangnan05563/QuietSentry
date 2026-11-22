@@ -30,6 +30,7 @@ class PairingActivity : AppCompatActivity() {
     private lateinit var hintText: TextView
     private lateinit var qrImage: ImageView
     private lateinit var codeText: TextView
+    private lateinit var ttlText: TextView
     private lateinit var fingerprintText: TextView
     private lateinit var deviceTitle: TextView
     private lateinit var deviceList: LinearLayout
@@ -40,6 +41,8 @@ class PairingActivity : AppCompatActivity() {
     /** 生成邀请时记下角色，刷新后提示文案才不会说错权限 */
     private var inviteRole: PairingStore.Role? = null
 
+    private val countdownHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_pairing)
@@ -47,6 +50,7 @@ class PairingActivity : AppCompatActivity() {
         hintText = findViewById(R.id.pairing_hint)
         qrImage = findViewById(R.id.pairing_qr)
         codeText = findViewById(R.id.pairing_code)
+        ttlText = findViewById(R.id.pairing_code_ttl)
         fingerprintText = findViewById(R.id.pairing_fingerprint)
         deviceTitle = findViewById(R.id.pairing_devices_title)
         deviceList = findViewById(R.id.pairing_devices)
@@ -107,8 +111,45 @@ class PairingActivity : AppCompatActivity() {
                 showQr(PairingQr.pairLink(host, port, code, fingerprint))
             }
             codeText.text = getString(R.string.pairing_code_label, code)
+            startCodeCountdown()
         }
         renderDevices()
+    }
+
+    /**
+     * 配对码只有 5 分钟有效期：不显示倒计时，用户抄到一半码失效只会以为是自己抄错。
+     * 到点直接换新码，不留一个已经作废的码在屏幕上。
+     */
+    private fun startCodeCountdown() {
+        countdownHandler.removeCallbacks(countdownTick)
+        ttlText.visibility = View.VISIBLE
+        countdownHandler.post(countdownTick)
+    }
+
+    private val countdownTick = object : Runnable {
+        override fun run() {
+            if (inviteLink != null) {
+                ttlText.visibility = View.GONE
+                return
+            }
+            val left = pairing.codeExpiresAt() - System.currentTimeMillis()
+            if (left <= 0L) {
+                refresh()
+                return
+            }
+            val minutes = left / 60_000
+            val seconds = (left % 60_000) / 1000
+            ttlText.text = getString(
+                R.string.pairing_code_ttl,
+                String.format(Locale.US, "%02d:%02d", minutes, seconds)
+            )
+            countdownHandler.postDelayed(this, 1000)
+        }
+    }
+
+    override fun onDestroy() {
+        countdownHandler.removeCallbacks(countdownTick)
+        super.onDestroy()
     }
 
     private fun showQr(content: String) {

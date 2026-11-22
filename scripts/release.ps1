@@ -55,6 +55,44 @@ function Get-RepoSlug {
     return $null
 }
 
+function New-ReleaseNotes {
+    # 发布记录必须走「python 写 UTF-8 文件 → 按文件发布」这条链路：
+    # PowerShell 5.1 捕获原生命令输出时按控制台代码页解码（中文 Windows 是 GBK），
+    # git log 里的中文会先变成乱码，再被原样发到 GitHub。参考 MTask 的实现。
+    param(
+        [Parameter(Mandatory)][string]$VersionName,
+        [Parameter(Mandatory)][string]$Tag,
+        [string]$ApkName = '',
+        [string]$AabName = ''
+    )
+
+    $generator = Join-Path $PSScriptRoot 'gen-release-notes.py'
+    if (-not (Test-Path -LiteralPath $generator)) { throw "缺少发布记录生成脚本：$generator" }
+
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $python) {
+        throw '未找到 python：发布记录必须由它按 UTF-8 生成，PowerShell 直接拼 git 输出会产生乱码。请安装 python 并加入 PATH。'
+    }
+
+    $notesFile = Join-Path (Get-ReleaseDir) "release-notes-$VersionName.md"
+    & $python.Source $generator $Tag $notesFile $ApkName $AabName
+    if ($LASTEXITCODE -ne 0) { throw "发布记录生成失败（python 退出码 $LASTEXITCODE）" }
+    if (-not (Test-Path -LiteralPath $notesFile)) { throw "发布记录未生成：$notesFile" }
+
+    # 落盘后再核一次：必须是 UTF-8 无 BOM，带 BOM 时 GitHub 可能把首行渲染成异常字符
+    $bytes = [System.IO.File]::ReadAllBytes($notesFile)
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        throw "发布记录带 UTF-8 BOM：$notesFile"
+    }
+    $text = [System.IO.File]::ReadAllText($notesFile, (New-Object System.Text.UTF8Encoding($false)))
+    if ($ApkName -and $text -notmatch '[\u4e00-\u9fff]') {
+        Write-Note '发布记录里没有中文字符，请确认 git 提交说明本身是否为中文'
+    }
+
+    Write-Ok "发布记录 $notesFile（$([math]::Round($bytes.Length / 1KB, 1)) KB，UTF-8 无 BOM）"
+    return $notesFile
+}
+
 try {
     Write-Step '一键发布'
     Assert-BuildDependencies
@@ -64,41 +102,21 @@ try {
     Write-Ok "发布密钥 $($props['storeFile'])（alias $($props['keyAlias'])）"
 
     if ($SkipBuild) {
-        # 复用上一轮 release/ 里的产物，不清空目录
-        $meta = Get-Content $script:PackageJson -Raw | ConvertFrom-Json
-        $versionName = [string]$meta.version
+        # 联动 打包构建：复用 release/ 里那套产物，但先按构建清单校验变体、文件与提交，
+        # 避免把 debug 包、被删掉的包或另一个提交构建的包当成 release 发出去
+        $built = Read-BuildManifest -RequiredVariant 'release'
+        Write-Note "复用 打包构建 产物：$($built.VersionName)（构建于 $($built.BuiltAt)，commit $($built.Commit)）"
+        $versionName = $built.VersionName
         $tag = "v$versionName"
-        Write-Note "跳过构建，按当前版本 $versionName 发布"
-        $apk = Find-Apk -Variant 'release'
-        $aab = Find-Bundle
+        $apk = $built.Apk
+        $aab = $built.Aab
     } else {
-        $releaseDir = Reset-ReleaseDir
-        Write-Ok "产物目录 $releaseDir（已清空旧产物）"
-        $meta = Step-BuildPatch
-        $versionName = [string]$meta.VersionName
-        $tag = "v$versionName"
-        Write-Ok "版本 $versionName（versionCode $($meta.BuildNumber)）"
-        Write-Step '构建 release APK 与 AAB'
-        Invoke-GradleTask -Tasks @('clean', 'assembleRelease', 'bundleRelease')
-
-        $sourceApk = Find-GradleApk -Variant 'release'
-        if (-not $sourceApk) { throw '未找到 Gradle 生成的 release APK' }
-        $sourceAab = Find-GradleBundle
-        if (-not $sourceAab) { throw '未找到 Gradle 生成的 release AAB' }
-        $apkName = New-ArtifactName -VersionName $versionName -Variant 'release' -Extension 'apk'
-        $aabName = New-ArtifactName -VersionName $versionName -Extension 'aab'
-        $apk = Publish-Artifact -Path $sourceApk -Name $apkName
-        $aab = Publish-Artifact -Path $sourceAab -Name $aabName
-        Write-ReleaseManifest -Data @{
-            product     = 'QuietSentry'
-            versionName = $versionName
-            variant     = 'release'
-            builtAt     = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-            artifacts   = @(
-                @{ file = $apkName; source = $sourceApk },
-                @{ file = $aabName; source = $sourceAab }
-            )
-        } | Out-Null
+        # 与 scripts\build.ps1 -Variant release 走同一条构建链，产物命名与清单格式完全一致
+        $built = Invoke-BuildChain -Variant 'release' -Clean -IncludeBundle -SkipDependencyCheck
+        $versionName = $built.VersionName
+        $tag = $built.Tag
+        $apk = $built.Apk
+        $aab = $built.Aab
     }
 
     if (-not $apk) { throw "未找到 release APK，请先构建或去掉 -SkipBuild（产物目录：$(Get-ReleaseDir)）" }
@@ -128,13 +146,13 @@ try {
         exit 0
     }
 
-    $notes = (& git -C $script:ProjectRoot log --pretty=format:'- %s' -12 | Out-String).Trim()
-    if (-not $notes) { $notes = "Release $tag" }
+    # 发布记录由 python 生成 UTF-8 文件，不再用 git log | Out-String 拼字符串
+    $notesFile = New-ReleaseNotes -VersionName $versionName -Tag $tag -ApkName $apkInfo.Name -AabName $aabInfo.Name
 
     $gh = Get-Command gh -ErrorAction SilentlyContinue
     if ($gh) {
         Write-Step "使用 gh 发布 $tag 到 $slug"
-        $ghArgs = @('release', 'create', $tag, $apk, $aab, '--title', $tag, '--notes', $notes, '--repo', $slug)
+        $ghArgs = @('release', 'create', $tag, $apk, $aab, '--title', $tag, '--notes-file', $notesFile, '--repo', $slug)
         if ($Draft) { $ghArgs += '--draft' }
         & $gh.Source @ghArgs
         if ($LASTEXITCODE -ne 0) { throw 'gh release create 失败' }
@@ -156,10 +174,13 @@ try {
         'User-Agent'           = 'QuietSentry-release'
         'X-GitHub-Api-Version' = '2022-11-28'
     }
+    # 从文件按 UTF-8 读进 body：不让 PowerShell 的默认编码参与，body 再整体按 UTF-8 编码发送
+    $notesText = [System.IO.File]::ReadAllText($notesFile, (New-Object System.Text.UTF8Encoding($false)))
+    if (-not $notesText) { $notesText = "Release $tag" }
     $body = @{
         tag_name   = $tag
         name       = $tag
-        body       = $notes
+        body       = $notesText
         draft      = [bool]$Draft
         prerelease = $false
     } | ConvertTo-Json -Depth 4

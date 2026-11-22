@@ -136,6 +136,11 @@ function Get-KotlinPersistentDir {
             if ($value) { $prefix = $value }
         }
     }
+    # 允许把 persistent.dir 配成绝对路径（换盘构建时避免相对路径被解析到
+    # 错误的工作目录）；绝对路径不能再拼项目根，否则会得到 X:\proj\X:\... 。
+    if ([System.IO.Path]::IsPathRooted($prefix)) {
+        return [System.IO.Path]::GetFullPath($prefix)
+    }
     return [System.IO.Path]::GetFullPath((Join-Path $script:ProjectRoot $prefix))
 }
 
@@ -374,6 +379,12 @@ function Invoke-GradleTask {
         if (-not (Test-Path -LiteralPath $kotlinDir)) {
             New-Item -ItemType Directory -Path $kotlinDir -Force | Out-Null
         }
+        # Kotlin 插件的会话标记写在 persistent.dir/sessions 下，父目录同样不会自动建；
+        # 只建 persistent.dir 时新机器（无历史缓存）会在第 1 次编译即 NoSuchFileException。
+        $kotlinSessions = Join-Path $kotlinDir 'sessions'
+        if (-not (Test-Path -LiteralPath $kotlinSessions)) {
+            New-Item -ItemType Directory -Path $kotlinSessions -Force | Out-Null
+        }
         $gradleArgs = @($Tasks) + @("--project-cache-dir=$projectCache", '--console=plain', '--stacktrace')
         & $tc.Gradle @gradleArgs
         if ($LASTEXITCODE -ne 0) { throw "Gradle 任务失败（退出码 $LASTEXITCODE）" }
@@ -502,4 +513,166 @@ function Get-AdbSerials {
         if ($line -match '^(\S+)\s+device$') { $serials += $Matches[1] }
     }
     return @($serials)
+}
+
+# ---------- 统一构建链 ----------
+# 打包构建（build.ps1）与一键发布（release.ps1）共用这一段：依赖检查、版本推进、
+# Gradle 调用、产物复制到 release/、写构建清单。以前两边各写一份，改一处忘一处
+# 就会出现「按钮打的包和一键发布发的包不是一回事」。
+function Get-GitHead {
+    $head = ''
+    $dirty = $false
+    # 原生命令的 stderr 在 Stop 模式下会被当成异常，这里临时降级
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $out = (& git -C $script:ProjectRoot rev-parse --short HEAD 2>$null)
+        if ($LASTEXITCODE -eq 0 -and $out) { $head = ($out -join '').Trim() }
+        $status = (& git -C $script:ProjectRoot status --porcelain 2>$null)
+        if ($status) { $dirty = $true }
+    } catch {
+        # 没有 git 或不在仓库里：清单里留空，不阻断构建
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+    [pscustomobject]@{ Head = $head; Dirty = $dirty }
+}
+
+function Invoke-BuildChain {
+    param(
+        [ValidateSet('debug', 'release')][string]$Variant = 'debug',
+        [switch]$Clean,
+        [switch]$SkipPatch,
+        [switch]$IncludeBundle,
+        [switch]$SkipDependencyCheck
+    )
+
+    if (-not $SkipDependencyCheck) { Assert-BuildDependencies }
+
+    # 每次构建先清空 release/，保证目录里只留本次的一套产物
+    $releaseDir = Reset-ReleaseDir
+    Write-Ok "产物目录 $releaseDir（已清空旧产物）"
+
+    if ($SkipPatch) {
+        $meta = Get-Content $script:PackageJson -Raw | ConvertFrom-Json
+        $versionName = [string]$meta.version
+        $buildNumber = if ($meta.build -and $meta.build.buildNumber) { [int]$meta.build.buildNumber } else { 0 }
+        Write-Note "跳过 patch 推进，使用基线版本 $versionName"
+    } else {
+        $meta = Step-BuildPatch
+        $versionName = [string]$meta.VersionName
+        $buildNumber = [int]$meta.BuildNumber
+        Write-Ok "版本 $versionName（versionCode $buildNumber）"
+    }
+
+    $tasks = @()
+    if ($Clean) { $tasks += 'clean' }
+    $tasks += $(if ($Variant -eq 'debug') { 'assembleDebug' } else { 'assembleRelease' })
+    if ($IncludeBundle) { $tasks += 'bundleRelease' }
+    Write-Step "执行 Gradle: $($tasks -join ' ')"
+    Invoke-GradleTask -Tasks $tasks
+
+    $sourceApk = Find-GradleApk -Variant $Variant
+    if (-not $sourceApk) { throw "构建结束但没有找到 $Variant APK" }
+    $apkName = New-ArtifactName -VersionName $versionName -Variant $Variant -Extension 'apk'
+    $apk = Publish-Artifact -Path $sourceApk -Name $apkName
+    $artifacts = @(@{ file = $apkName; source = $sourceApk })
+
+    $aab = ''
+    $aabName = ''
+    if ($IncludeBundle) {
+        $sourceAab = Find-GradleBundle
+        if (-not $sourceAab) { throw '构建结束但没有找到 release AAB' }
+        $aabName = New-ArtifactName -VersionName $versionName -Extension 'aab'
+        $aab = Publish-Artifact -Path $sourceAab -Name $aabName
+        $artifacts += @{ file = $aabName; source = $sourceAab }
+    }
+
+    # 清单记录版本、变体、产物、Gradle 任务与实际提交：发布脚本据此判断
+    # 「release/ 里这套产物是不是当前代码构建出来的」，而不是靠文件名猜
+    $git = Get-GitHead
+    $builtAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+    $manifestFile = Write-ReleaseManifest -Data @{
+        product     = 'QuietSentry'
+        versionName = $versionName
+        variant     = $Variant
+        buildNumber = $buildNumber
+        builtAt     = $builtAt
+        gradleTasks = $tasks
+        commit      = $git.Head
+        dirty       = $git.Dirty
+        artifacts   = $artifacts
+    }
+
+    [pscustomobject]@{
+        Variant      = $Variant
+        ReleaseDir   = $releaseDir
+        VersionName  = $versionName
+        BuildNumber  = $buildNumber
+        Tag          = "v$versionName"
+        Apk          = $apk
+        Aab          = $aab
+        ApkName      = $apkName
+        AabName      = $aabName
+        ManifestFile = $manifestFile
+        BuiltAt      = $builtAt
+        Commit       = $git.Head
+        Dirty        = $git.Dirty
+    }
+}
+
+function Read-BuildManifest {
+    param(
+        [ValidateSet('debug', 'release')][string]$RequiredVariant = 'release'
+    )
+    # 发布侧复用构建产物前必须先读清单：变体不对、文件被删、代码已改过都要说清楚，
+    # 否则会出现「发布记录说 0.1.0-x，实际装的却是上一个包」。
+    $dir = Get-ReleaseDir
+    $file = Join-Path $dir 'build-info.json'
+    if (-not (Test-Path -LiteralPath $file)) {
+        throw @"
+没有构建清单：$file
+请先运行 scripts\安卓构建打包.bat -Variant release（或直接跑 scripts\一键发布.bat 让它自己构建）
+"@
+    }
+
+    $data = Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($data.variant -ne $RequiredVariant) {
+        throw "release/ 里的产物是 $($data.variant) 变体（$($data.versionName)），不是 $RequiredVariant；请先运行 scripts\安卓构建打包.bat -Variant release"
+    }
+
+    $apk = ''
+    $aab = ''
+    foreach ($item in @($data.artifacts)) {
+        if (-not $item.file) { continue }
+        $path = Join-Path $dir $item.file
+        if (-not (Test-Path -LiteralPath $path)) {
+            throw "构建清单里登记的产物已不存在：$path`nrelease/ 可能被清过，请重新构建或去掉 -SkipBuild"
+        }
+        if ($path -match '\.apk$') { $apk = $path }
+        if ($path -match '\.aab$') { $aab = $path }
+    }
+    if (-not $apk) { throw "构建清单里没有 APK：$file" }
+    if (-not $aab) {
+        throw "构建清单里没有 AAB：$file`nscripts\安卓构建打包.bat -Variant release 会同时产出 APK 与 AAB，重新构建即可"
+    }
+
+    # 代码变更只提示不阻断：本地实验时工作区常是脏的，硬拦会让发布流程不可用
+    $git = Get-GitHead
+    if ($data.commit -and $git.Head -and $data.commit -ne $git.Head) {
+        Write-Note "这套产物由提交 $($data.commit) 构建，当前 HEAD 是 $($git.Head)：发布包内容可能与 tag 指向的代码不一致"
+    }
+    if ($data.dirty) {
+        Write-Note '这套产物构建时工作区有未提交改动，发布包的代码状态不在任何提交里'
+    }
+
+    [pscustomobject]@{
+        VersionName = [string]$data.versionName
+        Variant     = [string]$data.variant
+        BuiltAt     = [string]$data.builtAt
+        Commit      = [string]$data.commit
+        Dirty       = [bool]$data.dirty
+        Apk         = $apk
+        Aab         = $aab
+    }
 }

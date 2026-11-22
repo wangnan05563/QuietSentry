@@ -18,7 +18,7 @@ package com.quietsentry.app
 object DeviceState {
 
     /** 不含 ALERT 会让在线设备的既有文案回退，故枚举保留，但它只是「在线且告警」的便捷态 */
-    enum class Level { ALERT, OFFLINE, LOW_BATTERY, OVERHEAT, STORAGE, GUARDING, IDLE }
+    enum class Level { ALERT, OFFLINE, LOW_BATTERY, OVERHEAT, STORAGE, PAUSED, GUARDING, IDLE }
 
     data class View(
         val level: Level,
@@ -47,6 +47,9 @@ object DeviceState {
             status.battery in 1..LOW_BATTERY_PERCENT && !status.charging -> Level.LOW_BATTERY
             status.thermal >= THERMAL_SEVERE -> Level.OVERHEAT
             status.storageFreeMb in 1 until LOW_STORAGE_MB -> Level.STORAGE
+            // 远程暂停后 mode 是 idle，若按 mode 判会显示“待机”，把“被观看端暂停”的原因丢掉；
+            // paused 必须比 GUARDING 优先，否则暂停瞬间残留的 guard 状态会盖住暂停
+            status.paused -> Level.PAUSED
             status.mode == MODE_GUARD -> Level.GUARDING
             else -> Level.IDLE
         }

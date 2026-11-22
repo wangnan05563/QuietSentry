@@ -123,6 +123,11 @@ class PairingStore(context: Context) {
         return code
     }
 
+    /** 当前配对码的失效时间；已用掉或还没生成过返回 0。 */
+    @Synchronized
+    fun codeExpiresAt(): Long =
+        if (prefs.getBoolean(KEY_CODE_USED, true)) 0L else prefs.getLong(KEY_CODE_EXPIRES, 0L)
+
     @Synchronized
     fun currentPairCode(): String? {
         if (prefs.getBoolean(KEY_CODE_USED, true)) return null

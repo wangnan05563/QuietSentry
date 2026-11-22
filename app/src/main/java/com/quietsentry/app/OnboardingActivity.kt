@@ -26,8 +26,8 @@ import kotlin.math.abs
 class OnboardingActivity : AppCompatActivity() {
 
     /** 快速轻扫才会翻页：距离和速度双阈值，避免手指停在页面上小幅拖动被当成翻页 */
-    private val swipeMinDistance by lazy { dp(80) }
-    private val swipeMinVelocity by lazy { dp(800) }
+    private val swipeMinDistance by lazy { dp(48) }
+    private val swipeMinVelocity by lazy { dp(500) }
 
     private val gestures by lazy {
         GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
@@ -83,13 +83,17 @@ class OnboardingActivity : AppCompatActivity() {
         findViewById<Button>(R.id.onboard_skip).setOnClickListener { complete() }
         actionButton.setOnClickListener { goTo(page + 1) }
 
-        // 手势翻页挂在 flipper 上：子页全是静态文字，不消费触摸，事件必然落到这里
-        flipper.setOnTouchListener { view, event ->
-            gestures.onTouchEvent(event)
-            view.performClick()
-            true
-        }
         render()
+    }
+
+    /**
+     * 手势翻页必须挂在 Activity 层：每页根视图是 ScrollView，触摸会先被它消费，
+     * 挂在 ViewFlipper 上的 OnTouchListener 根本收不到 ACTION_DOWN（实测左右滑无效）。
+     * 这里只做旁路监听，不拦截，纵向滚动与点击都照常。
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        gestures.onTouchEvent(ev)
+        return super.dispatchTouchEvent(ev)
     }
 
     /**

@@ -306,6 +306,11 @@ class DeviceListActivity : AppCompatActivity() {
         // “全部离线”给同一网络提示与重扫/诊断入口——两种空的原因不同，用户要做的动作也不同
         emptyText.visibility = if (ordered.isEmpty()) View.VISIBLE else View.GONE
         emptyBox?.visibility = if (ordered.isEmpty()) View.VISIBLE else View.GONE
+        // 窄屏空态盒里已经把扫码/配对码/手动三条路都摆出来了，右上角再放一个“添加”
+        // 只会让用户以为这是第四个入口；等真有设备后空态盒消失，才把“添加”还回来。
+        // sw600dp 双栏没有空态盒（emptyBox=null），此时“添加”是唯一入口，必须保留。
+        findViewById<Button>(R.id.device_list_add).visibility =
+            if (ordered.isEmpty() && emptyBox != null) View.GONE else View.VISIBLE
         val allOffline = ordered.isNotEmpty() &&
             ordered.all { it.second.level == DeviceState.Level.OFFLINE }
         offlineBar?.visibility = if (allOffline) View.VISIBLE else View.GONE
@@ -932,20 +937,30 @@ class DeviceListActivity : AppCompatActivity() {
             addView(port)
             addView(code)
         }
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.device_list_manual_title)
             .setView(box)
             .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.device_list_pair) { _, _ ->
+            .setPositiveButton(R.string.device_list_pair, null)
+            .create()
+        // 占位文案写着“默认 8080”，端口留空就必须真的按 8080 走；
+        // 地址/配对码不完整时也不能让对话框直接消失，否则用户会以为点击没生效。
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val h = host.text.toString().trim()
-                val p = port.text.toString().trim().toIntOrNull()
+                val p = port.text.toString().trim().toIntOrNull() ?: DEFAULT_SERVER_PORT
                 val c = code.text.toString().trim()
-                if (h.isNotEmpty() && p != null && c.isNotEmpty()) {
-                    // 手动地址通常是端口映射或跨网段，证书指纹无法从 mDNS 取得，按 HTTP 配对
-                    pairWith(LanDiscovery.Peer("manual", h, h, p, ""), c, preferTls = false)
+                if (h.isEmpty() || c.length != 6 || p !in 1..65535) {
+                    Toast.makeText(this, R.string.device_list_manual_invalid, Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
                 }
+                dialog.dismiss()
+                // 名称留空，applyPairResult 才会用服务端自报的型号；
+                // 手动地址通常是端口映射，把 IP 当设备名会让列表和直播标题都只剩一串数字。
+                pairWith(LanDiscovery.Peer("manual", "", h, p, ""), c, preferTls = false)
             }
-            .show()
+        }
+        dialog.show()
     }
 
     private fun promptCode(peer: LanDiscovery.Peer) {
@@ -1048,13 +1063,15 @@ class DeviceListActivity : AppCompatActivity() {
         DeviceState.Level.LOW_BATTERY -> R.string.state_low_battery
         DeviceState.Level.OVERHEAT -> R.string.state_overheat
         DeviceState.Level.STORAGE -> R.string.state_storage
+        DeviceState.Level.PAUSED -> R.string.state_paused
         DeviceState.Level.GUARDING -> R.string.state_guarding
         DeviceState.Level.IDLE -> R.string.state_idle
     }
 
     private fun stateColor(level: DeviceState.Level): Int = when (level) {
         DeviceState.Level.ALERT, DeviceState.Level.OVERHEAT -> getColor(R.color.qs_danger)
-        DeviceState.Level.LOW_BATTERY, DeviceState.Level.STORAGE -> getColor(R.color.qs_warn)
+        DeviceState.Level.LOW_BATTERY, DeviceState.Level.STORAGE, DeviceState.Level.PAUSED ->
+            getColor(R.color.qs_warn)
         DeviceState.Level.GUARDING -> getColor(R.color.qs_ok)
         DeviceState.Level.OFFLINE, DeviceState.Level.IDLE -> getColor(R.color.qs_idle)
     }
@@ -1087,6 +1104,8 @@ class DeviceListActivity : AppCompatActivity() {
     private companion object {
         const val POLL_INTERVAL_MS = 5_000L
         const val DISCOVERY_WINDOW_MS = 5_000L
+        /** 手动添加端口留空时的默认值，与 DeviceServer 的首选端口一致 */
+        const val DEFAULT_SERVER_PORT = 8080
 
         /** 卡片快照低频刷新：整张 JPEG 比状态 JSON 重得多，缓存 60 秒（docs/07 §7 NFR-01） */
         const val SNAPSHOT_INTERVAL_MS = 60_000L

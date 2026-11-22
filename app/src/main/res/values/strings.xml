@@ -26,11 +26,44 @@
     <string name="recent_event_line">最近事件 %1$s · %2$s · %3$s</string>
     <string name="recent_event_retained">已留存</string>
     <string name="recent_event_recording">录制中</string>
-    <!-- 首页状态卡：运行时长与存储余量是值守中用户最关心的两个量化凭据 -->
-    <string name="status_card_guarding">值守中 · 已运行 %1$s · 存储余量 %2$s</string>
-    <string name="status_card_recording">连续记录 · 已运行 %1$s · 存储余量 %2$s</string>
+    <!-- 首页状态卡：运行时长、已录分片数与存储余量是值守中用户最关心的量化凭据 -->
+    <string name="status_card_guarding">值守中 · 已运行 %1$s · 已录 %3$d 段 · 存储余量 %2$s</string>
+    <string name="status_card_recording">连续记录 · 已运行 %1$s · 已录 %3$d 段 · 存储余量 %2$s</string>
     <string name="status_card_idle">待机 · 存储余量 %1$s</string>
+    <string name="status_card_paused">已暂停 · 存储余量 %1$s</string>
     <string name="guard_started_tip">值守中：按电源键熄屏后采集继续，通知栏可随时确认</string>
+    <!-- 电池优化授权前的应用内说明：系统弹窗只有一句英文标题，用户不知道为什么要给 -->
+    <string name="battery_explain_title">让值守在后台持续运行</string>
+    <string name="battery_explain_message">系统会在锁屏一段时间后冻结后台应用，导致值守中断、告警丢失。\n\n下一步会打开系统的「电池优化」设置，请选择“允许”或“不限制”。不授权也能启动，但锁屏后可能被系统中断。</string>
+    <string name="battery_explain_allow">去授权</string>
+    <string name="battery_explain_later">暂不授权，直接开始</string>
+    <!-- 更多菜单改为底部弹层后每项配一行说明，避免只看到名词不知道点进去做什么 -->
+    <string name="more_sheet_title">更多功能</string>
+    <string name="more_sheet_subtitle">值守之外的七个入口</string>
+    <string name="more_record_desc">不触发告警，持续录像</string>
+    <string name="more_black_desc">屏幕保持全黑，单击拍照</string>
+    <string name="more_timeline_desc">按时间查看已保留的片段</string>
+    <string name="more_pairing_desc">扫码或输入配对码连接观看端</string>
+    <string name="more_device_desc">用本机去观看别的摄像头</string>
+    <string name="more_remote_desc">外网访问、令牌与连通性检测</string>
+    <string name="more_settings_desc">提醒、检测、电源与更新</string>
+    <string name="more_sheet_close">关闭</string>
+    <!-- 设置页第一个分组：设计文档要求「镜头与画质」排最前，MVP 仅展示只读能力 -->
+    <string name="settings_section_lens">镜头与画质</string>
+    <string name="settings_lens_reading">正在读取相机能力…</string>
+    <string name="settings_lens_hint">值守固定使用主摄；录制分辨率按设备能力自动回退（1080p → 720p → 480p），画质档位将在后续版本开放。</string>
+    <string name="settings_lens_unavailable">未检测到可用相机</string>
+    <!-- 预览面是纯画面，读屏用户与 UI 自动化都拿不到任何语义，补一句说明 -->
+    <string name="preview_desc">摄像头实时预览，用于调整值守拍摄角度</string>
+    <string name="scan_preview_desc">扫码取景框，对准摄像头端配对与设备页上的二维码</string>
+    <!-- 配对码 5 分钟有效，但界面原来不显示剩余时间 -->
+    <string name="pairing_code_ttl">配对码剩余 %1$s 失效，到期自动换新码</string>
+    <string name="recent_event_empty">暂无事件 · 值守期间检测到运动或声音会出现在这里</string>
+    <string name="remote_guide_expand">查看组网步骤（Tailscale / WireGuard）</string>
+    <string name="remote_guide_collapse">收起组网步骤</string>
+    <string name="remote_copy">复制</string>
+    <string name="remote_copied">地址已复制</string>
+    <string name="remote_copy_empty">地址为空，先在上面选择本机地址</string>
     <string name="permission_required">需要相机、录音与通知权限</string>
     <string name="black_mode_entry">黑屏记录</string>
     <string name="black_hint">采集中 · 单击拍照 · 双击切镜头 · 长按退出</string>
@@ -42,6 +75,7 @@
     <!-- PRD 3.3：横幅只解释影响并给出唯一动作，避免长文案稀释“缺了会丢告警”这一重点 -->
     <string name="banner_notification_permission">缺少通知权限，值守告警将不可见。点此去开启</string>
     <string name="banner_camera_busy">相机被其他应用占用，点此重试预览</string>
+    <string name="banner_camera_permission">相机权限未授予，值守无法启动。点此去系统设置开启</string>
     <string name="banner_storage_low">存储余量不足 500MB，值守可能中断。点此查看事件并清理</string>
     <string name="guard_running_conflict">值守进行中，请先停止值守再进入黑屏记录</string>
     <string name="guard_running_preview">值守中：画面由后台采集，界面不再占用相机</string>
@@ -191,6 +225,7 @@
     <string name="device_list_manual_title">手动添加设备</string>
     <string name="device_list_manual_host_hint">设备 IP 或主机名</string>
     <string name="device_list_manual_port_hint">端口（默认 8080）</string>
+    <string name="device_list_manual_invalid">请填写设备地址和 6 位配对码</string>
     <string name="device_list_pair_failed">配对失败：配对码错误或已过期</string>
     <string name="device_list_pair_mismatch">设备指纹不一致，已拒绝连接</string>
     <string name="device_list_paired_recovery">已通过恢复码接管设备</string>
@@ -223,6 +258,7 @@
     <string name="state_low_battery">低电</string>
     <string name="state_overheat">过热</string>
     <string name="state_storage">存储告警</string>
+    <string name="state_paused">已暂停</string>
     <string name="state_guarding">值守中</string>
     <string name="state_idle">待机</string>
     <string name="device_action_rename">重命名</string>
@@ -300,7 +336,7 @@
     <string name="settings_entry">设置与诊断</string>
     <string name="settings_title">设置与诊断</string>
     <string name="settings_back">返回</string>
-    <string name="settings_section_alert">提醒</string>
+    <string name="settings_section_alert">通知与免打扰</string>
     <string name="settings_quiet_switch">免打扰时段</string>
     <string name="settings_quiet_start">开始 %1$s</string>
     <string name="settings_quiet_end">结束 %1$s</string>
@@ -309,13 +345,13 @@
     <string name="settings_quiet_hint_cross">时段跨越午夜：今天 %1$s 到次日 %2$s</string>
     <string name="capture_recording">连续记录中 · 采集中</string>
     <string name="record_mode_entry">连续记录</string>
-    <string name="settings_section_plan">检测时段</string>
+    <string name="settings_section_plan">检测与计划</string>
     <string name="settings_plan_switch">仅在该时段内推送</string>
     <string name="settings_plan_start">开始时间</string>
     <string name="settings_plan_end">结束时间</string>
     <string name="settings_plan_hint">时段外仍会记录事件，但不会推送通知。</string>
     <string name="settings_plan_cross_midnight">时段跨越午夜，例如 22:00–07:00，按跨日计算。</string>
-    <string name="settings_section_level">接收级别</string>
+    <string name="settings_section_level">提醒级别</string>
     <string name="settings_level_all">全部提示</string>
     <string name="settings_level_normal">仅普通及以上</string>
     <string name="settings_level_urgent">仅紧急</string>
@@ -452,6 +488,7 @@
     <string name="live_pause_ok">暂停采集</string>
     <string name="live_pause_cancel">取消</string>
     <string name="live_pause_done">相机端已暂停采集</string>
+    <string name="live_pause_overlay">已暂停采集，需在相机端重新开始值守</string>
     <string name="live_pause_failed">暂停请求失败：设备可能离线或已停止值守</string>
     <string name="pause_remote_title">静哨 · 已被观看端暂停</string>
     <string name="pause_remote_notice">采集已由观看端远程暂停，需在本机重新开始值守</string>
@@ -467,7 +504,7 @@
     <!-- W27 第三方集成（PRD FR-15） -->
     <string name="settings_section_integration">第三方集成</string>
     <string name="settings_integration_switch">开启局域网 Web 控制台与外部拉流</string>
-    <string name="settings_integration_hint">开启后，局域网内任何拿到地址与凭据的设备都能访问该画面；认证失败 5 次将锁定 10 分钟。当前提供 Web 控制台、MJPEG / 快照，以及 RTSP（H.264 主/子码流 over TCP）与 ONVIF Profile S（NVR / Home Assistant 接入）。</string>
+    <string name="settings_integration_hint">开启后，局域网内持有地址与凭据的设备即可访问；连续 5 次认证失败锁定 10 分钟。支持 Web 控制台、MJPEG / 快照、RTSP 与 ONVIF Profile S。</string>
     <string name="settings_integration_enable_title">开启第三方集成？</string>
     <string name="settings_integration_enable_message">开启后，同一局域网内的其他设备可能访问该画面。仅在你了解这一风险并愿意承担时开启。</string>
     <string name="settings_integration_enable_ok">我已了解，开启</string>

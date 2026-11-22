@@ -38,44 +38,27 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/qs_space_20"
-            android:text="@string/settings_section_alert"
+            android:text="@string/settings_section_lens"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
 
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/settings_quiet_switch"
+        <TextView
+            android:id="@+id/settings_lens_summary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/qs_space_10"
-            android:text="@string/settings_quiet_switch"
+            android:background="@color/qs_surface"
+            android:padding="@dimen/qs_space_12"
+            android:text="@string/settings_lens_reading"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_8"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/settings_quiet_start"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="@dimen/qs_space_8"
-                android:layout_weight="1" />
-
-            <Button
-                android:id="@+id/settings_quiet_end"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1" />
-        </LinearLayout>
-
         <TextView
-            android:id="@+id/settings_quiet_hint"
+            android:id="@+id/settings_lens_hint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/qs_space_6"
+            android:text="@string/settings_lens_hint"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
 
@@ -128,6 +111,51 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/qs_space_20"
+            android:text="@string/settings_section_alert"
+            android:textColor="@color/qs_text"
+            android:textSize="@dimen/qs_text_body" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/settings_quiet_switch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_10"
+            android:text="@string/settings_quiet_switch"
+            android:textColor="@color/qs_text"
+            android:textSize="@dimen/qs_text_body" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_8"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/settings_quiet_start"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="@dimen/qs_space_8"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/settings_quiet_end"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/settings_quiet_hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_6"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="@dimen/qs_text_caption" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_20"
             android:text="@string/settings_section_level"
             android:textColor="@color/qs_text"
             android:textSize="@dimen/qs_text_body" />
@@ -166,6 +194,68 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/qs_space_6"
             android:text="@string/settings_level_hint"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="@dimen/qs_text_caption" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_20"
+            android:text="@string/settings_section_power"
+            android:textColor="@color/qs_text"
+            android:textSize="@dimen/qs_text_body" />
+
+        <!-- T04033：仅充电时值守此前只有默认值、无 UI 开关，用户改不了也看不到当前取值 -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/settings_charge_only_switch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_10"
+            android:text="@string/settings_charge_only_switch"
+            android:textColor="@color/qs_text"
+            android:textSize="@dimen/qs_text_body" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_6"
+            android:text="@string/settings_charge_only_hint"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="@dimen/qs_text_caption" />
+
+        <!-- 黑屏拍照震动反馈（T04023）：黑屏无快门动画，震动是唯一确认，但允许关闭 -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/settings_shutter_switch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_10"
+            android:text="@string/settings_shutter_switch"
+            android:textColor="@color/qs_text"
+            android:textSize="@dimen/qs_text_body" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_6"
+            android:text="@string/settings_shutter_hint"
+            android:textColor="@color/qs_text_muted"
+            android:textSize="@dimen/qs_text_caption" />
+
+        <!-- 音量键快门（T04034）：与系统音量互斥，开启后黑屏页内音量键不再调音量 -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/settings_volume_shutter_switch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_10"
+            android:text="@string/settings_volume_shutter_switch"
+            android:textColor="@color/qs_text"
+            android:textSize="@dimen/qs_text_body" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/qs_space_6"
+            android:text="@string/settings_volume_shutter_hint"
             android:textColor="@color/qs_text_muted"
             android:textSize="@dimen/qs_text_caption" />
 
@@ -278,68 +368,6 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/qs_space_8"
             android:text="@string/settings_integration_disable" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_20"
-            android:text="@string/settings_section_power"
-            android:textColor="@color/qs_text"
-            android:textSize="@dimen/qs_text_body" />
-
-        <!-- T04033：仅充电时值守此前只有默认值、无 UI 开关，用户改不了也看不到当前取值 -->
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/settings_charge_only_switch"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_10"
-            android:text="@string/settings_charge_only_switch"
-            android:textColor="@color/qs_text"
-            android:textSize="@dimen/qs_text_body" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_6"
-            android:text="@string/settings_charge_only_hint"
-            android:textColor="@color/qs_text_muted"
-            android:textSize="@dimen/qs_text_caption" />
-
-        <!-- 黑屏拍照震动反馈（T04023）：黑屏无快门动画，震动是唯一确认，但允许关闭 -->
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/settings_shutter_switch"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_10"
-            android:text="@string/settings_shutter_switch"
-            android:textColor="@color/qs_text"
-            android:textSize="@dimen/qs_text_body" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_6"
-            android:text="@string/settings_shutter_hint"
-            android:textColor="@color/qs_text_muted"
-            android:textSize="@dimen/qs_text_caption" />
-
-        <!-- 音量键快门（T04034）：与系统音量互斥，开启后黑屏页内音量键不再调音量 -->
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/settings_volume_shutter_switch"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_10"
-            android:text="@string/settings_volume_shutter_switch"
-            android:textColor="@color/qs_text"
-            android:textSize="@dimen/qs_text_body" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/qs_space_6"
-            android:text="@string/settings_volume_shutter_hint"
-            android:textColor="@color/qs_text_muted"
-            android:textSize="@dimen/qs_text_caption" />
 
         <TextView
             android:layout_width="match_parent"

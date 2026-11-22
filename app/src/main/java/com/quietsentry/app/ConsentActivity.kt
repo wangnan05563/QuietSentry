@@ -57,8 +57,10 @@ class ConsentActivity : AppCompatActivity() {
 
     private fun render() {
         progressText.text = getString(R.string.consent_progress, page + 1, LAST_PAGE + 1)
-        // 勾选框只在最后一页出现：前两页就显示会诱导用户在没读完说明时直接同意
-        checkbox.visibility = if (page == LAST_PAGE) View.VISIBLE else View.GONE
+        // 勾选框只在最后一页出现：前两页就显示会诱导用户在没读完说明时直接同意。
+        // 用 INVISIBLE 而不是 GONE：GONE 会让底部高度在第 3 页突然变高，
+        // 进度指示器跟着往上跳，看起来像翻页时页面抖了一下
+        checkbox.visibility = if (page == LAST_PAGE) View.VISIBLE else View.INVISIBLE
         actionButton.text = getString(
             if (page == LAST_PAGE) R.string.consent_start else R.string.consent_next
         )

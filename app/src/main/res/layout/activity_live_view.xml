@@ -85,6 +85,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/qs_space_8"
+                android:textAllCaps="false"
                 style="@style/Widget.QuietSentry.SecondaryButton"
                 android:text="@string/live_siren" />
 
@@ -93,6 +94,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/qs_space_8"
+                android:textAllCaps="false"
                 style="@style/Widget.QuietSentry.SecondaryButton"
                 android:text="@string/live_torch" />
         </LinearLayout>

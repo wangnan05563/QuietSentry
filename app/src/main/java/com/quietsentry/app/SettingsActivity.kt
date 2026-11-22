@@ -102,6 +102,13 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
+        // 设计文档把「镜头与画质」放在最前：MVP 没有画质档位，先把设备真实能力摆出来，
+        // 用户至少能确认“这台机器能录到多大”，而不是以为应用在偷偷降画质
+        val lensSummary = findViewById<TextView>(R.id.settings_lens_summary)
+        lensSummary.text = runCatching {
+            CameraCapabilities.describe(this).lineSequence().firstOrNull { it.isNotBlank() }
+        }.getOrNull() ?: getString(R.string.settings_lens_unavailable)
+
         quietSwitch = findViewById(R.id.settings_quiet_switch)
         quietStart = findViewById(R.id.settings_quiet_start)
         quietEnd = findViewById(R.id.settings_quiet_end)

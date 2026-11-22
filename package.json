@@ -9,8 +9,8 @@
     "url": "https://github.com/wangnan05563/QuietSentry.git"
   },
   "build": {
-    "buildNumber": 41,
-    "patch": "20261117.4",
-    "builtAt": "2026-11-17 22:27:06"
+    "buildNumber": 65,
+    "patch": "20261121.14",
+    "builtAt": "2026-11-21 20:02:04"
   }
 }

@@ -35,6 +35,7 @@ class EventTimelineActivity : AppCompatActivity() {
 
     private lateinit var listView: ListView
     private lateinit var emptyText: TextView
+    private lateinit var filterBar: View
     private lateinit var deletedButton: Button
     private lateinit var adapter: TimelineAdapter
 
@@ -66,6 +67,8 @@ class EventTimelineActivity : AppCompatActivity() {
 
         listView = findViewById(R.id.event_list)
         emptyText = findViewById(R.id.empty_text)
+        // 空态时先收起筛选条再赋值，避免首屏“无数据 + 一排无效筛选”同时出现
+        filterBar = findViewById(R.id.filter_bar)
         deletedButton = findViewById(R.id.deleted_button)
         adapter = TimelineAdapter()
         listView.adapter = adapter
@@ -166,6 +169,11 @@ class EventTimelineActivity : AppCompatActivity() {
             if (onlyDeleted) R.string.timeline_deleted_empty else R.string.timeline_empty
         )
         emptyText.visibility = if (events.isEmpty()) View.VISIBLE else View.GONE
+        // 一台新设备从没触发过事件时，四个筛选控件既筛不出东西也不知道能筛什么；
+        // 但用户自己勾了筛选后结果为空属于正常反馈，这时必须留着筛选条让他改回来
+        val filtering = typeFilter != null || unreadOnly || lockedOnly || onlyDeleted
+        filterBar.visibility =
+            if (events.isEmpty() && !filtering) View.GONE else View.VISIBLE
     }
 
     private fun openEvent(event: Event) {

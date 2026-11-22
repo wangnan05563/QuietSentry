@@ -122,7 +122,7 @@
         android:layout_marginTop="@dimen/qs_space_8"
         android:text="@string/consent_checkbox"
         android:textColor="@android:color/white"
-        android:visibility="gone" />
+        android:visibility="invisible" />
 
     <Button
         android:id="@+id/consent_action"

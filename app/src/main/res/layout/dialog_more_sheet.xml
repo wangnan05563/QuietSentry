@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_more_sheet"
+    android:orientation="vertical"
+    android:paddingTop="@dimen/qs_space_20"
+    android:paddingBottom="@dimen/qs_space_12">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="@dimen/qs_space_20"
+        android:paddingEnd="@dimen/qs_space_20"
+        android:text="@string/more_sheet_title"
+        android:textColor="@color/qs_text"
+        android:textSize="17sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/qs_space_2"
+        android:paddingStart="@dimen/qs_space_20"
+        android:paddingEnd="@dimen/qs_space_20"
+        android:paddingBottom="@dimen/qs_space_8"
+        android:text="@string/more_sheet_subtitle"
+        android:textColor="@color/qs_text_hint"
+        android:textSize="12sp" />
+
+    <LinearLayout
+        android:id="@+id/more_sheet_items"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+
+    <TextView
+        android:id="@+id/more_sheet_close"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:gravity="center"
+        android:text="@string/more_sheet_close"
+        android:textColor="@color/qs_text_muted"
+        android:textSize="@dimen/qs_text_status" />
+
+</LinearLayout>
