@@ -46,7 +46,7 @@ $stampText = Get-Date -Format 'yyyyMMdd-HHmmss'
 $csvPath = Join-Path $OutDir "stability-$stampText.csv"
 $logPath = Join-Path $OutDir "stability-$stampText.log"
 
-$header = 'time,pid,pss_kb,battery_pct,battery_temp_c,thermal_status,clip_files,thumb_files,crash_lines,service_running'
+$header = 'time,pid,pss_kb,battery_pct,battery_temp_c,thermal_status,clip_files,clip_source,thumb_files,crash_lines,service_running'
 [System.IO.File]::WriteAllText($csvPath, $header + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
 
 function Invoke-Adb {
@@ -88,6 +88,17 @@ function Get-Sample {
     $thumbText = Invoke-Adb @('shell', 'run-as', 'com.quietsentry.app', 'ls', 'files/events/thumbs')
     $thumbCount = ($thumbText -split "`n" | Where-Object { $_ -match '\.jpg' }).Count
 
+    # release 包不是 debuggable，run-as 会被系统拒绝；真机矩阵必须能采到分片数，
+    # 退回相册导出目录计数（导出是 app 的正式行为，不依赖私有目录权限）。
+    $clipDebugReadable = -not ($clipText -match 'not debuggable|run-as:|does not exist')
+    $clipSource = 'private'
+    if (-not $clipDebugReadable) {
+        $exportText = Invoke-Adb @('shell', 'ls', '-1', '/sdcard/Movies/QuietSentry')
+        $clipCount = ($exportText -split "`n" | Where-Object { $_ -match '\.mp4$' }).Count
+        $thumbCount = 0
+        $clipSource = 'exports'
+    }
+
     $crashText = Invoke-Adb @('shell', 'logcat', '-b', 'crash', '-d')
     $crashLines = ($crashText -split "`n" | Where-Object { $_.Trim().Length -gt 0 }).Count
 
@@ -103,6 +114,7 @@ function Get-Sample {
         Thermal        = $thermal
         ClipFiles      = $clipCount
         ThumbFiles     = $thumbCount
+        ClipSource     = $clipSource
         CrashLines     = $crashLines
         ServiceRunning = [bool]$serviceRunning
     }
@@ -120,7 +132,7 @@ Write-Note "CSV: $csvPath"
 
 for ($index = 0; $index -lt $target; $index++) {
     $sample = Get-Sample
-    $row = "$($sample.Time),$($sample.Pid),$($sample.PssKb),$($sample.BatteryPct),$($sample.BatteryTempC),$($sample.Thermal),$($sample.ClipFiles),$($sample.ThumbFiles),$($sample.CrashLines),$($sample.ServiceRunning)"
+    $row = "$($sample.Time),$($sample.Pid),$($sample.PssKb),$($sample.BatteryPct),$($sample.BatteryTempC),$($sample.Thermal),$($sample.ClipFiles),$($sample.ClipSource),$($sample.ThumbFiles),$($sample.CrashLines),$($sample.ServiceRunning)"
     Add-Content -Path $csvPath -Value $row -Encoding UTF8
     Add-Content -Path $logPath -Value $row -Encoding UTF8
 
@@ -143,6 +155,7 @@ $crashLast = if ($rows.Count -gt 0) { [int]$rows[-1].crash_lines } else { 0 }
 $maxTemp = ($rows | ForEach-Object { [double]$_.battery_temp_c } | Measure-Object -Maximum).Maximum
 $minLevel = ($rows | ForEach-Object { [int]$_.battery_pct } | Measure-Object -Minimum).Minimum
 $finalClips = if ($rows.Count -gt 0) { [int]$rows[-1].clip_files } else { 0 }
+$clipSource = if ($rows.Count -gt 0) { $rows[-1].clip_source } else { 'unknown' }
 
 $summary = @"
 === 稳定性采样摘要 ===
@@ -153,7 +166,7 @@ $summary = @"
 崩溃缓冲增长: $($crashLast - $crashFirst) 行
 最高电池温度: $maxTemp C
 最低电量: $minLevel %
-最后分片数: $finalClips
+最后分片数: $finalClips（来源: $clipSource）
 CSV: $csvPath
 
 判定：进程中断与服务非运行应为 0；崩溃缓冲不应有新增；温度曲线需低于设备保护阈值。
