@@ -65,6 +65,25 @@
       "height": 2133,
       "bytes": 144423,
       "sha256": "35243D443EAB1D37BFD6A5AA8DEC0770FED8CD0C349E59570602730C72011468"
+    },
+    {
+      "path": "store/fgs-demo/QuietSentry-FGS-Demo-0.1.0-20261123.2.mp4",
+      "width": 1080,
+      "height": 1920,
+      "durationSeconds": 34.2,
+      "fps": 30,
+      "codec": "h264",
+      "audio": false,
+      "bytes": 1032282,
+      "sha256": "C06C0C4BD853409C101CC199469689D1072ACFE00EABE39951943617421345A1",
+      "note": "camera FGS review demo, captured on emulator-5558 (Pixel 6 AVD / Android 14), edited from real session footage and screenshots"
+    },
+    {
+      "path": "store/fgs-demo/poster.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 136711,
+      "sha256": "81067C0A2A41EC53F52B3CE0D9377947B5532DF872DC4D1C840DD2A1AE541AD5"
     }
   ]
 }
