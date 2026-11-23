@@ -1,0 +1,70 @@
+{
+  "version": "0.1.0-20261123.2",
+  "versionCode": 76,
+  "generatedAt": "2026-11-23",
+  "assets": [
+    {
+      "path": "store/icon-512.png",
+      "width": 512,
+      "height": 512,
+      "bytes": 62528,
+      "sha256": "74E8B2D3332321316D830309358E4550627A398237AFD748955CF2DFBD4E8BC3"
+    },
+    {
+      "path": "store/feature-graphic-1024x500.png",
+      "width": 1024,
+      "height": 500,
+      "bytes": 160186,
+      "sha256": "638B6A0A6B80623F27C66CACD3288FCC94CA0BA6BEC9834A7BA583A05698A6C1"
+    },
+    {
+      "path": "store/screenshots/phone/01-live-view.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 1035270,
+      "sha256": "6D26CF1A0AAB1EF0285FF602CE7974E85DB413A2B43D706E16547A1DF212DAB8"
+    },
+    {
+      "path": "store/screenshots/phone/02-guard.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 1622413,
+      "sha256": "AEB1103245B8E09A088E7F51199418356A932EFC6C73E365F9CDB69B843456A5"
+    },
+    {
+      "path": "store/screenshots/phone/03-pairing.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 208807,
+      "sha256": "AF4186FD96134F69385CD24E708B621958ED13564F8592276A4615FCC8F2AB5F"
+    },
+    {
+      "path": "store/screenshots/phone/04-device-list.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 213918,
+      "sha256": "F6D3A5D489BB2309714313DAE2DA694D1045B365AA515532173154CE767CB703"
+    },
+    {
+      "path": "store/screenshots/phone/05-settings.png",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 263156,
+      "sha256": "CE5D63AF534650AFB67ABB6CE69CB09BA0AD1E4F1E4FF797D51EACE6C4A36C2D"
+    },
+    {
+      "path": "store/screenshots/tablet/01-settings.png",
+      "width": 1200,
+      "height": 2133,
+      "bytes": 244738,
+      "sha256": "2A993D43147EA4CBF4C11F8D9C0B8839A3B6979FADAB2BC48A572A6DABA25741"
+    },
+    {
+      "path": "store/screenshots/tablet/02-remote-access.png",
+      "width": 1200,
+      "height": 2133,
+      "bytes": 144423,
+      "sha256": "35243D443EAB1D37BFD6A5AA8DEC0770FED8CD0C349E59570602730C72011468"
+    }
+  ]
+}

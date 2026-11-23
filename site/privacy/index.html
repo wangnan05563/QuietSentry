@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>静哨 QuietSentry · 隐私政策</title>
+<meta name="description" content="静哨 QuietSentry 隐私政策：无账号、无云端、视频留在设备本地。">
+<style>
+  :root{
+    --teal:#00bfa6;
+    --teal-dark:#008f7c;
+    --ink:#101817;
+    --muted:#5b6b68;
+    --line:#dce7e4;
+    --bg:#f4fbf9;
+    --card:#ffffff;
+    --warn-bg:#fff8e6;
+    --warn-line:#f0d69a;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 500px at 50% -160px, rgba(0,191,166,.15), transparent 70%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    line-height:1.8;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--teal-dark)}
+  .wrap{max-width:920px;margin:0 auto;padding:28px 20px 64px}
+  header{
+    display:flex;align-items:center;gap:16px;
+    padding:26px 28px;margin:18px 0 16px;
+    background:var(--card);border:1px solid var(--line);border-radius:22px;
+    box-shadow:0 18px 50px rgba(16,24,23,.07);
+  }
+  header img{width:64px;height:64px;border-radius:16px;flex:none}
+  h1{font-size:clamp(24px,4vw,34px);line-height:1.3;margin:0 0 4px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:14px;margin:0}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .badge{font-size:12px;padding:3px 10px;border-radius:999px;background:#e9fbf7;color:var(--teal-dark);border:1px solid #bdeee5}
+  .lead{
+    margin:16px 0;padding:20px 22px;border-radius:18px;
+    background:linear-gradient(135deg,#0f8f7d,#00bfa6);
+    color:#fff;font-size:16px;
+    box-shadow:0 16px 36px rgba(0,143,124,.2);
+  }
+  .lead strong{font-weight:700}
+  .toc{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 18px;
+    margin:18px 0 24px;padding:18px 22px;background:var(--card);
+    border:1px solid var(--line);border-radius:18px;
+  }
+  .toc a{display:block;color:var(--ink);text-decoration:none;font-size:14px;padding:4px 0;border-bottom:1px dashed transparent}
+  .toc a:hover{color:var(--teal-dark);border-bottom-color:#bdeee5}
+  .toc .n{color:var(--teal-dark);font-weight:700;margin-right:6px;font-variant-numeric:tabular-nums}
+  section{
+    background:var(--card);border:1px solid var(--line);border-radius:20px;
+    padding:24px 26px;margin:14px 0;
+    box-shadow:0 8px 28px rgba(16,24,23,.035);
+    scroll-margin-top:18px;
+  }
+  h2{font-size:19px;margin:0 0 12px;display:flex;gap:10px;align-items:baseline;letter-spacing:-.01em}
+  h2 .num{font-size:12px;color:var(--teal-dark);background:#e9fbf7;border:1px solid #bdeee5;padding:1px 8px;border-radius:999px;flex:none}
+  h3{font-size:15px;margin:18px 0 6px}
+  p{margin:8px 0}
+  ul{margin:8px 0 8px 22px;padding:0}
+  li{margin:5px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{text-align:left;vertical-align:top;padding:10px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;background:#f7fbfa}
+  tr:last-child td{border-bottom:none}
+  .note{
+    border-left:4px solid var(--teal);background:#f5fffd;padding:12px 16px;border-radius:0 12px 12px 0;
+    margin:14px 0;color:#27423d;font-size:14px;
+  }
+  .warn{
+    border:1px solid var(--warn-line);background:var(--warn-bg);padding:14px 16px;border-radius:14px;
+    margin:14px 0;font-size:14px;
+  }
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0}
+  .mini{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:#fbfefd}
+  .mini b{display:block;font-size:13px;color:var(--teal-dark);margin-bottom:3px}
+  .mini span{font-size:13px;color:var(--muted)}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f1f5f4;padding:1px 5px;border-radius:6px;font-size:12px}
+  .en{border-top:1px solid var(--line);margin-top:18px;padding-top:16px}
+  .en h2{font-size:18px}
+  .en p,.en li{font-size:14px;color:#33413f}
+  footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 0 0;line-height:1.8}
+  @media (max-width:600px){
+    .wrap{padding:14px 12px 40px}
+    header{padding:18px;gap:12px}
+    header img{width:52px;height:52px}
+    section{padding:18px;border-radius:16px}
+    table{display:block;overflow-x:auto;white-space:nowrap}
+    th,td{padding:8px}
+  }
+  @media print{
+    body{background:#fff}
+    .toc{display:none}
+    section{box-shadow:none;break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img src="assets/icon.png" alt="静哨 QuietSentry 图标">
+    <div>
+      <h1>静哨 QuietSentry · 隐私政策</h1>
+      <p class="sub">生效日期：2026-11-23　|　最近更新：2026-11-23</p>
+      <div class="badges">
+        <span class="badge">无账号</span>
+        <span class="badge">无云端</span>
+        <span class="badge">无广告 / 统计</span>
+        <span class="badge">视频留在本机</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="lead">
+    <strong>一句话说明：</strong>静哨把一台闲置 Android 设备变成本地值守摄像头。我们不运营云端服务器，不接收、不出售、不共享你的画面、音频或事件数据；录制内容保存在你自己的设备上。
+  </div>
+
+  <nav class="toc" aria-label="目录">
+    <a href="#s1"><span class="n">01</span>适用范围与开发者</a>
+    <a href="#s2"><span class="n">02</span>我们处理哪些数据</a>
+    <a href="#s3"><span class="n">03</span>权限与使用目的</a>
+    <a href="#s4"><span class="n">04</span>局域网传输与第三方集成</a>
+    <a href="#s5"><span class="n">05</span>保留、删除与你的选择</a>
+    <a href="#s6"><span class="n">06</span>儿童与家庭使用</a>
+    <a href="#s7"><span class="n">07</span>安全措施与边界</a>
+    <a href="#s8"><span class="n">08</span>政策变更与联系方式</a>
+  </nav>
+
+  <section id="s1">
+    <h2><span class="num">01</span>适用范围与开发者</h2>
+    <p>本政策适用于 Android 应用 <strong>静哨 QuietSentry</strong>（包名 <code>com.quietsentry.app</code>）。应用由开源项目 QuietSentry 维护，项目主页为 GitHub 仓库 <a href="https://github.com/wangnan05563/QuietSentry">wangnan05563/QuietSentry</a>。</p>
+    <p>静哨不提供账号体系、订阅服务或云端中继。你安装应用后，相机端与观看端之间的数据只在你控制的局域网内传输。</p>
+  </section>
+
+  <section id="s2">
+    <h2><span class="num">02</span>我们处理哪些数据</h2>
+    <p>这里的“处理”指在设备本地读写，不表示上传到开发者服务器。开发者不接收以下任何内容。</p>
+    <table>
+      <thead><tr><th>数据</th><th>用途</th><th>存放位置</th><th>是否共享</th></tr></thead>
+      <tbody>
+        <tr><td>视频、照片、事件缩略图</td><td>值守录制、黑屏拍照、事件回看</td><td>应用私有目录 <code>files/clips</code>、<code>files/private_gallery</code></td><td>否</td></tr>
+        <tr><td>设备型号、镜头能力、电量/温度状态</td><td>画质选项、状态页与降载判断</td><td>仅本机内存/本地状态</td><td>否</td></tr>
+        <tr><td>合法用途确认记录</td><td>证明你已完成首次合规确认</td><td>仅本机</td><td>否</td></tr>
+        <tr><td>配对令牌、设备名称、TLS 指纹、审计日志</td><td>设备配对、撤销授权、安全审计</td><td>仅本机应用私有目录</td><td>否</td></tr>
+        <tr><td>崩溃日志、广告标识、位置、通讯录、账号</td><td>不收集</td><td>—</td><td>否</td></tr>
+      </tbody>
+    </table>
+    <div class="note">静哨没有广告 SDK、统计 SDK、推送 SDK，也不读取已安装应用列表。应用内的事件、告警与通知全部由本机生成。</div>
+  </section>
+
+  <section id="s3">
+    <h2><span class="num">03</span>权限与使用目的</h2>
+    <div class="grid">
+      <div class="mini"><b>相机 CAMERA</b><span>前台服务录制视频；黑屏模式拍照；观看端扫码配对。扫码图像只在本机解析，不上传。</span></div>
+      <div class="mini"><b>麦克风 RECORD_AUDIO</b><span>可选录入环境声音，用于事件检测与视频音轨；拒绝后只录画面。</span></div>
+      <div class="mini"><b>通知 POST_NOTIFICATIONS</b><span>显示“正在值守/在线待机”的常驻通知。Android 13+ 缺少该权限时应用拒绝启动值守。</span></div>
+      <div class="mini"><b>前台服务 camera / microphone</b><span>锁屏或息屏后继续采集；采集期间通知常驻且含停止入口。</span></div>
+      <div class="mini"><b>前台服务 dataSync / specialUse</b><span>远程暂停后进入“在线待机”，停采但仍允许局域网内查看状态；通知文案会明确“已暂停、设备仍在线”。</span></div>
+      <div class="mini"><b>网络 INTERNET / 网络状态</b><span>本机监听局域网端口，供已配对观看端连接；判断 Wi‑Fi 状态以提示离线与恢复摘要。</span></div>
+      <div class="mini"><b>电池优化豁免</b><span>按需引导，降低锁屏后被系统冻结导致值守中断的概率；拒绝不影响其他功能。</span></div>
+      <div class="mini"><b>开机完成广播</b><span>重启后提示“值守已中断”，不会自动启动采集。</span></div>
+    </div>
+    <p>应用不申请位置、通讯录、电话、短信权限；<code>WRITE_EXTERNAL_STORAGE</code> 仅在 Android 9 及以下导出到相册时使用。</p>
+  </section>
+
+  <section id="s4">
+    <h2><span class="num">04</span>局域网传输与第三方集成</h2>
+    <h3>相机端与观看端</h3>
+    <p>相机端在本机开启 HTTP 8080 与 HTTPS 8443 服务。默认优先使用 <strong>TLS 8443</strong>，首次配对会核对设备指纹；除 <code>/api/info</code> 与 <code>/api/pair</code> 外，所有接口都要求配对令牌。观看端输入的 6 位配对码只在本机校验，有效期约 5 分钟，使用后失效。</p>
+    <p>“手动添加设备”入口按用户填写的地址与端口走 HTTP，属于给端口映射/跨网段场景的兼容路径；该路径为明文传输，需由你确认所在网络可信，或自行用 VPN 覆盖。</p>
+    <h3>公网访问</h3>
+    <p>静哨不提供云端中继。若你要在家庭网络外访问，需要自行搭建 Tailscale、WireGuard 等 VPN；应用不持有你的组网密钥，也不经开发者服务器转发画面。</p>
+    <h3>RTSP / ONVIF</h3>
+    <p>第三方集成默认关闭；开启前应用会展示隐私确认。开启后由本机提供 RTSP/ONVIF 服务，使用 Basic 认证，连续失败会临时锁定，并可在 Web 控制台一键踢出会话。是否开启、何时关闭由你决定。</p>
+    <div class="warn"><strong>请仅在你本人拥有或已获授权的场所使用。</strong>在他人不知情的情况下拍摄他人生活空间，在多数地区可能违法。静哨在采集期间持续显示系统通知，黑屏模式只关闭屏幕发光，不隐藏通知。</div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="num">05</span>保留、删除与你的选择</h2>
+    <ul>
+      <li><strong>自动清理：</strong>录制内容默认保留 7 天，且总量不超过当前可用空间的 50%；超出后按策略清理旧文件。</li>
+      <li><strong>手动删除：</strong>可在事件回看/图库中删除单条内容；也可在系统设置中清除应用数据。</li>
+      <li><strong>卸载：</strong>卸载应用会删除应用私有目录中的视频、照片、配对令牌、审计日志与确认记录；开发者没有副本可删。</li>
+      <li><strong>撤销授权：</strong>相机端可随时撤销某个观看端令牌；撤销后对方请求返回 401，画面断开。</li>
+      <li><strong>关闭采集：</strong>通知栏“停止”或应用内“停止值守”会结束采集；远程暂停后可由观看端发起，但恢复值守必须回到相机端确认。</li>
+    </ul>
+  </section>
+
+  <section id="s6">
+    <h2><span class="num">06</span>儿童与家庭使用</h2>
+    <p>静哨面向成年家庭用户，不以儿童为目标受众，不主动收集儿童个人信息。请勿将设备对准儿童活动区域进行未经授权的拍摄；如用于家庭看护，应由监护人明确同意并遵守当地法律。</p>
+  </section>
+
+  <section id="s7">
+    <h2><span class="num">07</span>安全措施与边界</h2>
+    <p>应用提供 TLS 传输、配对令牌、应用锁、隐私遮罩、审计日志与远程暂停等保护。但任何本地应用都无法保证绝对安全：设备丢失、系统被 root、局域网被入侵或用户主动选择明文 HTTP 入口，都可能降低保护强度。</p>
+    <p>建议：使用可信 Wi‑Fi、开启应用锁、定期撤销不再使用的观看端、不要在公网直接暴露 8080/8443 端口；需要远程访问时优先使用 VPN。</p>
+  </section>
+
+  <section id="s8">
+    <h2><span class="num">08</span>政策变更与联系方式</h2>
+    <p>如果功能或数据处理方式发生变化，我们会更新本页并同步修改“最近更新”日期；重大变化会在应用内或项目仓库说明。</p>
+    <p>隐私问题、数据删除协助或安全报告，可通过项目 Issues 联系：<a href="https://github.com/wangnan05563/QuietSentry/issues">github.com/wangnan05563/QuietSentry/issues</a>。请勿在公开 Issue 中粘贴令牌、配对码或含个人画面的截图。</p>
+
+    <div class="en">
+      <h2><span class="num">EN</span>English summary</h2>
+      <p><strong>QuietSentry</strong> turns a spare Android device into a local-first security camera. We do not operate a cloud service and do not collect, receive, sell, or share your video, audio, event data, or personal information. Recordings are stored in the app's private storage on your own device and are retained for up to 7 days or within 50% of free space.</p>
+      <p>The app requests camera, microphone, notifications, foreground-service (camera/microphone/dataSync/specialUse), local network, network-state, battery-optimization, boot-completed, and legacy storage permissions only for their stated on-device purposes. LAN streaming uses HTTPS/TLS 8443 with pairing tokens by default; the optional manual HTTP entry is plaintext and should only be used on a trusted network. No account, ads, analytics, or crash-reporting SDK is included. Optional RTSP/ONVIF integration is off by default and requires explicit user consent.</p>
+      <p>Uninstalling the app deletes its local data. For privacy requests, contact the project via GitHub Issues. Use the app only in locations you own or are authorized to monitor, and comply with local recording laws.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div>静哨 QuietSentry · 本地优先的家庭值守摄像头</div>
+    <div>本页为应用隐私说明，不构成法律意见；如所在地区有更严格的告知/同意要求，请以当地法律为准。</div>
+  </footer>
+</div>
+</body>
+</html>
