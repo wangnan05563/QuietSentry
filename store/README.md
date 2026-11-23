@@ -17,6 +17,7 @@
 | `screenshots/tablet/02-remote-access.png` | 1200×2133 PNG | 平板截图：远程访问与连通性诊断 |
 | `fgs-demo/QuietSentry-FGS-Demo-0.1.0-20261123.2.mp4` | 1080×1920，30 fps，34.2 秒，H.264，无音轨 | Play Console camera 前台服务声明演示视频 |
 | `fgs-demo/poster.png` | 1080×1920 PNG | 演示视频封面 |
+| `play-console/README.md` | 提交说明 | Play Console 字段、App content 答案、FGS 声明与提审顺序 |
 
 ## 制作说明
 
