@@ -115,6 +115,13 @@ powershell -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
 - D7 的 `NO_AUTOSTART` 表示重启后进程与服务都没起来（符合 BootReceiver 只提示的预期）；`AUTOSTARTED` 需要查是否被 ROM 自启管理拉起。
 - D2 断电、D5 边充边录、D6 存储压力涉及外部电源/散热/填盘，**不在脚本里伪装自动化**，仍按 `docs/05` §4 手工执行。
 
+**工具自测记录（2026-11-24，模拟器，不是真机门禁）**：
+
+- `--arm` PASS，`guardStarted`、`foregroundService`、`fgsNotification` 均为 true。
+- D3 `-Count 2 -IntervalMin 1`：两次 `force-stop` 均为 `KILLED`；中间自动重新武装成功一次、失败一次后由下一轮补拉成功。说明自动重开链路可用，但不能替代真机强杀测试。
+- D4 实际注入未取得有效结果：模拟器 ADB 在 `wm dismiss-keyguard` / shell 命令上卡死，且 AVD 磁盘空间耗尽，脚本已按新逻辑 `exit 2`，不把“未武装”误记成 `SERVICE_LOST`。
+- D7 只做了 `-DryRun`，真重启与 `boot_completed` 仍待真机。
+
 ---
 
 ## 3. 八品牌矩阵记录表
