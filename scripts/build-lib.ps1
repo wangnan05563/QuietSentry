@@ -20,6 +20,10 @@ function Get-BuildRoot {
             if ($value) { $prefix = $value }
         }
     }
+    # 允许 qs.buildDir 配成绝对路径（换盘构建时避免拼成 X:\proj\E:\...）。
+    if ([System.IO.Path]::IsPathRooted($prefix)) {
+        return [System.IO.Path]::GetFullPath($prefix)
+    }
     return [System.IO.Path]::GetFullPath((Join-Path $script:ProjectRoot $prefix))
 }
 

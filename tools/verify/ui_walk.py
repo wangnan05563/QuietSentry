@@ -1,4 +1,4 @@
-"""QuietSentry 模拟器逐页 UI 走查脚手架（黑盒：uiautomator dump + adb 输入）。
+r"""QuietSentry 模拟器逐页 UI 走查脚手架（黑盒：uiautomator dump + adb 输入）。
 
 用法：
     python tools/verify/ui_walk.py pages      # 遍历"更多"菜单与设置页，产出 dump/截图/审计
@@ -146,9 +146,12 @@ def back():
 
 
 def open_app():
-    # 注意：release 包的 Activity 名与 manifest 组件路径不一致，am start 会报
-    # "Activity class does not exist"；用 LAUNCHER intent 启动最稳
-    adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1", timeout=60)
+    # 优先用显式组件启动；release 包的 launcher 可能先落到 ConsentActivity，
+    # 但这仍是本包的前台页面，后续由 prepare_ui 走合规页。
+    out = adb("shell", "am", "start", "-W", "-n", f"{PKG}/.MainActivity", timeout=60)
+    if "Status: ok" not in out and "Complete" not in out:
+        # 兼容个别 ROM 上组件别名不可用的情况；monkey 只作为兜底。
+        adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1", timeout=60)
     time.sleep(3)
 
 

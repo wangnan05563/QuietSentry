@@ -38,11 +38,6 @@ import ui_walk  # noqa: E402  (复用已验证的 dump/tap/open_app 实现)
 
 PKG = "com.quietsentry.app"
 DEFAULT_OUT = os.path.join(ROOT, "verify-output", "real-device")
-DEFAULT_APK = os.path.join(
-    os.environ.get("QS_BUILD_DIR", r"E:\QuietSentryBuild"),
-    "release",
-    "QuietSentry-0.1.0-20261123.2-release.apk",
-)
 
 
 def resolve_adb():
@@ -86,12 +81,13 @@ def parse_devices():
 
 
 class DeviceRunner:
-    def __init__(self, serial, out_root, label="", apk="", fresh=False, skip_install=False):
+    def __init__(self, serial, out_root, label="", apk="", fresh=False, skip_install=False, expect_version=""):
         self.serial = serial
         self.label = label or serial
         self.apk = apk
         self.fresh = fresh
         self.skip_install = skip_install
+        self.expect_version = (expect_version or "").strip()
         self.out = os.path.join(out_root, safe_name(serial), STAMP)
         self.ui = os.path.join(self.out, "ui")
         self.shots = os.path.join(self.out, "screenshots")
@@ -108,6 +104,8 @@ class DeviceRunner:
         self.notes = []
         self.fatal_lines = []
         self.error = ""
+        self.original_settings = None
+        self.exported_before = None
 
     # ---------- adb / UI 基元 ----------
     def adb(self, *args, timeout=90, binary=False):
@@ -181,16 +179,55 @@ class DeviceRunner:
             self.shell("input", "keyevent", "26", timeout=30)
             time.sleep(2)
 
+    def _get_setting(self, namespace, key):
+        try:
+            value = self.shell("settings", "get", namespace, key, timeout=15).strip()
+        except Exception:
+            return ""
+        return "" if value in ("null", "None") else value
+
+    def _capture_settings(self):
+        if self.original_settings is not None:
+            return
+        self.original_settings = {
+            ("system", "screen_off_timeout"): self._get_setting("system", "screen_off_timeout"),
+            ("global", "stay_on_while_plugged_in"): self._get_setting("global", "stay_on_while_plugged_in"),
+            ("global", "window_animation_scale"): self._get_setting("global", "window_animation_scale"),
+            ("global", "transition_animation_scale"): self._get_setting("global", "transition_animation_scale"),
+            ("global", "animator_duration_scale"): self._get_setting("global", "animator_duration_scale"),
+        }
+
+    def restore_settings(self):
+        """恢复运行前的设备设置；这些是系统级持久设置，不能只改不还。"""
+        if not self.original_settings:
+            return
+        for (namespace, key), value in self.original_settings.items():
+            try:
+                if value:
+                    self.shell("settings", "put", namespace, key, value, timeout=15)
+                else:
+                    # 原值为空/null 时不能跳过：跳过等于把本次写入的 7/1800000/0 永久留下。
+                    self.shell("settings", "delete", namespace, key, timeout=15)
+            except Exception as exc:
+                self.notes.append(f"恢复 {namespace}/{key} 失败：{exc}")
+        self.original_settings = None
+
     def keep_awake(self, enabled):
+        if not enabled:
+            self.restore_settings()
+            return
+        self._capture_settings()
         for args in (
-            ("svc", "power", "stayon", "true" if enabled else "false"),
-            ("settings", "put", "system", "screen_off_timeout",
-             "1800000" if enabled else "30000"),
+            ("settings", "put", "global", "stay_on_while_plugged_in", "7"),
+            ("settings", "put", "system", "screen_off_timeout", "1800000"),
+            ("settings", "put", "global", "window_animation_scale", "0"),
+            ("settings", "put", "global", "transition_animation_scale", "0"),
+            ("settings", "put", "global", "animator_duration_scale", "0"),
         ):
             try:
                 self.shell(*args, timeout=15)
             except Exception as exc:
-                self.notes.append(f"keep_awake({'true' if enabled else 'false'}) 失败：{exc}")
+                self.notes.append(f"keep_awake(true) 失败：{exc}")
 
     # ---------- 设备信息 ----------
     def prop(self, key):
@@ -234,9 +271,32 @@ class DeviceRunner:
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(content or "")
 
+    def verify_expected_version(self):
+        if not self.expect_version:
+            return
+        actual = (self.info.get("versionName") or "").strip()
+        if actual != self.expect_version:
+            raise RuntimeError(
+                f"版本不符：设备为 {actual or '?'}，要求 {self.expect_version}；"
+                "请用 --apk 安装当前包，或修正 --expect-version"
+            )
+
     # ---------- 安装与准备 ----------
+    def ensure_online(self):
+        """先确认设备在线；ADB 掉线不能被误报成“未安装”。"""
+        state = (self.adb("get-state", timeout=20) or "").strip()
+        if state != "device":
+            raise RuntimeError(
+                f"{self.serial} 设备不可用（adb get-state={state or '空'}）；"
+                "请检查数据线、USB 调试授权和 adb devices"
+            )
+
     def install_if_needed(self):
-        installed = PKG in self.shell("pm", "path", PKG, timeout=30)
+        self.ensure_online()
+        pm_out = self.shell("pm", "path", PKG, timeout=30)
+        if re.search(r"(?im)^(?:adb(?:\.exe)?:\s*)?(?:error:\s*)?(?:device .*not found|device offline|device unauthorized|no devices/emulators found|cannot connect to|more than one device/emulator)", pm_out):
+            raise RuntimeError(f"{self.serial} ADB 连接失败：{pm_out.strip()}")
+        installed = pm_out.strip().startswith("package:")
         if self.apk and not self.skip_install:
             if not os.path.isfile(self.apk):
                 raise RuntimeError(f"APK 不存在：{self.apk}")
@@ -247,7 +307,9 @@ class DeviceRunner:
         if not installed:
             raise RuntimeError(f"{self.serial} 未安装 {PKG}，请用 --apk 指定 APK")
         if self.fresh:
-            self.shell("pm", "clear", PKG, timeout=60)
+            out = self.shell("pm", "clear", PKG, timeout=60)
+            if "Success" not in out:
+                raise RuntimeError(f"pm clear 失败：{out.strip()}")
         # 清空崩溃缓冲区，保证最后统计的是本轮而非上一次录制留下的 FATAL
         self.shell("logcat", "-b", "crash", "-c", timeout=30)
         self.shell("logcat", "-c", timeout=30)
@@ -258,9 +320,8 @@ class DeviceRunner:
             "android.permission.POST_NOTIFICATIONS",
         ):
             self.shell("pm", "grant", PKG, permission, timeout=30)
-        for key in ("window_animation_scale", "transition_animation_scale", "animator_duration_scale"):
-            self.shell("settings", "put", "global", key, "0", timeout=30)
-        # 首次合规/引导页可能停留超过 30 秒，准备阶段先保持亮屏；进 monitor 前再放开
+        # 首次合规/引导页可能停留超过 30 秒，准备阶段先保持亮屏；进 monitor 前再放开。
+        # keep_awake(true) 会同时记录并临时改动画缩放，结束时统一恢复。
         self.keep_awake(True)
         self.wake()
 
@@ -290,14 +351,19 @@ class DeviceRunner:
             else:
                 break
         self.open_app()
+        empty_streak = 0
         for index in range(40):
             if "MainActivity" in self.activity():
                 return True
             nodes = self.dump(f"prep{index}")
             if not nodes:
+                empty_streak += 1
+                if empty_streak >= 3:
+                    raise RuntimeError("连续 3 次 UI dump 为空；ADB 或前台 Activity 异常，停止盲重试")
                 time.sleep(1.5)
                 self.open_app()
                 continue
+            empty_streak = 0
             # 第三页是“勾选确认 + 开始使用”，先勾再点
             if self.tap_rid(nodes, "consent_checkbox"):
                 time.sleep(0.8)
@@ -386,6 +452,12 @@ class DeviceRunner:
                 self.open_app()
                 time.sleep(2)
         nodes = self.dump("guard-main")
+        # 上一轮可能停在“未连接电源”确认框；先点“先接电源”取消这次待确认的启动，
+        # 回到首页后再重新点“开始值守”，避免把旧对话框当成首页。
+        if self.find_text(nodes, "未连接电源", exact=True):
+            self.tap_text(nodes, "先接电源", exact=True)
+            time.sleep(1)
+            nodes = self.dump("guard-main")
         if self.find_text(nodes, "停止值守", exact=True):
             return True
         if not self.tap_text(nodes, "开始值守", exact=True):
@@ -394,6 +466,16 @@ class DeviceRunner:
         time.sleep(2)
         for _ in range(10):
             nodes = self.dump("guard-dialog")
+            # “仅充电时值守”默认开启但测试机没接电源时，App 会弹二次确认；
+            # 不处理就会卡在这里，表现为“开始值守后未出现停止值守”。
+            if self.find_text(nodes, "未连接电源", exact=True):
+                if self.tap_text(nodes, "仍然开始", exact=True):
+                    self.notes.append("电源提示：未连接电源，已选择“仍然开始”（App 限时 2 小时后自动停止）")
+                    time.sleep(2)
+                    continue
+                if self.tap_text(nodes, "先接电源", exact=True):
+                    self.notes.append("电源提示：未连接电源，已选择“先接电源”，请接电后重跑")
+                    return False
             if self.tap_text(nodes, "暂不授权，直接开始", exact=True):
                 time.sleep(2)
                 continue
@@ -421,13 +503,16 @@ class DeviceRunner:
 
     def service_state(self):
         services = self.shell("dumpsys", "activity", "services", PKG, timeout=60)
-        foreground = bool(re.search(r"isForeground=true", services)) and "CaptureService" in services
+        block = re.search(
+            r"(?s)ServiceRecord\{[^\n]*com\.quietsentry\.app/\.CaptureService.*?(?=ServiceRecord\{|\Z)",
+            services,
+        )
+        foreground = bool(block and re.search(r"isForeground=true", block.group(0)))
         return services, foreground
 
     def notification_present(self):
-        # 只看 dumpsys 的“当前状态”段，并且只认 NotificationRecord 里的 pkg=；
-        # AppSettings/历史段也会出现包名，直接搜字符串会误判。
-        dump = self.shell("dumpsys", "notification", "--noredact", timeout=90)
+        # 不看正文；dumpsys notification 默认脱敏即可匹配 pkg=，避免把用户通知写进证据。
+        dump = self.shell("dumpsys", "notification", timeout=90)
         active = re.split(r"Notification History:|Archive:", dump, maxsplit=1)[0]
         return bool(re.search(r"NotificationRecord\([^\n]*pkg=com\.quietsentry\.app", active))
 
@@ -475,23 +560,28 @@ class DeviceRunner:
         asleep_samples = 0
         for index in range(count):
             sample = self.sample(screen_off=screen_off)
-            if prev_pid is not None and sample["pid"] != prev_pid:
+            # 只在上一点确实有进程时比较；100 -> 0 或 100 -> 200 都算一次中断，
+            # 0 -> 100 是首次启动/人工重开，不是中断。
+            if prev_pid is not None and prev_pid > 0 and sample["pid"] != prev_pid:
                 pid_interruptions += 1
             prev_pid = sample["pid"]
             if not sample["serviceRunning"]:
                 service_off += 1
-            if not sample["notification"]:
+            if sample["serviceRunning"] and not sample["notification"]:
                 notif_missing += 1
             if sample["wakefulness"] == "Asleep":
                 asleep_samples += 1
             self.samples.append(sample)
             remaining = total_seconds - (time.time() - start)
             if index < count - 1:
-                time.sleep(max(1.0, min(interval, remaining)))
+                if remaining <= 0:
+                    break
+                time.sleep(max(0.5, min(interval, remaining)))
         if screen_off:
             self.wake()
         return {
             "samples": len(self.samples),
+            "elapsedSec": round(time.time() - start, 1),
             "pidInterruptions": pid_interruptions,
             "serviceOff": service_off,
             "notificationMissing": notif_missing,
@@ -536,27 +626,45 @@ class DeviceRunner:
             pass
         else:
             self.notes.append("停止确认框没有找到“停止”")
-        time.sleep(8)
+        # FGS 通知和导出都是异步的，固定 8 秒容易偶发 PARTIAL；最多等 20 秒。
+        deadline = time.time() + 20
+        notification_gone = False
+        while time.time() < deadline:
+            notification_gone = not self.notification_present()
+            if notification_gone:
+                break
+            time.sleep(2)
+        time.sleep(2)
         nodes = self.dump("stop-after")
         self.shot("stop-after")
         texts = self.text_nodes(nodes)
         stopped = not self.find_text(nodes, "停止值守", exact=True)
         start_visible = bool(self.find_text(nodes, "开始值守", exact=True))
-        saving = any("保存" in text for text in texts)
+        saving = any(
+            re.search(r"正在保存|保存中|已保存|保存到相册", text) and "保存失败" not in text
+            for text in texts
+        )
         # 保存可能异步；再等 10 秒补一张
         if saving:
             time.sleep(10)
             nodes = self.dump("stop-after-save")
             self.shot("stop-after-save")
-            saving = any("保存" in text for text in self.text_nodes(nodes))
-        notification_gone = not self.notification_present()
+            saving = any(
+                re.search(r"正在保存|保存中|已保存|保存到相册", text) and "保存失败" not in text
+                for text in self.text_nodes(nodes)
+            )
         exported = self.exported_clip_count()
+        before = self.exported_before
+        # before=-1 表示基线读取失败；不能把当前总数当成新增，直接判不成立。
+        delta = (exported - before) if (before is not None and before >= 0) else -1
         return {
             "stopped": stopped,
             "startVisible": start_visible,
             "savingVisible": saving,
             "notificationGone": notification_gone,
             "exportedClips": exported,
+            "exportedBefore": before,
+            "exportedDelta": delta,
         }
 
     def exported_clip_count(self):
@@ -597,6 +705,13 @@ class DeviceRunner:
             self.diag = {"skipped": True}
             return self.diag
         self.keep_awake(True)
+        try:
+            return self._collect_diagnostics_body()
+        finally:
+            # 任何提前 return 或异常都必须恢复常亮/动画设置。
+            self.keep_awake(False)
+
+    def _collect_diagnostics_body(self):
         self.wake()
         self.back_to_main()
         self.close_overlays()
@@ -644,20 +759,41 @@ class DeviceRunner:
         self.diag["resultTexts"] = result_texts[:80]
         self.shot("settings-diagnostics")
         self.back_to_main()
-        self.keep_awake(False)
         return self.diag
 
     # ---------- 日志与结论 ----------
     def collect_logs(self):
         crash = self.shell("logcat", "-b", "crash", "-d", timeout=90)
-        self.write_log("logcat-crash.txt", crash)
-        for line in crash.splitlines():
-            if "FATAL EXCEPTION" in line or re.search(r"ANR in\s+" + re.escape(PKG), line):
+        crash_lines = crash.splitlines()
+        relevant_crash = set()
+        for index, line in enumerate(crash_lines):
+            window = "\n".join(crash_lines[index:index + 10])
+            if "FATAL EXCEPTION" in line and PKG in window:
                 self.fatal_lines.append(line.strip())
+                # 只保留当前 FATAL 块，遇到下一条 FATAL 立刻截断；
+                # 否则 10 行窗口会把下一个应用的崩溃也带进证据文件。
+                for offset in range(10):
+                    current = index + offset
+                    if current >= len(crash_lines):
+                        break
+                    if offset > 0 and "FATAL EXCEPTION" in crash_lines[current]:
+                        break
+                    relevant_crash.add(current)
+            elif re.search(r"ANR in\s+" + re.escape(PKG), line):
+                self.fatal_lines.append(line.strip())
+                relevant_crash.add(index)
+        # 崩溃缓冲区是全设备共享的，不能整段落盘：只保留 QuietSentry 的 FATAL/ANR 上下文。
+        filtered_crash = "\n".join(crash_lines[i] for i in sorted(relevant_crash))
+        self.write_log("logcat-crash.txt", filtered_crash)
         main = self.shell("logcat", "-d", "-t", "4000", timeout=120)
-        self.write_log("logcat.txt", main)
+        # 不全量落盘：只保留 QuietSentry 相关行，避免把其他 App 的 token/URL 带进证据包。
+        app_lines = [
+            line for line in main.splitlines()
+            if "com.quietsentry.app" in line or "QuietSentry" in line
+        ]
+        self.write_log("logcat.txt", "\n".join(app_lines))
         self.write_log("activity-services.txt", self.shell("dumpsys", "activity", "services", PKG, timeout=60))
-        self.write_log("notification.txt", self.shell("dumpsys", "notification", "--noredact", timeout=90))
+        self.write_log("notification.txt", self.shell("dumpsys", "notification", timeout=90))
 
     def verdict(self, checks):
         if not checks.get("main"):
@@ -667,6 +803,10 @@ class DeviceRunner:
         if checks.get("screenOffRequested") and checks.get("asleepSamples", 0) == 0:
             return "PARTIAL"
         if checks.get("pidInterruptions", 0) > 0 or checks.get("serviceOff", 0) > 0:
+            return "FAIL"
+        if checks.get("notificationMissing", 0) > 0:
+            return "FAIL"
+        if checks.get("exportedDelta", 0) <= 0:
             return "FAIL"
         if not checks.get("fgsNotification"):
             return "PARTIAL"
@@ -679,15 +819,15 @@ class DeviceRunner:
     def arm(self):
         """只准备并启动值守，不采样/不停止；给 D3 强杀注入做“重新武装”用。"""
         try:
-            self.collect_info()
             self.install_if_needed()
+            self.collect_info()
+            self.verify_expected_version()
             main_ok = self.prepare_ui()
             guard_ok = self.start_guard() if main_ok else False
             services, foreground = self.service_state()
             notification = self.notification_present()
             self.write_log("service-arm.txt", services)
             self.collect_logs()
-            self.keep_awake(False)
             data = {
                 "serial": self.serial,
                 "label": self.label,
@@ -723,6 +863,8 @@ class DeviceRunner:
             except Exception:
                 pass
             return data
+        finally:
+            self.keep_awake(False)
 
     def run(self, duration_min=5, screen_off=True, diagnostics=True):
         try:
@@ -730,22 +872,29 @@ class DeviceRunner:
             self.install_if_needed()
             main_ok = self.prepare_ui()
             self.collect_info()
+            self.verify_expected_version()
+            try:
+                self.exported_before = self.exported_clip_count()
+            except Exception as exc:
+                self.notes.append(f"读取相册基线失败：{exc}")
+                # 不能把失败当成 0：0 会让旧片段全部算成本次新增，直接造成假 PASS。
+                self.exported_before = -1
             guard_ok = self.start_guard()
             services, foreground = self.service_state()
             fgs_notification = self.notification_present()
             self.write_log("service-guard.txt", services)
             screen = self.monitor(duration_min, screen_off) if guard_ok else {
-                "samples": 0, "pidInterruptions": 0, "serviceOff": 0,
+                "samples": 0, "elapsedSec": 0, "pidInterruptions": 0, "serviceOff": 0,
                 "notificationMissing": 0, "asleepSamples": 0, "screenOffRequested": screen_off
             }
             status = self.status_summary() if guard_ok else {"line": "", "guardRunning": False, "uiClipCount": None}
             stop = self.stop_guard() if guard_ok else {
                 "stopped": False, "startVisible": False, "savingVisible": False,
-                "notificationGone": False, "exportedClips": 0
+                "notificationGone": False, "exportedClips": 0,
+                "exportedBefore": self.exported_before, "exportedDelta": 0
             }
             self.collect_diagnostics(diagnostics)
             self.collect_logs()
-            self.keep_awake(False)
             checks = {
                 "main": main_ok,
                 "guardStarted": guard_ok,
@@ -802,6 +951,8 @@ class DeviceRunner:
             except Exception:
                 pass
             return summary
+        finally:
+            self.keep_awake(False)
 
     def write_summary(self, summary):
         json_path = os.path.join(self.out, "summary.json")
@@ -836,7 +987,7 @@ class DeviceRunner:
             f"| 前台服务 / camera 类型 | {'PASS' if checks.get('foregroundService') else 'FAIL'} |",
             f"| 值守通知 | {'PASS' if checks.get('fgsNotification') else 'FAIL'} |",
             f"| 锁屏采样 | {checks.get('samples', 0)} 点；Asleep {checks.get('asleepSamples', 0)} 点；进程中断 {checks.get('pidInterruptions', 0)} 次；服务非运行 {checks.get('serviceOff', 0)} 次 |",
-            f"| 停止并保存 | {'PASS' if checks.get('stopped') else 'FAIL'}；保存提示：{'有' if checks.get('savingVisible') else '未见'}；相册导出约 {checks.get('exportedClips', 0)} 个 mp4 |",
+            f"| 停止并保存 | {'PASS' if checks.get('stopped') else 'FAIL'}；保存提示：{'有' if checks.get('savingVisible') else '未见'}；本次新增 {checks.get('exportedDelta', 0)} 个 mp4（运行前 {checks.get('exportedBefore', '?')}，停止后 {checks.get('exportedClips', 0)}） |",
             f"| 停止后通知清理 | {'PASS' if checks.get('notificationGone') else 'FAIL'} |",
             f"| 崩溃 / ANR | {checks.get('fatalAnrLines', 0)} 行 |",
             "",
@@ -886,10 +1037,12 @@ def matrix_row(summary):
         "main": checks.get("main", ""),
         "guardStarted": checks.get("guardStarted", ""),
         "fgsNotification": checks.get("fgsNotification", ""),
-        "screenOffMinutes": checks.get("samples", ""),
+        "screenOffSamples": checks.get("samples", ""),
+        "elapsedSec": checks.get("elapsedSec", ""),
         "pidInterruptions": checks.get("pidInterruptions", ""),
         "serviceOff": checks.get("serviceOff", ""),
         "exportedClips": checks.get("exportedClips", ""),
+        "exportedDelta": checks.get("exportedDelta", ""),
         "fatalAnrLines": checks.get("fatalAnrLines", ""),
         "evidence": summary.get("artifacts", {}).get("root", ""),
         "notes": " | ".join(summary.get("notes", [])[:3]),
@@ -898,6 +1051,8 @@ def matrix_row(summary):
 
 def write_matrix(out_root, summaries):
     rows = [matrix_row(summary) for summary in summaries]
+    if not rows:
+        return "", ""
     csv_path = os.path.join(out_root, "matrix.csv")
     with open(csv_path, "w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
@@ -940,9 +1095,14 @@ def main():
     parser.add_argument("--no-diagnostics", action="store_true", help="跳过设置页一键诊断")
     parser.add_argument("--fresh", action="store_true", help="安装后 pm clear，走首次启动合规流程")
     parser.add_argument("--skip-install", action="store_true", help="不重新安装，只跑已安装版本")
+    parser.add_argument("--expect-version", default=os.environ.get("QS_EXPECT_VERSION", ""),
+                        help="要求设备上的 versionName 与此值一致；用于 --skip-install 的证据校验")
     parser.add_argument("--out", default=DEFAULT_OUT, help="证据根目录")
     args = parser.parse_args()
 
+    if args.skip_install and not args.expect_version:
+        print("--skip-install 必须同时指定 --expect-version，否则无法证明测的是当前构建包", file=sys.stderr)
+        return 2
     if not os.path.isfile(ADB) and shutil.which(ADB) is None:
         print(f"未找到 adb：{ADB}；可用 QS_ADB 指定路径", file=sys.stderr)
         return 2
@@ -980,11 +1140,20 @@ def main():
             apk=args.apk,
             fresh=args.fresh,
             skip_install=args.skip_install,
+            expect_version=args.expect_version,
         )
         if args.arm:
             data = runner.arm()
-            print(f"{serial}: ARM {'PASS' if data.get('checks', {}).get('guardStarted') else 'FAIL'} -> {data.get('artifacts', {}).get('root')}")
-            return 0 if data.get("checks", {}).get("guardStarted") else 1
+            checks = data.get("checks", {})
+            ok = all(checks.get(key) for key in ("guardStarted", "foregroundService", "fgsNotification"))
+            print(
+                f"{serial}: ARM {'PASS' if ok else 'FAIL'} "
+                f"(guardStarted={checks.get('guardStarted')}, "
+                f"foregroundService={checks.get('foregroundService')}, "
+                f"fgsNotification={checks.get('fgsNotification')}) -> "
+                f"{data.get('artifacts', {}).get('root')}"
+            )
+            return 0 if ok else 1
         summary = runner.run(
             duration_min=args.duration_min,
             screen_off=not args.no_screen_off,
@@ -993,7 +1162,7 @@ def main():
         summaries.append(summary)
         print(f"{serial}: {summary.get('verdict')} -> {summary.get('artifacts', {}).get('root')}")
 
-    if len(summaries) > 1:
+    if args.all and summaries:
         csv_path, md_path = write_matrix(out_root, summaries)
         print(f"\n矩阵 CSV: {csv_path}")
         print(f"矩阵 Markdown: {md_path}")
