@@ -87,6 +87,35 @@ release 包不是 debuggable，`run-as` 会被系统拒绝；脚本已自动回�
 
 ---
 
+## 2.1 注入助手（D3 / D4 / D7）
+
+`tools/verify/soak-inject.ps1` 负责可自动化的注入和逐次留档：
+
+```powershell
+# D3 强杀：默认每轮先 --arm 重新拉起值守，再 force-stop；最后一轮保持关闭
+powershell -File tools/verify/soak-inject.ps1 -Step D3 -Serial <serial>
+
+# D3 只做强杀、不自动重开（人工按 30 分钟间隔重开）
+powershell -File tools/verify/soak-inject.ps1 -Step D3 -Serial <serial> -NoAutoArm
+
+# D4 网络抖动：只切 Wi-Fi，结束恢复；不碰移动数据
+powershell -File tools/verify/soak-inject.ps1 -Step D4 -Serial <serial> -Count 10
+
+# D7 重启 ×5：会真的重启设备，必须显式 -Force
+powershell -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -Force
+
+# 只打印计划，不执行强杀/切网/重启
+powershell -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
+```
+
+- `--arm` 的底层调用是 `python tools/verify/real_device_smoke.py --serial <serial> --skip-install --arm`，只启动值守、不采样不停止；`arm.json` 留在 `verify-output/soak/arm/...`。
+- D3 CSV 会记录 `before-kill` / `force-stop` 的 pid、服务、通知；`STILL_RUNNING` 表示强杀后进程仍在，需查 ROM 限制或命令是否打到了别的用户。
+- D4 CSV 的 `OFFLINE_TOLERATED` 只说明服务与通知还在，不代表观看端离线摘要符合预期；离线摘要仍需按 docs/05 人工看。
+- D7 的 `NO_AUTOSTART` 表示重启后进程与服务都没起来（符合 BootReceiver 只提示的预期）；`AUTOSTARTED` 需要查是否被 ROM 自启管理拉起。
+- D2 断电、D5 边充边录、D6 存储压力涉及外部电源/散热/填盘，**不在脚本里伪装自动化**，仍按 `docs/05` §4 手工执行。
+
+---
+
 ## 3. 八品牌矩阵记录表
 
 每台按 `docs/05` §6 填 **PASS / FAIL / N/A**；FAIL 必须附 logcat 片段与复现步骤。能力不存在填 N/A，不能当 PASS。

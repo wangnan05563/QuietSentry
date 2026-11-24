@@ -659,6 +659,54 @@ class DeviceRunner:
             return "FAIL"
         return "PASS"
 
+    def arm(self):
+        """只准备并启动值守，不采样/不停止；给 D3 强杀注入做“重新武装”用。"""
+        try:
+            self.collect_info()
+            self.install_if_needed()
+            main_ok = self.prepare_ui()
+            guard_ok = self.start_guard() if main_ok else False
+            services, foreground = self.service_state()
+            notification = self.notification_present()
+            self.write_log("service-arm.txt", services)
+            self.collect_logs()
+            self.keep_awake(False)
+            data = {
+                "serial": self.serial,
+                "label": self.label,
+                "at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "device": self.info,
+                "checks": {
+                    "main": main_ok,
+                    "guardStarted": guard_ok,
+                    "foregroundService": foreground,
+                    "fgsNotification": notification,
+                },
+                "notes": self.notes,
+                "artifacts": {"root": self.out, "screenshots": self.shots, "logs": self.logs},
+            }
+            with open(os.path.join(self.out, "arm.json"), "w", encoding="utf-8") as handle:
+                json.dump(data, handle, ensure_ascii=False, indent=2)
+            return data
+        except Exception as exc:
+            self.notes.append(f"arm 失败：{exc}")
+            data = {
+                "serial": self.serial,
+                "label": self.label,
+                "at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "device": self.info,
+                "checks": {"main": False, "guardStarted": False, "foregroundService": False, "fgsNotification": False},
+                "notes": self.notes,
+                "error": f"{exc}\n{traceback.format_exc()}",
+                "artifacts": {"root": self.out, "screenshots": self.shots, "logs": self.logs},
+            }
+            try:
+                with open(os.path.join(self.out, "arm.json"), "w", encoding="utf-8") as handle:
+                    json.dump(data, handle, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+            return data
+
     def run(self, duration_min=5, screen_off=True, diagnostics=True):
         try:
             self.collect_info()
@@ -867,6 +915,7 @@ def main():
     parser.add_argument("--serial", default="", help="单台设备序列号；不填则配合 --all 或要求唯一在线设备")
     parser.add_argument("--all", action="store_true", help="遍历所有在线设备")
     parser.add_argument("--include-emulators", action="store_true", help="--all 时也包含 emulator-*（仅用于工具自测）")
+    parser.add_argument("--arm", action="store_true", help="只启动值守并留后台运行，不采样/不停止（D3 重新武装）")
     parser.add_argument("--apk", default=os.environ.get("QS_APK", ""), help="要安装的 release APK；不填则要求已安装")
     parser.add_argument("--label", default="", help="品牌/机型标签，例如 小米/Redmi Note")
     parser.add_argument("--duration-min", type=float, default=5.0, help="锁屏连续采集时长，矩阵要求 5 分钟")
@@ -899,6 +948,9 @@ def main():
     if len(serials) > 1 and args.label:
         print("--label 只适用于单台设备；多台请省略，脚本会用序列号作标签。", file=sys.stderr)
         return 2
+    if args.arm and len(serials) > 1:
+        print("--arm 只适用于单台设备；多台请用 --serial 指定。", file=sys.stderr)
+        return 2
 
     summaries = []
     for serial in serials:
@@ -912,6 +964,10 @@ def main():
             fresh=args.fresh,
             skip_install=args.skip_install,
         )
+        if args.arm:
+            data = runner.arm()
+            print(f"{serial}: ARM {'PASS' if data.get('checks', {}).get('guardStarted') else 'FAIL'} -> {data.get('artifacts', {}).get('root')}")
+            return 0 if data.get("checks", {}).get("guardStarted") else 1
         summary = runner.run(
             duration_min=args.duration_min,
             screen_off=not args.no_screen_off,
