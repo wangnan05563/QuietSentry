@@ -4,6 +4,8 @@
 
 **现状先说清楚**：仓库目前只实际执行过 1 台三星 SM-G9980（Android 15）的 4 分钟稳定性；8 品牌矩阵与 7 天连续稳定性**仍未执行**。本目录提供的是执行工具和记录模板，不是门禁通过证明，模拟器跑出的 PASS 也不能替代真机。
 
+当前待测包为 `release\QuietSentry-0.1.0-20261123.2-release.apk`（35,767,573 bytes，SHA256 `C78FD885A26D9EA67DD41F06B0776B69C9600E01F0C48FD468D63E09E3F96587`，versionCode 76），与 2026-11-23 旧包的 SHA 不同；真机执行时请以这个包为准。
+
 ---
 
 ## 1. 工具一：单台真机基线冒烟
@@ -23,7 +25,7 @@
 ```powershell
 python tools/verify/real_device_smoke.py `
   --serial <adb序列号> `
-  --apk E:\QuietSentryBuild\release\QuietSentry-0.1.0-20261123.2-release.apk `
+  --apk release\QuietSentry-0.1.0-20261123.2-release.apk `
   --label "小米/Redmi Note" `
   --fresh
 ```
@@ -38,7 +40,7 @@ python tools/verify/real_device_smoke.py `
 ```powershell
 python tools/verify/real_device_smoke.py `
   --all `
-  --apk E:\QuietSentryBuild\release\QuietSentry-0.1.0-20261123.2-release.apk
+  --apk release\QuietSentry-0.1.0-20261123.2-release.apk
 ```
 
 `--all` 默认跳过 `emulator-*`；只对模拟器自测时加 `--include-emulators`。多台跑完会在输出根目录生成：
@@ -69,10 +71,10 @@ logs/                    # logcat、dumpsys activity services、notification、m
 
 ```powershell
 # 正式跑 D1：7 天，每 10 分钟一个点
-powershell -ExecutionPolicy Bypass -File tools/verify/stability-7d.ps1 -Serial <serial>
+pwsh -ExecutionPolicy Bypass -File tools/verify/stability-7d.ps1 -Serial <serial>
 
 # 冒烟自测：只采 2 个点
-powershell -ExecutionPolicy Bypass -File tools/verify/stability-7d.ps1 -Serial <serial> -MaxSamples 2 -IntervalSec 5
+pwsh -ExecutionPolicy Bypass -File tools/verify/stability-7d.ps1 -Serial <serial> -MaxSamples 2 -IntervalSec 5
 ```
 
 CSV 字段：
@@ -93,19 +95,19 @@ release 包不是 debuggable，`run-as` 会被系统拒绝；脚本已自动回�
 
 ```powershell
 # D3 强杀：默认每轮先 --arm 重新拉起值守，再 force-stop；最后一轮保持关闭
-powershell -File tools/verify/soak-inject.ps1 -Step D3 -Serial <serial>
+pwsh -File tools/verify/soak-inject.ps1 -Step D3 -Serial <serial>
 
 # D3 只做强杀、不自动重开（人工按 30 分钟间隔重开）
-powershell -File tools/verify/soak-inject.ps1 -Step D3 -Serial <serial> -NoAutoArm
+pwsh -File tools/verify/soak-inject.ps1 -Step D3 -Serial <serial> -NoAutoArm
 
 # D4 网络抖动：只切 Wi-Fi，结束恢复；不碰移动数据
-powershell -File tools/verify/soak-inject.ps1 -Step D4 -Serial <serial> -Count 10
+pwsh -File tools/verify/soak-inject.ps1 -Step D4 -Serial <serial> -Count 10
 
 # D7 重启 ×5：会真的重启设备，必须显式 -Force
-powershell -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -Force
+pwsh -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -Force
 
 # 只打印计划，不执行强杀/切网/重启
-powershell -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
+pwsh -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
 ```
 
 - `--arm` 的底层调用是 `python tools/verify/real_device_smoke.py --serial <serial> --skip-install --arm`，只启动值守、不采样不停止；`arm.json` 留在 `verify-output/soak/arm/...`。
@@ -184,3 +186,5 @@ powershell -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
 - 模拟器跑通只用于验证脚本本身，不能写进 8 品牌矩阵。
 - 诊断页抓不到时，镜头摘要仍可从设置页读取；一键诊断日志按 `docs/05` §3 手工“设置 → 一键诊断 → 导出诊断日志”补。
 - 最终判定、FAIL 证据格式、N/A 口径以 `docs/05-兼容性与稳定性验证矩阵.md` 为准。
+
+

@@ -9,12 +9,12 @@
 | 包名 | `com.quietsentry.app` |
 | versionName | `0.1.0-20261123.2` |
 | versionCode | `76` |
-| AAB | `E:\QuietSentryBuild\release\QuietSentry-0.1.0-20261123.2.aab`，16,758,037 bytes，SHA256 `B504FC37D6953FE7C751E1108AEE750557C83CF0D71B64FD0C603E8B86253C75` |
-| APK（侧载/内测备用） | `E:\QuietSentryBuild\release\QuietSentry-0.1.0-20261123.2-release.apk`，35,767,573 bytes，SHA256 `962450D82F13B2DA5D000F19BC2A9713BDAB407AB770FAB62FDA286F84888FB3` |
+| AAB | `release\QuietSentry-0.1.0-20261123.2.aab`，16,758,029 bytes，SHA256 `7C6A97847C83CAF100A9D70E373C885C9745180975F1271659A85EDFB22FA6DC` |
+| APK（侧载/内测备用） | `release\QuietSentry-0.1.0-20261123.2-release.apk`，35,767,573 bytes，SHA256 `C78FD885A26D9EA67DD41F06B0776B69C9600E01F0C48FD468D63E09E3F96587` |
 | 签名 | APK Signature Scheme v2；证书 `CN=QuietSentry`，SHA-256 `58465a53738b4634326c0508aec97b831d85693172c28427775b1d0f2ed40866` |
-| 构建信息 | `E:\QuietSentryBuild\release\build-info.json`（builtAt 2026-11-23 01:40:50） |
+| 构建信息 | `release\build-info.json`（builtAt 2026-11-24 11:56:08，源码 `f229baf`，`dirty=false`） |
 
-> 构建副本标记 `dirty=true`，但代码门禁、签名、冒烟证据见 `docs/17`。如需“干净可复现”构建，应在干净工作树重新执行 `scripts\build.ps1 -Variant release` 并更新本节 SHA。
+> 2026-11-24 已在干净 HEAD `f229baf` 上重新执行 `assembleRelease` 与 `bundleRelease`，APK/AAB 均与旧 SHA 不同。代码门禁与旧包冒烟见 `docs/17`；新包的模拟器 `--arm` 自测受 ADB/AVD 环境限制未通过，不能作为真机门禁证据。
 
 ## 2 商店资料（App details）
 
@@ -116,7 +116,7 @@
 | `store/README.md` | 图片/视频规格、制作口径与校验值 |
 | `store/manifest.json` | 素材尺寸、字节数与 SHA256 |
 | `store/fgs-demo/` | FGS 演示视频与封面 |
-| `E:\QuietSentryBuild\release\` | AAB、APK 与 build-info |
+| `release\` | AAB、APK 与 build-info |
 
 ## 8 不可直接提交的边界
 
