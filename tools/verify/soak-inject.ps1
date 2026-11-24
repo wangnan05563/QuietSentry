@@ -6,7 +6,7 @@ param(
     [int]$IntervalMin = 0,
     [string]$OutDir = '',
     [string]$Apk = '',
-    [int]$ArmTimeoutSec = 240,
+    [int]$ArmTimeoutSec = 420,
     [switch]$NoAutoArm,
     [switch]$Force,
     [switch]$DryRun
@@ -213,7 +213,10 @@ switch ($Step) {
             if (-not $NoAutoArm) {
                 if (-not (Test-ServiceRunning)) {
                     $armed = Start-Guard -AllowInstall
-                    if (-not $armed) { Write-Fail "第 $i 次重新武装失败" }
+                    if (-not $armed) {
+                        Write-Fail "第 $i 次重新武装失败；这不是强杀结果，终止本轮避免误判"
+                        exit 2
+                    }
                     Start-Sleep -Seconds 2
                 }
             }
@@ -235,7 +238,10 @@ switch ($Step) {
                     # 留给人工验证“反复被中断”提示。
                     if ($i -lt $Count) {
                         $armed = Start-Guard -AllowInstall
-                        if (-not $armed) { Write-Fail "第 $($i + 1) 次重新武装失败" }
+                        if (-not $armed) {
+                            Write-Fail "第 $($i + 1) 次重新武装失败；终止本轮避免下一轮误判"
+                            exit 2
+                        }
                     }
                 }
             }
@@ -249,9 +255,16 @@ switch ($Step) {
     'D4' {
         $initialWifi = Invoke-Adb @('shell', 'cmd', 'wifi', 'status') -TimeoutSec 30
         Write-Note "初始 Wi-Fi 状态：$initialWifi"
-        if (-not (Test-ServiceRunning) -and -not $NoAutoArm) {
+        if (-not (Test-ServiceRunning)) {
+            if ($NoAutoArm) {
+                Write-Fail 'D4 开始前值守未运行；请先 --arm，或去掉 -NoAutoArm'
+                exit 2
+            }
             $armed = Start-Guard -AllowInstall
-            if (-not $armed) { Write-Fail 'D4 开始前武装失败，录制可能不在跑' }
+            if (-not $armed) {
+                Write-Fail 'D4 开始前武装失败；这不是网络抖动结果，终止本轮避免误判'
+                exit 2
+            }
         }
         for ($i = 1; $i -le $Count; $i++) {
             Write-Step "D4 第 $i/$Count 次网络抖动"

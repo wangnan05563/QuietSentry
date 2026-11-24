@@ -149,18 +149,31 @@ class DeviceRunner:
         ui_walk.open_app()
 
     def power_state(self):
-        out = self.shell("dumpsys", "power", timeout=60)
+        out = self.shell("dumpsys", "power", timeout=15)
         match = re.search(r"mWakefulness=(\w+)", out)
         return match.group(1) if match else "?"
 
     def wake(self):
         # KEYCODE_WAKEUP(224) 在部分模拟器/ROM 上无效，统一用电源键切换：
         # 先读 mWakefulness，只有 Asleep 才按 26，避免把已经亮着的屏幕按灭。
-        if self.power_state() != "Awake":
-            self.shell("input", "keyevent", "26", timeout=30)
+        # 唤醒/解锁不是关键路径：adb 在模拟器上偶尔会卡在 dismiss-keyguard，
+        # 这里只记 note，不让整个 arm 因一个 30s 超时而失败。
+        try:
+            state = self.power_state()
+        except Exception as exc:
+            self.notes.append(f"读取电源状态失败：{exc}")
+            state = "?"
+        if state != "Awake":
+            try:
+                self.shell("input", "keyevent", "26", timeout=15)
+            except Exception as exc:
+                self.notes.append(f"按电源键失败：{exc}")
             time.sleep(1)
-        self.shell("wm", "dismiss-keyguard", timeout=30)
-        self.shell("input", "keyevent", "82", timeout=30)
+        for args in (("wm", "dismiss-keyguard"), ("input", "keyevent", "82")):
+            try:
+                self.shell(*args, timeout=10)
+            except Exception as exc:
+                self.notes.append(f"{' '.join(args)} 失败：{exc}")
         time.sleep(1)
 
     def sleep_screen(self):
@@ -169,11 +182,15 @@ class DeviceRunner:
             time.sleep(2)
 
     def keep_awake(self, enabled):
-        self.shell("svc", "power", "stayon", "true" if enabled else "false", timeout=30)
-        self.shell(
-            "settings", "put", "system", "screen_off_timeout",
-            "1800000" if enabled else "30000", timeout=30,
-        )
+        for args in (
+            ("svc", "power", "stayon", "true" if enabled else "false"),
+            ("settings", "put", "system", "screen_off_timeout",
+             "1800000" if enabled else "30000"),
+        ):
+            try:
+                self.shell(*args, timeout=15)
+            except Exception as exc:
+                self.notes.append(f"keep_awake({'true' if enabled else 'false'}) 失败：{exc}")
 
     # ---------- 设备信息 ----------
     def prop(self, key):
