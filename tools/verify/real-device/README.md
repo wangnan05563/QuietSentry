@@ -135,6 +135,7 @@ pwsh -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
 - 2026-11-24 22:25 在 `emulator-5554` 复跑 `--arm`：`ARM PASS (guardStarted=True, foregroundService=True, fgsNotification=True)`；此前全 false 的原因是“未连接电源”确认框未处理，不是服务未启动。证据在 `E:\QuietSentryVerifyLive\arm\emulator-5554\20261124-221933`。
 - 当前已验证：`ui_walk` 导入自检通过；`stability-7d.ps1 -MaxSamples 1 -IntervalSec 1` 可正常采样，首点未启动不再被误计为“进程中断”；`soak-inject.ps1 -Step D7 -DryRun` 通过。
 - 2026-11-25 00:05–00:12 在 `emulator-5554` 跑 `soak-inject.ps1 -Step D3 -Count 2 -IntervalMin 1 -AutoArmMax 2`：2 次 `force-stop` 均为 `KILLED`，重新武装成功，ADB 失败 0，退出码 0。证据 `E:\QuietSentryVerifyLive\emulator-inject\inject-D3-20261125-000535.csv`。这是工具自测，不是真机 D3 门禁。
+- 2026-11-25 00:27 / 00:55 模拟器 D4 自测：arm 冷启动时出现系统 ANR（`静哨 QuietSentry isn't responding`），`prepare_ui` 现已识别 ANR 窗口并让 arm FAIL、D4 `exit 2`，没有产出假网络抖动结果。该 ANR 只在模拟器高负载冷启动出现，模拟器需重启后再补 D4；真实设备 D4 仍待 USB 恢复后执行。
 - 修复前的 D4 实际注入未取得有效结果；当前 D4 的初始 Wi-Fi 检查、回读校验和结束恢复已改为硬失败，仍需真机复测。
 - D7 仍只做了 `-DryRun`，真重启与 `boot_id`/`boot_completed` 校验待真机。
 

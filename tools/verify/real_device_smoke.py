@@ -338,10 +338,30 @@ class DeviceRunner:
         time.sleep(2)
         return "MainActivity" in self.activity()
 
+    def anr_text(self, nodes):
+        """识别系统 ANR 对话框；Activity 仍是 MainActivity，不能只看 Activity 名就判成功。"""
+        for node in nodes:
+            value = (node.get("text") or node.get("desc") or "").strip()
+            if any(marker in value for marker in (
+                "isn't responding", "is not responding", "无响应", "Application Not Responding",
+            )):
+                return value
+        return ""
+
+    def anr_window(self):
+        """先查 WindowManager 的 ANR 窗口，避免 uiautomator 在卡死时连续超时。"""
+        out = self.shell("dumpsys", "window", "windows", timeout=30)
+        match = re.search(r"(?:Application Not Responding|isn't responding|is not responding)[^\n]*", out, re.I)
+        return match.group(0).strip() if match else ""
+
     def prepare_ui(self):
         """走完合规三页/引导页/权限弹窗，落到 MainActivity。"""
         self.keep_awake(True)
         self.wake()
+        anr = self.anr_window()
+        if anr:
+            self.shot("anr-window")
+            raise RuntimeError(f"检测到系统 ANR 窗口：{anr}")
         # 上一轮可能停在设置/黑屏页；先退回首页，再决定是否走首次引导
         for _ in range(4):
             act = self.activity()
@@ -353,7 +373,22 @@ class DeviceRunner:
         self.open_app()
         empty_streak = 0
         for index in range(40):
-            if "MainActivity" in self.activity():
+            act = self.activity()
+            if "MainActivity" in act:
+                # ANR 对话框是系统窗口，Activity 名仍然是 MainActivity；
+                # 必须再看一眼 dump，不能把“卡死弹窗”当成首页。
+                nodes = self.dump(f"prep{index}-main")
+                if not nodes:
+                    empty_streak += 1
+                    if empty_streak >= 3:
+                        raise RuntimeError("连续 3 次 UI dump 为空；ADB 或前台 Activity 异常，停止盲重试")
+                    time.sleep(1.5)
+                    self.open_app()
+                    continue
+                anr = self.anr_text(nodes)
+                if anr:
+                    self.shot("anr-dialog")
+                    raise RuntimeError(f"检测到系统 ANR 对话框：{anr}")
                 return True
             nodes = self.dump(f"prep{index}")
             if not nodes:
@@ -364,6 +399,10 @@ class DeviceRunner:
                 self.open_app()
                 continue
             empty_streak = 0
+            anr = self.anr_text(nodes)
+            if anr:
+                self.shot("anr-dialog")
+                raise RuntimeError(f"检测到系统 ANR 对话框：{anr}")
             # 第三页是“勾选确认 + 开始使用”，先勾再点
             if self.tap_rid(nodes, "consent_checkbox"):
                 time.sleep(0.8)
@@ -452,6 +491,10 @@ class DeviceRunner:
                 self.open_app()
                 time.sleep(2)
         nodes = self.dump("guard-main")
+        anr = self.anr_text(nodes)
+        if anr:
+            self.shot("anr-dialog")
+            raise RuntimeError(f"检测到系统 ANR 对话框：{anr}")
         # 上一轮可能停在“未连接电源”确认框；先点“先接电源”取消这次待确认的启动，
         # 回到首页后再重新点“开始值守”，避免把旧对话框当成首页。
         if self.find_text(nodes, "未连接电源", exact=True):
@@ -466,6 +509,10 @@ class DeviceRunner:
         time.sleep(2)
         for _ in range(10):
             nodes = self.dump("guard-dialog")
+            anr = self.anr_text(nodes)
+            if anr:
+                self.shot("anr-dialog")
+                raise RuntimeError(f"检测到系统 ANR 对话框：{anr}")
             # “仅充电时值守”默认开启但测试机没接电源时，App 会弹二次确认；
             # 不处理就会卡在这里，表现为“开始值守后未出现停止值守”。
             if self.find_text(nodes, "未连接电源", exact=True):
@@ -495,6 +542,10 @@ class DeviceRunner:
                 break
             time.sleep(2)
         nodes = self.dump("guard-running")
+        anr = self.anr_text(nodes)
+        if anr:
+            self.shot("anr-dialog")
+            raise RuntimeError(f"检测到系统 ANR 对话框：{anr}")
         running = bool(self.find_text(nodes, "停止值守", exact=True))
         self.shot("guard-running")
         if not running:
