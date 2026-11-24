@@ -6,6 +6,7 @@ param(
     [int]$IntervalMin = 0,
     [string]$OutDir = '',
     [string]$Apk = '',
+    [int]$ArmTimeoutSec = 240,
     [switch]$NoAutoArm,
     [switch]$Force,
     [switch]$DryRun
@@ -122,11 +123,15 @@ function Start-Guard {
         Write-Note "DRY-RUN: would arm guard via $script:SmokeScript"
         return $true
     }
-    $python = (Get-Command python -ErrorAction SilentlyContinue)
+    $python = (Get-Command python.exe -ErrorAction SilentlyContinue)
+    if (-not $python) {
+        $python = (Get-Command python -ErrorAction SilentlyContinue)
+    }
     if (-not $python) {
         Write-Fail '未找到 python，无法调用 real_device_smoke.py --arm'
         return $false
     }
+    $pythonPath = if ($python.Path) { $python.Path } elseif ($python.Source) { $python.Source } else { $python.Definition }
     $args = @(
         $script:SmokeScript, '--serial', $Serial, '--arm',
         '--out', (Join-Path $OutDir 'arm')
@@ -137,9 +142,19 @@ function Start-Guard {
         $args += '--skip-install'
     }
     $script:FirstArm = $false
-    Write-Note "重新武装：python $($args -join ' ')"
-    & $python.Source @args
-    return ($LASTEXITCODE -eq 0)
+    Write-Note "重新武装：python $($args -join ' ')（超时 ${ArmTimeoutSec}s）"
+    try {
+        $proc = Start-Process -FilePath $pythonPath -ArgumentList $args -NoNewWindow -PassThru
+        if (-not $proc.WaitForExit($ArmTimeoutSec * 1000)) {
+            try { $proc.Kill() } catch {}
+            Write-Fail "arm 超过 ${ArmTimeoutSec}s，已终止；下一轮会再试"
+            return $false
+        }
+        return ($proc.ExitCode -eq 0)
+    } catch {
+        Write-Fail "arm 启动失败：$($_.Exception.Message)"
+        return $false
+    }
 }
 
 function Wait-ForBoot {

@@ -109,6 +109,7 @@ powershell -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
 ```
 
 - `--arm` 的底层调用是 `python tools/verify/real_device_smoke.py --serial <serial> --skip-install --arm`，只启动值守、不采样不停止；`arm.json` 留在 `verify-output/soak/arm/...`。
+- `--arm` 默认 240 秒超时（`-ArmTimeoutSec` 可调）。模拟器上实测出现过 `wm dismiss-keyguard` 的 adb 卡死，超时后会终止本轮 arm，下一轮再试，避免拖满 30 分钟。
 - D3 CSV 会记录 `before-kill` / `force-stop` 的 pid、服务、通知；`STILL_RUNNING` 表示强杀后进程仍在，需查 ROM 限制或命令是否打到了别的用户。
 - D4 CSV 的 `OFFLINE_TOLERATED` 只说明服务与通知还在，不代表观看端离线摘要符合预期；离线摘要仍需按 docs/05 人工看。
 - D7 的 `NO_AUTOSTART` 表示重启后进程与服务都没起来（符合 BootReceiver 只提示的预期）；`AUTOSTARTED` 需要查是否被 ROM 自启管理拉起。
