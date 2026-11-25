@@ -9,12 +9,12 @@
 | 包名 | `com.quietsentry.app` |
 | versionName | `0.1.0-20261123.2` |
 | versionCode | `76` |
-| AAB | `release\QuietSentry-0.1.0-20261123.2.aab`，16,758,029 bytes，SHA256 `7C6A97847C83CAF100A9D70E373C885C9745180975F1271659A85EDFB22FA6DC` |
-| APK（侧载/内测备用） | `release\QuietSentry-0.1.0-20261123.2-release.apk`，35,767,573 bytes，SHA256 `C78FD885A26D9EA67DD41F06B0776B69C9600E01F0C48FD468D63E09E3F96587` |
+| AAB | `release\QuietSentry-0.1.0.aab`，16,759,478 bytes，SHA256 `7C7F3AC76670C7F526248E98143151A0DABA303B20CAC5B46B85FDD0D4137F5F` |
+| APK（侧载/内测备用） | `release\QuietSentry-0.1.0-release.apk`，35,767,573 bytes，SHA256 `DD1A1F514CC9785A289362AE32514C7B65FE8B0950D5EA46407A7AFE204DB563` |
 | 签名 | APK Signature Scheme v2；证书 `CN=QuietSentry`，SHA-256 `58465a53738b4634326c0508aec97b831d85693172c28427775b1d0f2ed40866` |
-| 构建信息 | `release\build-info.json`（builtAt 2026-11-24 11:56:08，源码 `f229baf`，`dirty=false`） |
+| 构建信息 | `release\build-info.json`（builtAt 2026-11-25 12:48:11，源码 `2e49920`，`dirty=false`，buildNumber 76） |
 
-> 2026-11-24 已在干净 HEAD `f229baf` 上重新执行 `assembleRelease` 与 `bundleRelease`，APK/AAB 均与旧 SHA 不同。代码门禁与旧包冒烟见 `docs/17`；新包的模拟器 `--arm` 自测受 ADB/AVD 环境限制未通过，不能作为真机门禁证据。
+> 2026-11-25 在 HEAD `2e49920` 上重新执行 `assembleRelease` 与 `bundleRelease`，APK/AAB 均已重建。当前包在模拟器上 `--arm`、D3/D4/D7 自测通过；真实三星与 8 品牌矩阵仍未执行，不能作为真机门禁证据。
 
 ## 2 商店资料（App details）
 
