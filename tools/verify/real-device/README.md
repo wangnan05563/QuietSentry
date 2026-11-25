@@ -144,6 +144,7 @@ pwsh -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
 
 - 23:43–23:46 在 Samsung `SM-G9980` / `R5CR716VVEM`（Android 15）用当前 release 包（debug 重签覆盖安装，`0.1.0-20261123.2` / vc76）跑 `--arm`：三项全 true，`ARM PASS`（历史记录）；原 `E:\QuietSentryVerifyLive\real-arm3` 证据在 2026-11-25 本机重启后被清理，当前无法复核，需重跑。
 - 23:48 设备 USB 掉线（`adb devices` 不再出现 `R5CR716VVEM`），D3 在初始采样阶段被 `ADB_ERROR` 拦下并 `exit 2`，没有产出假的强杀结果。重新插线/授权后需从 `--arm` 重新开始，D3/D4/D7 仍未执行。
+- 设备上旧包是 debug 签名，发布 APK 直接覆盖会 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`；本轮已重签 `verify-output\QuietSentry-0.1.0-device-debugsign.apk`（debug 证书 `4c3a36...`），用 `adb install -r` 保留旧数据覆盖；发布签名 APK 仍只用于 Play 交付，不用于覆盖这台旧 debug 包。
 - 同一轮掉线暴露并已修复：`real_device_smoke.py --skip-install` 设备离线时误报“未安装”，以及 `soak-inject.ps1` / `stability-7d.ps1` 只识别 `ADB_TIMEOUT`、不识别 `device not found` 的问题；现在离线会明确报“设备不可用/ADB 失败”。
 
 ---
