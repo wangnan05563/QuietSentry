@@ -2,7 +2,7 @@
 
 本目录把 `docs/05-兼容性与稳定性验证矩阵.md` 里仍需真机执行的门禁，固化成可复跑的脚本与证据格式。
 
-**现状先说清楚**：仓库实际执行过模拟器 `emulator-5554` 的 `--arm` PASS 与 D3 2 轮工具自测，以及 1 台三星 SM-G9980（Android 15，`R5CR716VVEM`）当前 release 包的 `--arm` PASS；真机 D3/D4/D7 注入、8 品牌矩阵与 7 天连续稳定性**仍未执行**。本目录提供的是执行工具和记录模板，不是门禁通过证明，模拟器跑出的 PASS 也不能替代真机。
+**现状先说清楚**：仓库实际执行过模拟器 `emulator-5554` 的 `--arm` PASS，以及 D3/D4/D7 的工具自测（D7 2 轮重启）；真实三星 SM-G9980（Android 15，`R5CR716VVEM`）的 `--arm` 只有历史记录，原 `E:\QuietSentryVerifyLive` 证据目录已随本机重启被清理，需重跑。真机 D3/D4/D7 注入、8 品牌矩阵与 7 天连续稳定性**仍未执行**。本目录提供的是执行工具和记录模板，不是门禁通过证明，模拟器跑出的 PASS 也不能替代真机。
 
 当前待测包为 `release\QuietSentry-0.1.0-release.apk`（35,767,573 bytes，versionCode 76，versionName `0.1.0-20261123.2`；`build-info.json` 里的 versionName `0.1.0` 只是基线号，Gradle 会把 `package.json` 的 patch 拼进去）。真机执行时请以这个包为准；`release/` 已存在，重新构建后文件名不变时请以 `build-info.json` 的时间为准。
 
@@ -127,21 +127,22 @@ pwsh -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
 - D3 CSV 会记录 `before-kill` / `force-stop` 的 pid、服务、通知；`STILL_RUNNING` 表示强杀后进程仍在，`ADB_ERROR` 表示采样本身失败，两者都不能当成 `KILLED`。
 - D4 初始 Wi-Fi 关闭时直接 `exit 2`；每次 disable/enable 后都会回读状态，`WIFI_TOGGLE_FAILED` 单独记录；结束后恢复失败会写 `Wi-Fi 恢复失败` 并失败退出，避免把设备留在断网。
 - D4 CSV 的 `OFFLINE_TOLERATED` 只说明服务与通知还在，不代表观看端离线摘要符合预期；离线摘要仍需按 docs/05 人工看。
-- D7 的 `NO_AUTOSTART` 表示重启后进程与服务都没起来（符合 BootReceiver 只提示的预期）；`AUTOSTARTED` 需要查是否被 ROM 自启管理拉起。重启判定要求 `boot_id` 变化且 `sys.boot_completed=1`，`ADB_ERROR` 不会被当成 `NO_AUTOSTART`。
+- D7 的 `NO_AUTOSTART` 表示重启后 `CaptureService` 未运行（符合 BootReceiver 只提示的预期）；`BootReceiver` 可能启动进程并发「设备已重启」通知，因此进程存在、通知存在但 service=false **不算** `AUTOSTARTED`；只有采集服务真正运行才判 `AUTOSTARTED`。重启判定要求 `boot_id` 变化且 `sys.boot_completed=1`，`ADB_ERROR` 不会被当成 `NO_AUTOSTART`。
 - D2 断电、D5 边充边录、D6 存储压力涉及外部电源/散热/填盘，**不在脚本里伪装自动化**，仍按 `docs/05` §4 手工执行。
 
-**工具自测记录（2026-11-24，模拟器，不是真机门禁）**：
+**工具自测记录（模拟器，不是真机门禁；旧 E 盘证据已随本机重启清理，当前以 `verify-output` 为准）**：
 
 - 2026-11-24 22:25 在 `emulator-5554` 复跑 `--arm`：`ARM PASS (guardStarted=True, foregroundService=True, fgsNotification=True)`；此前全 false 的原因是“未连接电源”确认框未处理，不是服务未启动。证据在 `E:\QuietSentryVerifyLive\arm\emulator-5554\20261124-221933`。
 - 当前已验证：`ui_walk` 导入自检通过；`stability-7d.ps1 -MaxSamples 1 -IntervalSec 1` 可正常采样，首点未启动不再被误计为“进程中断”；`soak-inject.ps1 -Step D7 -DryRun` 通过。
 - 2026-11-25 00:05–00:12 在 `emulator-5554` 跑 `soak-inject.ps1 -Step D3 -Count 2 -IntervalMin 1 -AutoArmMax 2`：2 次 `force-stop` 均为 `KILLED`，重新武装成功，ADB 失败 0，退出码 0。证据 `E:\QuietSentryVerifyLive\emulator-inject\inject-D3-20261125-000535.csv`。这是工具自测，不是真机 D3 门禁。
 - 2026-11-25 00:27 / 00:55 模拟器 D4 自测：arm 冷启动时出现系统 ANR（`静哨 QuietSentry isn't responding`），`prepare_ui` 现已识别 ANR 窗口并让 arm FAIL、D4 `exit 2`，没有产出假网络抖动结果。重启模拟器并让 App 正常进入首页后，01:37 补跑 D4 `-Count 2`：2 次 Wi-Fi 关闭/恢复期间 pid、服务、通知都保持，Wi-Fi 恢复成功，ADB 失败 0，退出码 0；证据 `E:\QuietSentryVerifyLive\emulator-inject\inject-D4-20261125-013733.csv`。真实设备 D4 仍待 USB 恢复后执行。
 - 修复前的 D4 实际注入未取得有效结果；当前 D4 的初始 Wi-Fi 检查、回读校验和结束恢复已改为硬失败，仍需真机复测。
-- D7 仍只做了 `-DryRun`，真重启与 `boot_id`/`boot_completed` 校验待真机。
+- 2026-11-25 12:51–12:56 在 `emulator-5554` 用当前重建 release 包跑 D7 `-Count 2 -IntervalMin 1 -Force`：两次重启后 `pid=3334/3377`、`service=False`、`notification=True`，均记 `NO_AUTOSTART`，自动拉起 0、ADB 失败 0、退出码 0；通知栏实测「静哨 · 设备已重启」。证据 `verify-output\d7-fix\inject-D7-20261125-125153.csv`、`verify-output\d7-fix\after-D7-clean.png`。这是工具自测，真机正式 D7 5 次仍待执行。
+- 2026-11-25 13:01–13:08 同一重建包补跑 D3 `-Count 2 -AutoArmMax 2` 与 D4 `-Count 2`：D3 两次均 `KILLED`、ADB 失败 0；D4 两次 Wi-Fi 关闭/恢复期间 pid=7415、服务与通知保持，恢复成功，退出码 0。证据 `verify-output\d3-current2\inject-D3-20261125-130100.csv`、`verify-output\d4-current\inject-D4-20261125-130420.csv`。
 
 **真实设备记录（2026-11-24）**：
 
-- 23:43–23:46 在 Samsung `SM-G9980` / `R5CR716VVEM`（Android 15）用当前 release 包（debug 重签覆盖安装，`0.1.0-20261123.2` / vc76）跑 `--arm`：三项全 true，`ARM PASS`；证据 `E:\QuietSentryVerifyLive\real-arm3\R5CR716VVEM\20261124-234305\arm.json`。
+- 23:43–23:46 在 Samsung `SM-G9980` / `R5CR716VVEM`（Android 15）用当前 release 包（debug 重签覆盖安装，`0.1.0-20261123.2` / vc76）跑 `--arm`：三项全 true，`ARM PASS`（历史记录）；原 `E:\QuietSentryVerifyLive\real-arm3` 证据在 2026-11-25 本机重启后被清理，当前无法复核，需重跑。
 - 23:48 设备 USB 掉线（`adb devices` 不再出现 `R5CR716VVEM`），D3 在初始采样阶段被 `ADB_ERROR` 拦下并 `exit 2`，没有产出假的强杀结果。重新插线/授权后需从 `--arm` 重新开始，D3/D4/D7 仍未执行。
 - 同一轮掉线暴露并已修复：`real_device_smoke.py --skip-install` 设备离线时误报“未安装”，以及 `soak-inject.ps1` / `stability-7d.ps1` 只识别 `ADB_TIMEOUT`、不识别 `device not found` 的问题；现在离线会明确报“设备不可用/ADB 失败”。
 
