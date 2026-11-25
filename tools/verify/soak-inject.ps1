@@ -65,7 +65,7 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $csvPath = Join-Path $OutDir "inject-$Step-$stamp.csv"
 $logPath = Join-Path $OutDir "inject-$Step-$stamp.log"
-$header = 'time,step,cycle,action,pid,service_running,notification,result,notify_delay_sec'
+$header = 'time,step,cycle,action,pid,service_running,notification,restart_notification,result,notify_delay_sec'
 [System.IO.File]::WriteAllText($csvPath, $header + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
 $script:FirstArm = $true
 $script:WifiRestoreFailed = $false
@@ -136,6 +136,13 @@ function Test-NotificationText {
     return [bool]($Text -match 'NotificationRecord\([^\n]*pkg=com\.quietsentry\.app')
 }
 
+function Test-RestartNotificationText {
+    param([string]$Text)
+    # 只认 EventNotifier.GUARD_NOTE_ID(2200) 的“设备已重启”恢复提示。
+    # 不能把普通事件通知或常驻前台通知当成恢复提示，否则 D7 会出现假 PASS。
+    return [bool]($Text -match 'NotificationRecord\([^\n]*pkg=com\.quietsentry\.app[^\n]*id=2200')
+}
+
 function Test-Notification {
     # 只认当前 NotificationRecord，避免历史/AppSettings 里的包名造成假阳性；
     # 不请求 --noredact，通知正文不应进入验证证据。
@@ -155,6 +162,7 @@ function Get-Sample {
         Pid             = $procId
         ServiceRunning  = (-not (Test-AdbFailure $serviceText)) -and (Test-ServiceText $serviceText)
         Notification    = (-not (Test-AdbFailure $notifText)) -and (Test-NotificationText $notifText)
+        RestartNotification = (-not (Test-AdbFailure $notifText)) -and (Test-RestartNotificationText $notifText)
         AdbError        = [bool]$adbError
     }
 }
@@ -167,11 +175,11 @@ function Write-Row {
         [string]$Result,
         [int]$NotifyDelaySec = 0
     )
-    $row = "$($Sample.Time),$Step,$Cycle,$Action,$($Sample.Pid),$($Sample.ServiceRunning),$($Sample.Notification),$Result,$NotifyDelaySec"
+    $row = "$($Sample.Time),$Step,$Cycle,$Action,$($Sample.Pid),$($Sample.ServiceRunning),$($Sample.Notification),$($Sample.RestartNotification),$Result,$NotifyDelaySec"
     Add-Content -Path $csvPath -Value $row -Encoding UTF8
     Add-Content -Path $logPath -Value $row -Encoding UTF8
-    Write-Host ("  [{0}] {1} pid={2} 服务={3} 通知={4} -> {5} 通知延迟={6}s" -f `
-        $Sample.Time, $Action, $Sample.Pid, $Sample.ServiceRunning, $Sample.Notification, $Result, $NotifyDelaySec)
+    Write-Host ("  [{0}] {1} pid={2} 服务={3} 通知={4} 恢复提示={5} -> {6} 通知延迟={7}s" -f `
+        $Sample.Time, $Action, $Sample.Pid, $Sample.ServiceRunning, $Sample.Notification, $Sample.RestartNotification, $Result, $NotifyDelaySec)
 }
 
 function Start-Guard {
@@ -525,14 +533,14 @@ switch ($Step) {
                     $bootAt = Get-Date
                     $sample = Get-Sample
                     $notifyDeadline = (Get-Date).AddSeconds($NotifyTimeoutSec)
-                    while (-not $sample.Notification -and -not $sample.AdbError -and (Get-Date) -lt $notifyDeadline) {
+                    while (-not $sample.RestartNotification -and -not $sample.AdbError -and (Get-Date) -lt $notifyDeadline) {
                         Start-Sleep -Seconds 15
                         $sample = Get-Sample
                     }
                     $notifyDelaySec = [int]((Get-Date) - $bootAt).TotalSeconds
                     $result = if ($sample.AdbError) {
                         'ADB_ERROR'
-                    } elseif (-not $sample.Notification) {
+                    } elseif (-not $sample.RestartNotification) {
                         # 重启前正在值守：BootReceiver 必须留下“设备已重启”恢复提示。
                         # 没有提示说明恢复链路本身失败，不能因为服务没自启就算 NO_AUTOSTART。
                         'NOTIFY_MISSING'
