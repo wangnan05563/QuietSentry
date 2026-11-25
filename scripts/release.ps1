@@ -75,7 +75,9 @@ function New-ReleaseNotes {
     }
 
     $notesFile = Join-Path (Get-ReleaseDir) "release-notes-$VersionName.md"
-    & $python.Source $generator $Tag $notesFile $ApkName $AabName
+    # python 会把 "release notes -> ..." 打到 stdout；这里必须吞掉，
+    # 否则函数返回值会变成「日志 + 路径」数组，后面 ReadAllText 报 Illegal characters in path
+    $null = & $python.Source $generator $Tag $notesFile $ApkName $AabName
     if ($LASTEXITCODE -ne 0) { throw "发布记录生成失败（python 退出码 $LASTEXITCODE）" }
     if (-not (Test-Path -LiteralPath $notesFile)) { throw "发布记录未生成：$notesFile" }
 
