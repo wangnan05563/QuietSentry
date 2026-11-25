@@ -488,10 +488,12 @@ switch ($Step) {
                     $sample = Get-Sample
                     $result = if ($sample.AdbError) {
                         'ADB_ERROR'
-                    } elseif ($sample.Pid -eq 0 -and -not $sample.ServiceRunning) {
-                        'NO_AUTOSTART'
-                    } else {
+                    } elseif ($sample.ServiceRunning) {
+                        # 只看采集服务是否被拉起；BootReceiver 允许启动进程并发“设备已重启”通知，
+                        # 这不算自动启动相机。通知存在、pid 存在但 service=False 仍视为未自动拉起。
                         'AUTOSTARTED'
+                    } else {
+                        'NO_AUTOSTART'
                     }
                     Write-Row -Action "reboot-$i" -Cycle $i -Sample $sample -Result $result
                 }
