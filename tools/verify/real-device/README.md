@@ -2,13 +2,13 @@
 
 本目录把 `docs/05-兼容性与稳定性验证矩阵.md` 里仍需真机执行的门禁，固化成可复跑的脚本与证据格式。
 
-**现状先说清楚**：仓库实际执行过模拟器 `emulator-5554` 的 `--arm` PASS，以及 D3/D4/D7 的工具自测（D7 2 轮重启）；真实三星 SM-G9980（Android 15，`R5CR716VVEM`）的 `--arm` 只有历史记录，原 `E:\QuietSentryVerifyLive` 证据目录已随本机重启被清理，需重跑。真机 D3/D4/D7 注入、8 品牌矩阵与 7 天连续稳定性**仍未执行**。本目录提供的是执行工具和记录模板，不是门禁通过证明，模拟器跑出的 PASS 也不能替代真机。
+**现状先说清楚**：模拟器 `emulator-5554` 的 `--arm`、D3/D4/D7 工具自测已通过；真实三星 SM-G9980（Android 15，`R5CR716VVEM`）已在 2026-11-25 用 debug 重签包完成真实 `--arm` PASS，证据可复核。真实 D7 首次执行时第 1 次重启后 USB/ADB 未回连，按 `DEVICE_LOST` 失败，D7 仍未完成；真实 D3/D4、8 品牌矩阵与 7 天连续稳定性也仍未执行。本目录提供的是执行工具和记录模板，不是门禁通过证明，模拟器跑出的 PASS 也不能替代真机。
 
 当前待测包为 `release\QuietSentry-0.1.0-release.apk`（35,767,573 bytes，versionCode 76，versionName `0.1.0-20261123.2`；`build-info.json` 里的 versionName `0.1.0` 只是基线号，Gradle 会把 `package.json` 的 patch 拼进去）。真机执行时请以这个包为准；`release/` 已存在，重新构建后文件名不变时请以 `build-info.json` 的时间为准。
 
 执行包必须与脚本同目录带 `ui_walk.py`，并保留 `scripts/build-lib.ps1`；不要只复制三个入口脚本。仓库提供 `scripts/package-real-device-kit.ps1 -Apk <apk>`，会把 `ui_walk.py`、`build-lib.ps1`、本文档和 APK 一起打包，并在打包时做 `import ui_walk` 与 PowerShell 语法自检。
 
-当前执行包由 `package-real-device-kit.ps1` 按时间戳生成，打包结束会打印 ZIP 路径与 SHA256，交付时以那次输出为准。上一版 `20261124-230226` 早于 `ui_walk.open_app` 显式 `am start` 修复，不要再用。
+当前执行包由 `package-real-device-kit.ps1` 按时间戳生成，打包结束会打印 ZIP 路径与 SHA256，交付时以那次输出为准。早于 2026-11-25 `DEVICE_LOST` 修复的 kit（包括 `20261125-135607`）不要再用于真实 D7；请用最新时间戳的包。
 
 ---
 
@@ -127,7 +127,7 @@ pwsh -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
 - D3 CSV 会记录 `before-kill` / `force-stop` 的 pid、服务、通知；`STILL_RUNNING` 表示强杀后进程仍在，`ADB_ERROR` 表示采样本身失败，两者都不能当成 `KILLED`。
 - D4 初始 Wi-Fi 关闭时直接 `exit 2`；每次 disable/enable 后都会回读状态，`WIFI_TOGGLE_FAILED` 单独记录；结束后恢复失败会写 `Wi-Fi 恢复失败` 并失败退出，避免把设备留在断网。
 - D4 CSV 的 `OFFLINE_TOLERATED` 只说明服务与通知还在，不代表观看端离线摘要符合预期；离线摘要仍需按 docs/05 人工看。
-- D7 开始前必须已值守，`service=False` 时直接 `exit 2`，避免“未值守也能过 D7”的假 PASS。重启后 `NO_AUTOSTART` 表示 `CaptureService` 未运行；`BootReceiver` 可能启动进程并发「设备已重启」通知，因此进程存在、通知存在但 service=false **不算** `AUTOSTARTED`；只有采集服务真正运行才判 `AUTOSTARTED`。重启前在值守时，通知最多等 60+120 秒，仍缺失则记 `NOTIFY_MISSING` 并失败。重启判定要求 `boot_id` 变化且 `sys.boot_completed=1`，`ADB_ERROR` 不会被当成 `NO_AUTOSTART`。
+- D7 开始前必须已值守，`service=False` 时直接 `exit 2`，避免“未值守也能过 D7”的假 PASS。重启后 `NO_AUTOSTART` 表示 `CaptureService` 未运行；`BootReceiver` 可能启动进程并发「设备已重启」通知，因此进程存在、通知存在但 service=false **不算** `AUTOSTARTED`；只有采集服务真正运行才判 `AUTOSTARTED`。重启前在值守时，通知最多等 60+120 秒，仍缺失则记 `NOTIFY_MISSING` 并失败。重启判定要求 `boot_id` 变化且 `sys.boot_completed=1`；设备连续 120 秒不回连记 `DEVICE_LOST`，设备回连但未完成开机记 `BOOT_NOT_COMPLETED`，`boot_completed=1` 但 `boot_id` 未变记 `BOOT_ID_UNCHANGED`，这些都不会被当成 `NO_AUTOSTART`。`-BootTimeoutSec` 默认 600 秒。
 - D2 断电、D5 边充边录、D6 存储压力涉及外部电源/散热/填盘，**不在脚本里伪装自动化**，仍按 `docs/05` §4 手工执行。
 
 **工具自测记录（模拟器，不是真机门禁；旧 E 盘证据已随本机重启清理，当前以 `verify-output` 为准）**：
@@ -146,6 +146,15 @@ pwsh -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
 - 23:48 设备 USB 掉线（`adb devices` 不再出现 `R5CR716VVEM`），D3 在初始采样阶段被 `ADB_ERROR` 拦下并 `exit 2`，没有产出假的强杀结果。重新插线/授权后需从 `--arm` 重新开始，D3/D4/D7 仍未执行。
 - 设备上旧包是 debug 签名，发布 APK 直接覆盖会 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`；本轮已重签 `verify-output\QuietSentry-0.1.0-device-debugsign.apk`（debug 证书 `4c3a36...`），用 `adb install -r` 保留旧数据覆盖；发布签名 APK 仍只用于 Play 交付，不用于覆盖这台旧 debug 包。
 - 同一轮掉线暴露并已修复：`real_device_smoke.py --skip-install` 设备离线时误报“未安装”，以及 `soak-inject.ps1` / `stability-7d.ps1` 只识别 `ADB_TIMEOUT`、不识别 `device not found` 的问题；现在离线会明确报“设备不可用/ADB 失败”。
+
+**真实设备记录（2026-11-25）**：
+
+- 15:34 用 `verify-output\QuietSentry-0.1.0-device-debugsign.apk` 对设备执行 `adb install -r` 覆盖安装成功，保留旧数据；版本仍为 `0.1.0-20261123.2` / vc76。
+- 15:39–15:42 真实 `--arm` PASS：`guardStarted=True`、`foregroundService=True`、`fgsNotification=True`；证据 `verify-output\real-device\R5CR716VVEM\20261125-153459\arm.json`。
+- 16:31 值守被 App 自动停止，通知原文为“机身温度过高，已停止值守以保护设备”。现场 `top` 显示 `com.luojilab.player`（13.7.1）单进程约 563% CPU、设备可用内存仅约 271MB，热状态升到 3；强制停止该异常进程并熄屏冷却后，16:41 热状态降到 1（AP 38.9°C、SKIN 37.1°C）。这是真实设备的第三方后台异常，不是 QuietSentry 崩溃。
+- 16:41–16:43 冷却后重新真实 `--arm` PASS，三项全 true；证据 `verify-output\real-device\R5CR716VVEM\20261125-164201\arm.json`。
+- 16:43 真实 D7 `-Count 5 -Force` 开始，初始采样 `pid=14500, service=True, notification=True`；第 1 次重启后设备从 `adb devices` 消失超过 300 秒，脚本记 `BOOT_TIMEOUT` 后退出 2，未产出任何“自动拉起/未自动拉起”结论。CSV：`verify-output\soak\inject-D7-20261125-164329.csv`。修复后的脚本会把该状态区分为 `DEVICE_LOST`（连续 120 秒无 adb 设备），并把 `BOOT_NOT_COMPLETED`、`BOOT_ID_UNCHANGED` 分开记录；真机 D7 仍需在设备重新回连后从 `--arm` 重来。
+- D7 失败后 `adb devices` 只剩 `emulator-5554`，Windows PnP 只有蓝牙 `SAMSUNGDEVICE`，需要重新插线/解锁/授权 USB 调试。真实 D3/D4 也因同一断连尚未执行。
 
 ---
 

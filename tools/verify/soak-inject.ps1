@@ -8,6 +8,7 @@ param(
     [string]$Apk = '',
     [string]$ExpectVersion = '',
     [int]$ArmTimeoutSec = 420,
+    [int]$BootTimeoutSec = 600,
     [int]$AutoArmMax = 3,
     [switch]$NoAutoArm,
     [switch]$Force,
@@ -233,22 +234,47 @@ function Get-BootId {
 }
 
 function Wait-ForBoot {
-    param([string]$PreviousBootId = '', [int]$TimeoutSec = 300)
+    param([string]$PreviousBootId = '', [int]$TimeoutSec = 600)
+    # 返回结构化结果，不能只返回 bool：设备重启后 USB/授权没回连，
+    # 和“设备回来了但系统还没 boot_completed”是两种完全不同的失败。
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    $noDeviceSince = $null
+    $sawDevice = $false
+    $sawBootOne = $false
+    $lastState = ''
     do {
         $state = Invoke-Adb @('get-state') -TimeoutSec 20
-        if ($state -match 'device') {
+        $lastState = $state
+        if ($state -match '^device$') {
+            $noDeviceSince = $null
+            $sawDevice = $true
             $boot = Invoke-Adb @('shell', 'getprop', 'sys.boot_completed') -TimeoutSec 20
+            if ($boot.Trim() -eq '1') { $sawBootOne = $true }
             $bootId = Get-BootId
             # 只看 boot_completed 会读到重启前的旧值（adb reboot 返回后设备仍可能响应数秒）。
             # boot_id 变化才说明内核真的重启过；无 boot_id 的设备退化为“至少等待旧值失效”。
             if ($boot.Trim() -eq '1' -and $bootId -match '^[0-9a-fA-F-]{32,36}$' -and $bootId -ne $PreviousBootId) {
-                return $true
+                return [pscustomobject]@{ Ok = $true; Reason = 'BOOTED'; BootId = $bootId; LastState = $lastState }
+            }
+        } else {
+            if (-not $noDeviceSince) { $noDeviceSince = Get-Date }
+            # 设备在重启窗口内正常会短暂消失；连续 120 秒没有 adb 设备，
+            # 判定为 USB/调试授权没有回连，而不是继续把它当“还没开机”。
+            if (-not $sawDevice -and ((Get-Date) - $noDeviceSince).TotalSeconds -ge 120) {
+                return [pscustomobject]@{ Ok = $false; Reason = 'DEVICE_LOST'; BootId = ''; LastState = $lastState }
             }
         }
         Start-Sleep -Seconds 5
     } while ((Get-Date) -lt $deadline)
-    return $false
+
+    $reason = if (-not $sawDevice) {
+        'DEVICE_LOST'
+    } elseif (-not $sawBootOne) {
+        'BOOT_NOT_COMPLETED'
+    } else {
+        'BOOT_ID_UNCHANGED'
+    }
+    return [pscustomobject]@{ Ok = $false; Reason = $reason; BootId = ''; LastState = $lastState }
 }
 
 function Get-WifiEnabled {
@@ -482,11 +508,14 @@ switch ($Step) {
                     Write-Fail "第 $i 次 adb reboot 失败：$rebootOut"
                     exit 2
                 }
-                $booted = Wait-ForBoot -PreviousBootId $bootIdBefore -TimeoutSec 300
-                if (-not $booted) {
-                    Write-Fail "第 $i 次重启后 boot_completed/boot_id 校验超时"
+                $bootResult = Wait-ForBoot -PreviousBootId $bootIdBefore -TimeoutSec $BootTimeoutSec
+                if (-not $bootResult.Ok) {
+                    Write-Fail "第 $i 次重启失败：$($bootResult.Reason)（last adb state: $($bootResult.LastState)）"
                     $sample = Get-Sample
-                    Write-Row -Action "reboot-$i" -Cycle $i -Sample $sample -Result 'BOOT_TIMEOUT'
+                    Write-Row -Action "reboot-$i" -Cycle $i -Sample $sample -Result $bootResult.Reason
+                    # 设备没有回连时继续下一轮只会把 ADB_ERROR 叠在同一个根因上；
+                    # 记录本轮失败后立即停止，保留可复核的首个失败证据。
+                    break
                 } else {
                     Start-Sleep -Seconds 60
                     $sample = Get-Sample
@@ -535,7 +564,8 @@ $serviceLost = @($rows | Where-Object { $_.result -eq 'SERVICE_LOST' }).Count
 $wifiToggleFailed = @($rows | Where-Object { $_.result -eq 'WIFI_TOGGLE_FAILED' }).Count
 $autoStarted = @($rows | Where-Object { $_.result -eq 'AUTOSTARTED' }).Count
 $notifyMissing = @($rows | Where-Object { $_.result -eq 'NOTIFY_MISSING' }).Count
-$bootTimeout = @($rows | Where-Object { $_.result -eq 'BOOT_TIMEOUT' }).Count
+$bootFailures = @($rows | Where-Object { $_.result -in @('DEVICE_LOST', 'BOOT_NOT_COMPLETED', 'BOOT_ID_UNCHANGED', 'BOOT_TIMEOUT') }).Count
+$deviceLost = @($rows | Where-Object { $_.result -eq 'DEVICE_LOST' }).Count
 $adbErrors = @($rows | Where-Object { $_.result -eq 'ADB_ERROR' }).Count
 $wifiRestoreText = if ($script:WifiRestoreFailed) { '是' } else { '否' }
 
@@ -545,7 +575,7 @@ $summary = @"
 动作数: $($rows.Count)
 D3 强杀后仍在跑: $stillRunning；人工重开待补: $manualRequired
 D4 采样中服务丢失: $serviceLost；Wi-Fi 切换失败: $wifiToggleFailed；Wi-Fi 恢复失败: $wifiRestoreText
-D7 重启后自动拉起: $autoStarted；恢复提示缺失: $notifyMissing；启动超时: $bootTimeout
+D7 重启失败: $bootFailures（设备未回连: $deviceLost）；自动拉起: $autoStarted；恢复提示缺失: $notifyMissing
 ADB 调用失败: $adbErrors
 CSV: $csvPath
 截图: $(if (Test-Path (Join-Path $OutDir "after-$Step-$stamp.png")) { Join-Path $OutDir "after-$Step-$stamp.png" } else { '(无)' })
@@ -557,7 +587,7 @@ $summary | Set-Content -Path (Join-Path $OutDir "inject-$Step-$stamp-summary.txt
 Write-Host $summary
 
 if ($stillRunning -gt 0 -or $serviceLost -gt 0 -or $wifiToggleFailed -gt 0 -or
-    $autoStarted -gt 0 -or $notifyMissing -gt 0 -or $bootTimeout -gt 0 -or $adbErrors -gt 0 -or
+    $autoStarted -gt 0 -or $notifyMissing -gt 0 -or $bootFailures -gt 0 -or $adbErrors -gt 0 -or
     $manualRequired -gt 0 -or $script:WifiRestoreFailed) {
     exit 1
 }
