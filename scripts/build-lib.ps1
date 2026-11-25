@@ -389,7 +389,16 @@ function Invoke-GradleTask {
         if (-not (Test-Path -LiteralPath $kotlinSessions)) {
             New-Item -ItemType Directory -Path $kotlinSessions -Force | Out-Null
         }
-        $gradleArgs = @($Tasks) + @("--project-cache-dir=$projectCache", '--console=plain', '--stacktrace')
+        # Gradle daemon 可能由其它项目启动，user.dir 不一定是本项目根；gradle.properties 里的
+        # kotlin.project.persistent.dir 是相对路径，会被解析到错误工作目录并触发
+        # NoSuchFileException（sessions/*.salive）。命令行 -P 覆盖成已建好的绝对路径，
+        # 与 Gradle 侧同一个取值，避免依赖 daemon 的当前目录。
+        $gradleArgs = @($Tasks) + @(
+            "-Pkotlin.project.persistent.dir=$kotlinDir",
+            "--project-cache-dir=$projectCache",
+            '--console=plain',
+            '--stacktrace'
+        )
         & $tc.Gradle @gradleArgs
         if ($LASTEXITCODE -ne 0) { throw "Gradle 任务失败（退出码 $LASTEXITCODE）" }
     } finally {
