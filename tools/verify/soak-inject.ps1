@@ -465,6 +465,10 @@ switch ($Step) {
             Write-Fail 'D7 会重启真机；确认风险后加 -Force 再执行'
             exit 2
         }
+        if (-not $DryRun -and -not $initial.ServiceRunning) {
+            Write-Fail 'D7 开始前值守未运行；先 --arm，否则重启后没有“恢复提示”可验证'
+            exit 2
+        }
         for ($i = 1; $i -le $Count; $i++) {
             Write-Step "D7 第 $i/$Count 次重启"
             if (-not $DryRun) {
@@ -486,8 +490,19 @@ switch ($Step) {
                 } else {
                     Start-Sleep -Seconds 60
                     $sample = Get-Sample
+                    # 慢设备/冷启动时 BootReceiver 可能晚于 60s 才发恢复提示；
+                    # 60s 先看服务是否自启，再最多等 120s 让“设备已重启”通知落地。
+                    $notifyDeadline = (Get-Date).AddSeconds(120)
+                    while (-not $sample.Notification -and -not $sample.AdbError -and (Get-Date) -lt $notifyDeadline) {
+                        Start-Sleep -Seconds 15
+                        $sample = Get-Sample
+                    }
                     $result = if ($sample.AdbError) {
                         'ADB_ERROR'
+                    } elseif (-not $sample.Notification) {
+                        # 重启前正在值守：BootReceiver 必须留下“设备已重启”恢复提示。
+                        # 没有提示说明恢复链路本身失败，不能因为服务没自启就算 NO_AUTOSTART。
+                        'NOTIFY_MISSING'
                     } elseif ($sample.ServiceRunning) {
                         # 只看采集服务是否被拉起；BootReceiver 允许启动进程并发“设备已重启”通知，
                         # 这不算自动启动相机。通知存在、pid 存在但 service=False 仍视为未自动拉起。
@@ -498,7 +513,7 @@ switch ($Step) {
                     Write-Row -Action "reboot-$i" -Cycle $i -Sample $sample -Result $result
                 }
             } else {
-                Write-Note "DRY-RUN: would reboot, wait boot_completed/boot_id change, wait 60s, sample"
+                Write-Note "DRY-RUN: would reboot, wait boot_completed/boot_id change, wait 60s + up to 120s for restart notice, sample"
                 Write-Row -Action "reboot-$i" -Cycle $i -Sample (Get-Sample) -Result 'DRY_RUN'
             }
             if ($i -lt $Count -and -not $DryRun) { Start-Sleep -Seconds ($IntervalMin * 60) }
@@ -519,6 +534,7 @@ $manualRequired = @($rows | Where-Object { $_.result -eq 'MANUAL_REQUIRED' }).Co
 $serviceLost = @($rows | Where-Object { $_.result -eq 'SERVICE_LOST' }).Count
 $wifiToggleFailed = @($rows | Where-Object { $_.result -eq 'WIFI_TOGGLE_FAILED' }).Count
 $autoStarted = @($rows | Where-Object { $_.result -eq 'AUTOSTARTED' }).Count
+$notifyMissing = @($rows | Where-Object { $_.result -eq 'NOTIFY_MISSING' }).Count
 $bootTimeout = @($rows | Where-Object { $_.result -eq 'BOOT_TIMEOUT' }).Count
 $adbErrors = @($rows | Where-Object { $_.result -eq 'ADB_ERROR' }).Count
 $wifiRestoreText = if ($script:WifiRestoreFailed) { '是' } else { '否' }
@@ -529,19 +545,19 @@ $summary = @"
 动作数: $($rows.Count)
 D3 强杀后仍在跑: $stillRunning；人工重开待补: $manualRequired
 D4 采样中服务丢失: $serviceLost；Wi-Fi 切换失败: $wifiToggleFailed；Wi-Fi 恢复失败: $wifiRestoreText
-D7 重启后自动拉起: $autoStarted；启动超时: $bootTimeout
+D7 重启后自动拉起: $autoStarted；恢复提示缺失: $notifyMissing；启动超时: $bootTimeout
 ADB 调用失败: $adbErrors
 CSV: $csvPath
 截图: $(if (Test-Path (Join-Path $OutDir "after-$Step-$stamp.png")) { Join-Path $OutDir "after-$Step-$stamp.png" } else { '(无)' })
 
 判定：D3 期望 force-stop 后 pid=0 且服务停止；D4 期望切换 Wi-Fi 时本地值守不断；
-D7 期望 BootReceiver 不自动拉起相机、boot_completed=1。人工仍需按 docs/05 §4 检查分片可解码与恢复提示。
+D7 期望 BootReceiver 不自动拉起相机、保留“设备已重启”恢复提示、boot_completed=1。人工仍需按 docs/05 §4 检查分片可解码与恢复提示。
 "@
 $summary | Set-Content -Path (Join-Path $OutDir "inject-$Step-$stamp-summary.txt") -Encoding UTF8
 Write-Host $summary
 
 if ($stillRunning -gt 0 -or $serviceLost -gt 0 -or $wifiToggleFailed -gt 0 -or
-    $autoStarted -gt 0 -or $bootTimeout -gt 0 -or $adbErrors -gt 0 -or
+    $autoStarted -gt 0 -or $notifyMissing -gt 0 -or $bootTimeout -gt 0 -or $adbErrors -gt 0 -or
     $manualRequired -gt 0 -or $script:WifiRestoreFailed) {
     exit 1
 }

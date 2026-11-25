@@ -112,7 +112,7 @@ pwsh -File tools/verify/soak-inject.ps1 -Step D3 -Serial <serial> -NoAutoArm
 # D4 网络抖动：初始 Wi-Fi 必须开启；只切 Wi-Fi，结束按原状态恢复
 pwsh -File tools/verify/soak-inject.ps1 -Step D4 -Serial <serial> -Count 10 -Apk <apk> -ExpectVersion <version>
 
-# D7 重启 ×5：会真的重启设备，必须显式 -Force
+# D7 重启 ×5：先 --arm，再显式 -Force；开始前值守未运行会直接 exit 2
 pwsh -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -Force
 
 # 只打印计划，不执行强杀/切网/重启
@@ -127,7 +127,7 @@ pwsh -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
 - D3 CSV 会记录 `before-kill` / `force-stop` 的 pid、服务、通知；`STILL_RUNNING` 表示强杀后进程仍在，`ADB_ERROR` 表示采样本身失败，两者都不能当成 `KILLED`。
 - D4 初始 Wi-Fi 关闭时直接 `exit 2`；每次 disable/enable 后都会回读状态，`WIFI_TOGGLE_FAILED` 单独记录；结束后恢复失败会写 `Wi-Fi 恢复失败` 并失败退出，避免把设备留在断网。
 - D4 CSV 的 `OFFLINE_TOLERATED` 只说明服务与通知还在，不代表观看端离线摘要符合预期；离线摘要仍需按 docs/05 人工看。
-- D7 的 `NO_AUTOSTART` 表示重启后 `CaptureService` 未运行（符合 BootReceiver 只提示的预期）；`BootReceiver` 可能启动进程并发「设备已重启」通知，因此进程存在、通知存在但 service=false **不算** `AUTOSTARTED`；只有采集服务真正运行才判 `AUTOSTARTED`。重启判定要求 `boot_id` 变化且 `sys.boot_completed=1`，`ADB_ERROR` 不会被当成 `NO_AUTOSTART`。
+- D7 开始前必须已值守，`service=False` 时直接 `exit 2`，避免“未值守也能过 D7”的假 PASS。重启后 `NO_AUTOSTART` 表示 `CaptureService` 未运行；`BootReceiver` 可能启动进程并发「设备已重启」通知，因此进程存在、通知存在但 service=false **不算** `AUTOSTARTED`；只有采集服务真正运行才判 `AUTOSTARTED`。重启前在值守时，通知最多等 60+120 秒，仍缺失则记 `NOTIFY_MISSING` 并失败。重启判定要求 `boot_id` 变化且 `sys.boot_completed=1`，`ADB_ERROR` 不会被当成 `NO_AUTOSTART`。
 - D2 断电、D5 边充边录、D6 存储压力涉及外部电源/散热/填盘，**不在脚本里伪装自动化**，仍按 `docs/05` §4 手工执行。
 
 **工具自测记录（模拟器，不是真机门禁；旧 E 盘证据已随本机重启清理，当前以 `verify-output` 为准）**：
@@ -137,7 +137,7 @@ pwsh -File tools/verify/soak-inject.ps1 -Step D7 -Serial <serial> -DryRun
 - 2026-11-25 00:05–00:12 在 `emulator-5554` 跑 `soak-inject.ps1 -Step D3 -Count 2 -IntervalMin 1 -AutoArmMax 2`：2 次 `force-stop` 均为 `KILLED`，重新武装成功，ADB 失败 0，退出码 0。证据 `E:\QuietSentryVerifyLive\emulator-inject\inject-D3-20261125-000535.csv`。这是工具自测，不是真机 D3 门禁。
 - 2026-11-25 00:27 / 00:55 模拟器 D4 自测：arm 冷启动时出现系统 ANR（`静哨 QuietSentry isn't responding`），`prepare_ui` 现已识别 ANR 窗口并让 arm FAIL、D4 `exit 2`，没有产出假网络抖动结果。重启模拟器并让 App 正常进入首页后，01:37 补跑 D4 `-Count 2`：2 次 Wi-Fi 关闭/恢复期间 pid、服务、通知都保持，Wi-Fi 恢复成功，ADB 失败 0，退出码 0；证据 `E:\QuietSentryVerifyLive\emulator-inject\inject-D4-20261125-013733.csv`。真实设备 D4 仍待 USB 恢复后执行。
 - 修复前的 D4 实际注入未取得有效结果；当前 D4 的初始 Wi-Fi 检查、回读校验和结束恢复已改为硬失败，仍需真机复测。
-- 2026-11-25 12:51–12:56 在 `emulator-5554` 用当前重建 release 包跑 D7 `-Count 2 -IntervalMin 1 -Force`：两次重启后 `pid=3334/3377`、`service=False`、`notification=True`，均记 `NO_AUTOSTART`，自动拉起 0、ADB 失败 0、退出码 0；通知栏实测「静哨 · 设备已重启」。证据 `verify-output\d7-fix\inject-D7-20261125-125153.csv`、`verify-output\d7-fix\after-D7-clean.png`。这是工具自测，真机正式 D7 5 次仍待执行。
+- 2026-11-25 13:32 首次加入“恢复通知必须存在”校验时，60 秒采样两次 `NOTIFY_MISSING`；检查发现通知实际晚于 60 秒到达。D7 已改为 60 秒后再最多轮询 120 秒。13:43–13:51 最终重跑：两次重启 `pid=3698/3867`、`service=False`、`notification=True`，均 `NO_AUTOSTART`，自动拉起 0、恢复提示缺失 0、ADB 失败 0、退出码 0；证据 `verify-output\d7-final\run2\inject-D7-20261125-134333.csv`。这是工具自测，真机正式 D7 5 次仍待执行。
 - 2026-11-25 13:01–13:08 同一重建包补跑 D3 `-Count 2 -AutoArmMax 2` 与 D4 `-Count 2`：D3 两次均 `KILLED`、ADB 失败 0；D4 两次 Wi-Fi 关闭/恢复期间 pid=7415、服务与通知保持，恢复成功，退出码 0。证据 `verify-output\d3-current2\inject-D3-20261125-130100.csv`、`verify-output\d4-current\inject-D4-20261125-130420.csv`。
 
 **真实设备记录（2026-11-24）**：
