@@ -3,6 +3,7 @@ package com.quietsentry.app
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 
 /**
  * 重启恢复提示（PRD FR-13：重启后不自动启动相机，推送“设备已重启”并提供一键恢复）。
@@ -15,7 +16,9 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
-        if (!GuardState.isActive(context)) return
+        val active = GuardState.isActive(context)
+        Log.i("QuietSentryBoot", "BOOT_COMPLETED received active=$active")
+        if (!active) return
         EventNotifier(context).notifyRestart()
     }
 }

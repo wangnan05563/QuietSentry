@@ -9,6 +9,7 @@ param(
     [string]$ExpectVersion = '',
     [int]$ArmTimeoutSec = 420,
     [int]$BootTimeoutSec = 600,
+    [ValidateRange(60, 1800)][int]$NotifyTimeoutSec = 600,
     [int]$AutoArmMax = 3,
     [switch]$NoAutoArm,
     [switch]$Force,
@@ -64,7 +65,7 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $csvPath = Join-Path $OutDir "inject-$Step-$stamp.csv"
 $logPath = Join-Path $OutDir "inject-$Step-$stamp.log"
-$header = 'time,step,cycle,action,pid,service_running,notification,result'
+$header = 'time,step,cycle,action,pid,service_running,notification,result,notify_delay_sec'
 [System.IO.File]::WriteAllText($csvPath, $header + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
 $script:FirstArm = $true
 $script:WifiRestoreFailed = $false
@@ -163,13 +164,14 @@ function Write-Row {
         [string]$Action,
         [int]$Cycle,
         [object]$Sample,
-        [string]$Result
+        [string]$Result,
+        [int]$NotifyDelaySec = 0
     )
-    $row = "$($Sample.Time),$Step,$Cycle,$Action,$($Sample.Pid),$($Sample.ServiceRunning),$($Sample.Notification),$Result"
+    $row = "$($Sample.Time),$Step,$Cycle,$Action,$($Sample.Pid),$($Sample.ServiceRunning),$($Sample.Notification),$Result,$NotifyDelaySec"
     Add-Content -Path $csvPath -Value $row -Encoding UTF8
     Add-Content -Path $logPath -Value $row -Encoding UTF8
-    Write-Host ("  [{0}] {1} pid={2} 服务={3} 通知={4} -> {5}" -f `
-        $Sample.Time, $Action, $Sample.Pid, $Sample.ServiceRunning, $Sample.Notification, $Result)
+    Write-Host ("  [{0}] {1} pid={2} 服务={3} 通知={4} -> {5} 通知延迟={6}s" -f `
+        $Sample.Time, $Action, $Sample.Pid, $Sample.ServiceRunning, $Sample.Notification, $Result, $NotifyDelaySec)
 }
 
 function Start-Guard {
@@ -517,15 +519,17 @@ switch ($Step) {
                     # 记录本轮失败后立即停止，保留可复核的首个失败证据。
                     break
                 } else {
-                    Start-Sleep -Seconds 60
+                    # Android 15 / 三星 One UI 上 BOOT_COMPLETED 可能延迟到分钟级才投递；
+                    # 旧逻辑只等 60s + 120s，会把“通知来晚了”误判成 NOTIFY_MISSING。
+                    # 现在按 NotifyTimeoutSec（默认 600s）轮询到通知出现，并记录实际延迟。
+                    $bootAt = Get-Date
                     $sample = Get-Sample
-                    # 慢设备/冷启动时 BootReceiver 可能晚于 60s 才发恢复提示；
-                    # 60s 先看服务是否自启，再最多等 120s 让“设备已重启”通知落地。
-                    $notifyDeadline = (Get-Date).AddSeconds(120)
+                    $notifyDeadline = (Get-Date).AddSeconds($NotifyTimeoutSec)
                     while (-not $sample.Notification -and -not $sample.AdbError -and (Get-Date) -lt $notifyDeadline) {
                         Start-Sleep -Seconds 15
                         $sample = Get-Sample
                     }
+                    $notifyDelaySec = [int]((Get-Date) - $bootAt).TotalSeconds
                     $result = if ($sample.AdbError) {
                         'ADB_ERROR'
                     } elseif (-not $sample.Notification) {
@@ -539,10 +543,10 @@ switch ($Step) {
                     } else {
                         'NO_AUTOSTART'
                     }
-                    Write-Row -Action "reboot-$i" -Cycle $i -Sample $sample -Result $result
+                    Write-Row -Action "reboot-$i" -Cycle $i -Sample $sample -Result $result -NotifyDelaySec $notifyDelaySec
                 }
             } else {
-                Write-Note "DRY-RUN: would reboot, wait boot_completed/boot_id change, wait 60s + up to 120s for restart notice, sample"
+                Write-Note "DRY-RUN: would reboot, wait boot_completed/boot_id change, poll restart notice up to $NotifyTimeoutSec s, sample"
                 Write-Row -Action "reboot-$i" -Cycle $i -Sample (Get-Sample) -Result 'DRY_RUN'
             }
             if ($i -lt $Count -and -not $DryRun) { Start-Sleep -Seconds ($IntervalMin * 60) }
