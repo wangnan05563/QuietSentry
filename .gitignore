@@ -25,3 +25,17 @@ __pycache__/
 .workbuddy
 .workbuddy-ai/
 .env
+
+# 散落的安卓构建/导出产物（release/ 目录已整体忽略，这里兜底）
+*.apk
+*.aab
+*.hprof
+hs_err_pid*.log
+replay_pid*.log
+.cxx/
+.externalNativeBuild/
+captures/
+
+# 系统与编辑器临时文件
+.DS_Store
+Thumbs.db
